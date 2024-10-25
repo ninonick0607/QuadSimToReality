@@ -62,8 +62,9 @@ private:
 
 	bool altitudeReached = false;
 	static inline const float maxPIDOutput = 600.f; // Max thrusting power individual rotor can provide
+	bool initialTakeoff = true;
 
 	// Constants
 	static constexpr float altitudeThresh = 0.6f; // If the relative z is more than this, we set roll and pitch to 0
-	static constexpr float minAltitudeLocal = 800.f;      // If the altitude is less than this in the beginning, the drone must ascend to this altitude
+	static constexpr float minAltitudeLocal = 500.f;      // If the altitude is less than this in the beginning, the drone must ascend to this altitude
 };

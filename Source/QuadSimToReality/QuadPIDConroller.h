@@ -28,7 +28,7 @@ public:
 
 	float attitudeProportionalGain = 0.1f;
 	float attitudeIntegralGain = 0.19f;
-	float attitudeDerivativeGain = 4.1320f;
+	float attitudeDerivativeGain = 10.f;//4.1320f;
 
     bool attitudeControl;
 	float lastOutput;

@@ -78,16 +78,15 @@ QuadDroneController::QuadDroneController(AQuadPawn* InPawn)
     pitchAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
     rollAttitudePID->attitudeControl = true;
     pitchAttitudePID->attitudeControl = true;
-    
 }
 
 QuadDroneController::~QuadDroneController()
 {
-    // delete xPID;
-    // delete yPID;
-    // delete zPID;
-    // delete rollAttitudePID;
-    // delete pitchAttitudePID;
+    delete xPID;
+    delete yPID;
+    delete zPID;
+    delete rollAttitudePID;
+    delete pitchAttitudePID;
 }
 
 // void QuadDroneController::AddNavPlan(FString Name, TArray<FVector> Waypoints)
@@ -154,6 +153,94 @@ void QuadDroneController::Reset()
     curPos = 0;
     altitudeReached = false;
 }
+
+// void QuadDroneController::Update(double a_deltaTime)
+// {
+//     if (!currentNav || curPos >= currentNav->waypoints.Num()) return;
+//
+//     
+//     // Unreal Feedback and data collection
+//     float desiredRoll,desiredPitch;
+//     float droneMass = dronePawn->DroneBody->GetMass();
+//     const float mult = 0.5f;
+//     FVector currentPosition = dronePawn->GetActorLocation();
+//     FRotator currentRotation = dronePawn->GetActorRotation();
+//     FVector currentVelocity = dronePawn->GetVelocity();
+//     
+//     FVector setPoint = currentNav->waypoints[curPos];
+//     FVector positionError = setPoint - currentPosition;
+//     FVector normalizedError = positionError.GetSafeNormal();
+//     FVector droneForwardVector = dronePawn->GetActorForwardVector();
+//     FVector desiredVelocity = CalculateDesiredVelocity(positionError, hoverMode ? 0 : maxVelocity);
+//     UE_LOG(LogTemp, Log, TEXT("Position Error %f %f %f"),positionError.X,positionError.Y,positionError.Z);
+//     UE_LOG(LogTemp, Log, TEXT("Position Current %f %f %f"),currentPosition.X,currentPosition.Y,currentPosition.Z);
+//     UE_LOG(LogTemp, Log, TEXT("Position Setpoint %f %f %f"),setPoint.X,setPoint.Y,setPoint.Z);
+//     UE_LOG(LogTemp, Log, TEXT("Desured Velocity %f %f %f"),desiredVelocity.X,desiredVelocity.Y,desiredVelocity.Z);
+//     
+//     DrawDebugVisuals(currentPosition, setPoint);
+//
+//     if (!altitudeReached)
+//     { // Drone must ascend
+//         if (currentPosition.Z < minAltitudeLocal)
+//         {
+//             setPoint = FVector(currentPosition.X, currentPosition.Y, minAltitudeLocal); // Set waypoint to be directly above the drone
+//         }
+//         else
+//         {
+//             altitudeReached = true;
+//         }
+//     }
+//     
+//     // Check if the drone has reached the waypoint
+//     if (positionError.Size() < ACCEPTABLE_DIST)
+//     {
+//         // Move to the next waypoint
+//         if (!altitudeReached)
+//         {
+//             altitudeReached = true;
+//         }
+//         else
+//         {
+//             curPos++;
+//         }
+//         if (curPos >= currentNav->waypoints.Num())
+//         {
+//             // Reached the end of the nav plan
+//             currentNav = nullptr;
+//             curPos = 0;
+//         }
+//     }
+//
+//
+//     // ------------------- Attitude CONTROL ---------------------
+//
+//     desiredRoll = CalculateDesiredRoll(normalizedError, droneForwardVector, hoverMode ? 0 : maxAngle, altitudeThresh);
+//     desiredPitch = CalculateDesiredPitch(normalizedError, droneForwardVector, hoverMode ? 0 : maxAngle, altitudeThresh);
+//
+//     float roll_error = desiredRoll - currentRotation.Roll;
+//     float pitch_error = desiredPitch - currentRotation.Pitch;
+//
+//     float roll_output = rollAttitudePID->Calculate(roll_error, a_deltaTime);
+//     float pitch_output = pitchAttitudePID->Calculate(pitch_error, a_deltaTime);
+//     
+//     // ------------------- POSITION CONTROL ---------------------
+//     float x_output = xPID->Calculate(desiredVelocity.X - currentVelocity.X, a_deltaTime);
+//     float y_output = yPID->Calculate(desiredVelocity.Y - currentVelocity.Y, a_deltaTime);
+//     float z_output = zPID->Calculate(desiredVelocity.Z - currentVelocity.Z, a_deltaTime);   
+//     //------------------- Thrust Mixing -------------
+//     // putting everything together
+//     ThrustMixer(x_output,y_output,z_output,roll_output,pitch_output);
+//     UE_LOG(LogTemp, Log, TEXT("Thrust %f"),Thrusts[0]);
+//     UE_LOG(LogTemp, Log, TEXT("Drone Mass %f"),droneMass);
+//
+//     // Update the thrust of each rotor
+//     for (int i = 0; i < Thrusts.Num(); ++i) {
+//         dronePawn->Rotors[i].Thruster->ThrustStrength = droneMass * mult * Thrusts[i];
+//     }
+//     
+//     //ImGui
+//     RenderImGui(Thrusts, roll_error, pitch_error, currentRotation, setPoint, currentPosition, positionError, desiredVelocity, currentVelocity, x_output, y_output, z_output);
+// }
 
 void QuadDroneController::Update(double a_deltaTime)
 {
@@ -227,7 +314,7 @@ void QuadDroneController::Update(double a_deltaTime)
     // ------------------- POSITION CONTROL ---------------------
     float x_output = xPID->Calculate(desiredVelocity.X - currentVelocity.X, a_deltaTime);
     float y_output = yPID->Calculate(desiredVelocity.Y - currentVelocity.Y, a_deltaTime);
-    float z_output = zPID->Calculate(desiredVelocity.Z - currentVelocity.Z, a_deltaTime);   
+    float z_output = zPID->Calculate(desiredVelocity.Z - currentVelocity.Z, a_deltaTime);    
     //------------------- Thrust Mixing -------------
     // putting everything together
     ThrustMixer(x_output,y_output,z_output,roll_output,pitch_output);
@@ -242,6 +329,96 @@ void QuadDroneController::Update(double a_deltaTime)
     //ImGui
     RenderImGui(Thrusts, roll_error, pitch_error, currentRotation, setPoint, currentPosition, positionError, desiredVelocity, currentVelocity, x_output, y_output, z_output);
 }
+
+
+//
+// void QuadDroneController::Update(double a_deltaTime)
+// {
+//     if (!currentNav || curPos >= currentNav->waypoints.Num()) return;
+//
+//     // Unreal Feedback and data collection
+//     float desiredRoll, desiredPitch;
+//     float droneMass = dronePawn->DroneBody->GetMass();
+//     const float mult = 0.5f;
+//     FVector currentPosition = dronePawn->GetActorLocation();
+//     FRotator currentRotation = dronePawn->GetActorRotation();
+//     FVector currentVelocity = dronePawn->GetVelocity();
+//     
+//     FVector setPoint = currentNav->waypoints[curPos];
+//     FVector positionError = setPoint - currentPosition;
+//     FVector normalizedError = positionError.GetSafeNormal();
+//     FVector droneForwardVector = dronePawn->GetActorForwardVector();
+//     FVector desiredVelocity = CalculateDesiredVelocity(positionError, hoverMode ? 0 : maxVelocity);
+//
+//     UE_LOG(LogTemp, Log, TEXT("Position Error %f %f %f"), positionError.X, positionError.Y, positionError.Z);
+//     UE_LOG(LogTemp, Log, TEXT("Position Current %f %f %f"), currentPosition.X, currentPosition.Y, currentPosition.Z);
+//     UE_LOG(LogTemp, Log, TEXT("Position Setpoint %f %f %f"), setPoint.X, setPoint.Y, setPoint.Z);
+//     UE_LOG(LogTemp, Log, TEXT("Desired Velocity %f %f %f"), desiredVelocity.X, desiredVelocity.Y, desiredVelocity.Z);
+//     
+//     DrawDebugVisuals(currentPosition, setPoint);
+//
+//     // Initial takeoff to safe altitude
+//     if (initialTakeoff)
+//     {
+//         if (currentPosition.Z < minAltitudeLocal)
+//         {
+//             // Ascend to the safe altitude
+//             setPoint = FVector(currentPosition.X, currentPosition.Y, minAltitudeLocal);
+//             float z_output = zPID->Calculate(minAltitudeLocal - currentPosition.Z, a_deltaTime);
+//             ThrustMixer(0, 0, z_output, 0, 0); // Apply only vertical thrust during takeoff
+//         }
+//         else
+//         {
+//             altitudeReached = true;
+//             initialTakeoff = false; // Disable the takeoff logic after reaching the safe altitude
+//         }
+//         return; // Exit early to avoid running the rest of the logic during initial takeoff
+//     }
+//
+//     // Check if the drone has reached the current waypoint
+//     if (positionError.Size() < ACCEPTABLE_DIST)
+//     {
+//         curPos++;
+//         if (curPos >= currentNav->waypoints.Num())
+//         {
+//             // Reached the end of the navigation plan
+//             currentNav = nullptr;
+//             curPos = 0;
+//             return;
+//         }
+//     }
+//
+//     // ------------------- Attitude CONTROL ---------------------
+//     desiredRoll = CalculateDesiredRoll(normalizedError, droneForwardVector, hoverMode ? 0 : maxAngle, altitudeThresh);
+//     desiredPitch = CalculateDesiredPitch(normalizedError, droneForwardVector, hoverMode ? 0 : maxAngle, altitudeThresh);
+//
+//     float roll_error = desiredRoll - currentRotation.Roll;
+//     float pitch_error = desiredPitch - currentRotation.Pitch;
+//
+//     float roll_output = rollAttitudePID->Calculate(roll_error, a_deltaTime);
+//     float pitch_output = pitchAttitudePID->Calculate(pitch_error, a_deltaTime);
+//
+//     // ------------------- POSITION CONTROL ---------------------
+//     float x_output = xPID->Calculate(desiredVelocity.X - currentVelocity.X, a_deltaTime);
+//     float y_output = yPID->Calculate(desiredVelocity.Y - currentVelocity.Y, a_deltaTime);
+//     float z_output = zPID->Calculate(desiredVelocity.Z - currentVelocity.Z, a_deltaTime);
+//
+//     //------------------- Thrust Mixing -------------------------
+//     ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
+//
+//     UE_LOG(LogTemp, Log, TEXT("Thrust %f"), Thrusts[0]);
+//     UE_LOG(LogTemp, Log, TEXT("Drone Mass %f"), droneMass);
+//
+//     // Update the thrust of each rotor
+//     for (int i = 0; i < Thrusts.Num(); ++i)
+//     {
+//         dronePawn->Rotors[i].Thruster->ThrustStrength = droneMass * mult * Thrusts[i];
+//     }
+//
+//     // ImGui
+//     RenderImGui(Thrusts, roll_error, pitch_error, currentRotation, setPoint, currentPosition, positionError, desiredVelocity, currentVelocity, 0, 0, 0);
+// }
+
 
 void QuadDroneController::DrawDebugVisuals(const FVector& currentPosition, const FVector& setPoint) const
 {
