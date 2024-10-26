@@ -31,8 +31,10 @@ public:
     // Overridden functions
     
     virtual void Tick(float DeltaTime) override;
-    // Public methods
     void ToggleImguiInput();
+    void SwitchCamera();
+
+    virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
     // Drone components
     UPROPERTY(EditAnywhere, Category = "Drone Components")
@@ -47,7 +49,9 @@ public:
 
     UPROPERTY(VisibleAnywhere, Category = "Camera")
     UCameraComponent* Camera;
-    // DELETE
+    
+    UPROPERTY(VisibleAnywhere, Category = "Camera")
+     UCameraComponent* CameraFPV;
 
     // Thruster components
     UPROPERTY(VisibleAnywhere, Category = "Thrusters")
@@ -93,7 +97,7 @@ public:
 
         void Animate(float DeltaTime)
         {
-            const float Multiplier = 0.1f;
+            const float Multiplier = 1.f;
             const float Inertia = 0.2f;
             const float RotorAcceleration = (Thruster->ThrustStrength * Multiplier - AngularVelocity) / Inertia;
             AngularVelocity += RotorAcceleration * DeltaTime;
@@ -116,7 +120,6 @@ public:
     // Drone controller
     QuadDroneController* quadController;
     
-    //TArray<TPair<UPhysicsThrusterComponent*, UStaticMeshComponent*>> Rotors;
 protected:
     // Overridden function called when the game starts or when spawned
     virtual void BeginPlay() override;
@@ -133,7 +136,7 @@ private:
     void UpdateControl(float DeltaTime);
     void InitializeRotors();
     void InitializeWaypointMode();
-    
+
     bool bWaypointModeSelected;
     // Input components
     UInputComponent* Input_ToggleImguiInput;

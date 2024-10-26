@@ -38,7 +38,9 @@ AQuadPawn::AQuadPawn()
     // Initialize arrays
     Motors.SetNum(4);
     Thrusters.SetNum(4);
-
+    
+    const float DroneSize = 12.0f;
+    const float ThrusterHeight = 16.0f;
     const FString MotorNames[] = { TEXT("MotorFL"), TEXT("MotorFR"), TEXT("MotorBL"), TEXT("MotorBR") };
     const FString ThrusterNames[] = { TEXT("ThrusterFL"), TEXT("ThrusterFR"), TEXT("ThrusterBL"), TEXT("ThrusterBR") };
 
@@ -59,12 +61,12 @@ AQuadPawn::AQuadPawn()
     Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
     Camera->AttachToComponent(SpringArm, FAttachmentTransformRules::KeepRelativeTransform);
     
+    CameraFPV = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraFPV"));
+    CameraFPV->AttachToComponent(DroneBody, FAttachmentTransformRules::KeepWorldTransform);
 
-    // Constants for rotor positioning
-    const float DroneSize = 12.0f;
-    const float ThrusterHeight = 16.0f;
-    // const float DroneSize = 105.f;//12.0f;
-    // const float ThrusterHeight = 22.f;//16.0f;
+    CameraFPV->SetRelativeLocation(FVector(0, 0, 10));
+
+
     const FVector MotorPositions[] = {
         FVector(DroneSize, -DroneSize, ThrusterHeight),   // Front-Left
         FVector(DroneSize, DroneSize, ThrusterHeight),    // Front-Right
@@ -114,49 +116,6 @@ AQuadPawn::AQuadPawn()
 
 }
 
-void AQuadPawn::ToggleImguiInput()
-{
-    UGameplayStatics::GetPlayerController(GetWorld(), 0)->ConsoleCommand("ImGui.ToggleInput");
-}
-// AQuadPawn::AQuadPawn()
-// {
-//     PrimaryActorTick.bCanEverTick = true;
-//     
-//     Motors.SetNum(4);
-//     Thrusters.SetNum(4);
-//     Rotors.SetNum(4);
-//     
-//     // Initialize components
-//     DroneBody = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Static Mesh"));
-//     SetRootComponent(DroneBody);
-//     
-//     DroneBody->SetSimulatePhysics(true);
-//     DroneBody->SetLinearDamping(1);
-//     DroneBody->SetAngularDamping(1);
-//     
-//     SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("Spring Arm"));
-//     SpringArm->AttachToComponent(DroneBody, FAttachmentTransformRules::KeepWorldTransform);
-//
-//     Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
-//     Camera->AttachToComponent(SpringArm, FAttachmentTransformRules::KeepWorldTransform);
-//
-//     SpringArm->TargetArmLength = 800;
-//     SpringArm->SetRelativeRotation(FRotator(-20, 0, 0));
-//     SpringArm->bDoCollisionTest = false;
-//     SpringArm->bInheritPitch = false;
-//     SpringArm->bInheritRoll = false;
-//     
-//     InitializeRotors();
-//     
-//     // Input bindings
-//     Input_ToggleImguiInput = CreateDefaultSubobject<UInputComponent>(TEXT("Toggle Imgui Input"));
-//     Input_ToggleImguiInput->BindKey(EKeys::I, IE_Pressed, this, &AQuadPawn::ToggleImguiInput).bExecuteWhenPaused = true;
-//
-//     AutoPossessPlayer = EAutoReceiveInput::Player0;
-//     this->quadController = new QuadDroneController(this);
-//
-// }
-//
 void AQuadPawn::BeginPlay()
 {
     Super::BeginPlay();
@@ -176,41 +135,39 @@ void AQuadPawn::BeginPlay()
     for (auto& rotor : Rotors)
     {
         rotor.Thruster->ThrustStrength = 0.0f;
-        // rotor.Mesh->GetBodyInstance()->SetMassOverride(0.0f);
-        // rotor.Mesh->GetBodyInstance()->UpdateMassProperties();
     }
-
-    // const float DroneMass = 1.0f; // Adjust this value to something appropriate for the drone size
-    // DroneBody->GetBodyInstance()->SetMassOverride(DroneMass);
-    // DroneBody->GetBodyInstance()->UpdateMassProperties();
-	   //
-    // DroneBody->GetBodyInstance()->UpdateMassProperties();
-
-    // DroneCamMesh->GetBodyInstance()->SetMassOverride(0);
-    // DroneCamMesh->GetBodyInstance()->UpdateMassProperties();
+    
 
     quadController->Reset();
     Camera->SetActive(true);
+    CameraFPV->SetActive(false);
 }
 
-
+void AQuadPawn::SwitchCamera()
+{
+    if (CameraFPV->IsActive())
+    {
+        // enable 3rd person
+        CameraFPV->SetActive(false);
+        Camera->SetActive(true);
+        DroneCamMesh->SetHiddenInGame(false);
+    }
+    else
+    {
+        // enable 1st person
+        CameraFPV->SetActive(true);
+        Camera->SetActive(false);
+        DroneCamMesh->SetHiddenInGame(true);
+    }
+}
+void AQuadPawn::ToggleImguiInput()
+{
+    UGameplayStatics::GetPlayerController(GetWorld(), 0)->ConsoleCommand("ImGui.ToggleInput");
+}
 
 void AQuadPawn::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
-
-    // if (WaypointMode != EWaypointMode::ReadyToStart)
-    // {
-    //     if (WaypointMode == EWaypointMode::WaitingForModeSelection)
-    //     {
-    //         RenderWaypointModeSelection();
-    //     }
-    //     else if (WaypointMode == EWaypointMode::ManualWaypointInput)
-    //     {
-    //         RenderManualWaypointInput();
-    //     }
-    //     return;  // Skip further logic until ready to start
-    // }
     
     for (auto& rotor : Rotors)
     {
@@ -220,6 +177,16 @@ void AQuadPawn::Tick(float DeltaTime)
     
     // UpdateAnimation(DeltaTime);
     UpdateControl(DeltaTime);
+}
+
+void AQuadPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+    Super::SetupPlayerInputComponent(PlayerInputComponent);
+
+    // Bind the "ToggleCameraMode" action to the SwitchCamera function
+    PlayerInputComponent->BindAction("ToggleCameraMode", IE_Pressed, this, &AQuadPawn::SwitchCamera);
+
+    // If you have other input bindings, include them here
 }
 
 void AQuadPawn::UpdateControl(float DeltaTime)
@@ -330,27 +297,3 @@ void AQuadPawn::RenderManualWaypointInput()
 
     ImGui::End();
 }
-// void AQuadPawn::UpdateAnimation(float DeltaTime)
-// {
-//     for (auto& rotor : Rotors)
-//     {
-//         const float multiplier = 0.1f;
-//         const float inertiaXYZ = 0.2f;
-//
-//         // Get the current yaw rotation as angular velocity (stored locally)
-//         float angularVelocity = rotor.Mesh->GetRelativeRotation().Yaw;
-//
-//         // Calculate rotor acceleration
-//         float rotorAcceleration = (rotor.Thruster->ThrustStrength * multiplier - angularVelocity) / inertiaXYZ;
-//
-//         // Update angular velocity
-//         angularVelocity += rotorAcceleration * DeltaTime;
-//
-//         // Set new rotation
-//         FRotator rotation = rotor.Mesh->GetRelativeRotation();
-//         rotation.Yaw += angularVelocity * DeltaTime;
-//
-//         // Apply the new rotation
-//         rotor.Mesh->SetRelativeRotation(rotation);
-//     }
-// }
