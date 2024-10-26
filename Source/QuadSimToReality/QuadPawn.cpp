@@ -61,8 +61,10 @@ AQuadPawn::AQuadPawn()
     
 
     // Constants for rotor positioning
-    const float DroneSize = 105.f;//12.0f;
-    const float ThrusterHeight = 22.f;//16.0f;
+    const float DroneSize = 12.0f;
+    const float ThrusterHeight = 16.0f;
+    // const float DroneSize = 105.f;//12.0f;
+    // const float ThrusterHeight = 22.f;//16.0f;
     const FVector MotorPositions[] = {
         FVector(DroneSize, -DroneSize, ThrusterHeight),   // Front-Left
         FVector(DroneSize, DroneSize, ThrusterHeight),    // Front-Right
@@ -92,7 +94,7 @@ AQuadPawn::AQuadPawn()
     }
 
     // SpringArm settings
-    SpringArm->TargetArmLength = 800.0f;
+    SpringArm->TargetArmLength = 200.0f;
     SpringArm->SetRelativeRotation(FRotator(-20.0f, 0.0f, 0.0f));
     SpringArm->bDoCollisionTest = false;
     SpringArm->bInheritPitch = false;
@@ -174,18 +176,18 @@ void AQuadPawn::BeginPlay()
     for (auto& rotor : Rotors)
     {
         rotor.Thruster->ThrustStrength = 0.0f;
-        rotor.Mesh->GetBodyInstance()->SetMassOverride(0.0f);
-        rotor.Mesh->GetBodyInstance()->UpdateMassProperties();
+        // rotor.Mesh->GetBodyInstance()->SetMassOverride(0.0f);
+        // rotor.Mesh->GetBodyInstance()->UpdateMassProperties();
     }
 
-    const float DroneMass = 1.0f; // Adjust this value to something appropriate for the drone size
-    DroneBody->GetBodyInstance()->SetMassOverride(DroneMass);
-    DroneBody->GetBodyInstance()->UpdateMassProperties();
-	
-    DroneBody->GetBodyInstance()->UpdateMassProperties();
+    // const float DroneMass = 1.0f; // Adjust this value to something appropriate for the drone size
+    // DroneBody->GetBodyInstance()->SetMassOverride(DroneMass);
+    // DroneBody->GetBodyInstance()->UpdateMassProperties();
+	   //
+    // DroneBody->GetBodyInstance()->UpdateMassProperties();
 
-    DroneCamMesh->GetBodyInstance()->SetMassOverride(0);
-    DroneCamMesh->GetBodyInstance()->UpdateMassProperties();
+    // DroneCamMesh->GetBodyInstance()->SetMassOverride(0);
+    // DroneCamMesh->GetBodyInstance()->UpdateMassProperties();
 
     quadController->Reset();
     Camera->SetActive(true);
