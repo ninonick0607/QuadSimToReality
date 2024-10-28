@@ -35,7 +35,7 @@ float QuadPIDController::Calculate(float error, float dt)
 
     // Integral term
     integralSum += error * dt;
-    float maxIntegral = 300.0f;
+    float maxIntegral = 1000.0f;
     integralSum = FMath::Clamp(integralSum, -maxIntegral, maxIntegral);
     float i_term = IntegralGain * integralSum;
 

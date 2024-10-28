@@ -20,13 +20,13 @@ public:
 	void AddNavPlan(FString Name, TArray<FVector> Waypoints);
 	void SetNavPlan(FString Name);
 	void DrawDebugVisuals(const FVector& currentPosition, const FVector& setPoint)const;
-	void RenderImGui(TArray<float>& ThrustsVal,float rollError, float pitchError,const FRotator& currentRotation,const FVector& waypoint, const FVector& currLoc,const FVector& error, const FVector& desiredVelocity,const FVector& currentVelocity,float xOutput, float yOutput, float zOutput);
+	void RenderImGui(TArray<float>& ThrustsVal,float rollError, float pitchError,const FRotator& currentRotation,const FVector& waypoint, const FVector& currLoc,const FVector& error, const FVector& desiredVelocity,const FVector& currentVelocity,float xOutput, float yOutput, float zOutput,float deltaTime);
 	void IncreaseAllThrusts(float Amount);
 
 	TArray<float> Thrusts;
 	float maxVelocity = 250.0f;   // The maximum desired velocity of each axis
-	float maxAngle = 20.f;         // The maximum tilt angle of the drone
-
+	float maxAngle = 15.f;         // The maximum tilt angle of the drone
+	float totalElapsedTime;
 private:
 
 	struct NavPlan

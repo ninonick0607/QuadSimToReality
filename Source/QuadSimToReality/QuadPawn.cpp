@@ -9,7 +9,13 @@
 #include "Kismet/GameplayStatics.h"
 #include "DrawDebugHelpers.h"
 #include "imgui.h"
-
+/*
+ *TO DO
+ * Change physics thrusters to add force at location to see change
+ * change derivative to acceleration like old code
+ *
+ * 
+ */
 #define EPSILON 0.0001f
 
 const FVector start = FVector(0, 0, 1000);
@@ -135,9 +141,17 @@ void AQuadPawn::BeginPlay()
     for (auto& rotor : Rotors)
     {
         rotor.Thruster->ThrustStrength = 0.0f;
+        rotor.Mesh->GetBodyInstance()->SetMassOverride(1.0f);
+        rotor.Mesh->GetBodyInstance()->UpdateMassProperties();
     }
     
+    float DroneMass = 1.0f; // Adjust this value to something appropriate for the drone size
+    DroneBody->GetBodyInstance()->SetMassOverride(DroneMass);
+    DroneBody->GetBodyInstance()->UpdateMassProperties();
 
+    // DroneCamMesh->GetBodyInstance()->SetMassOverride(0);
+    // DroneCamMesh->GetBodyInstance()->UpdateMassProperties();
+    
     quadController->Reset();
     Camera->SetActive(true);
     CameraFPV->SetActive(false);
