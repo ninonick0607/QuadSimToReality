@@ -8,7 +8,7 @@
 #include "string"
 #include "Math/UnrealMathUtility.h"
 
-#define ACCEPTABLE_DIST 200
+#define ACCEPTABLE_DIST 50
 
 QuadDroneController::QuadDroneController(AQuadPawn* InPawn)
     : dronePawn(InPawn), currentNav(nullptr), curPos(0)
@@ -90,6 +90,9 @@ void QuadDroneController::ThrustMixer(float xOutput,float yOutput,float zOutput,
     Thrusts[1] = zOutput - xOutput - yOutput - rollOutput + pitchOutput;
     Thrusts[2] = zOutput + xOutput + yOutput + rollOutput - pitchOutput;
     Thrusts[3] = zOutput + xOutput - yOutput - rollOutput - pitchOutput;
+    for (int i = 0; i < Thrusts.Num(); ++i) {
+        Thrusts[i] = FMath::Clamp(Thrusts[i], 0.0f, 600.f);
+    }
 }
 
 inline FVector CalculateDesiredVelocity(const FVector& error, float maxVelocity)
@@ -168,6 +171,14 @@ void QuadDroneController::Update(double a_deltaTime)
             // After reaching minAltitudeLocal, update the setPoint to the next waypoint
             setPoint = currentNav->waypoints[curPos];
             positionError = setPoint - currentPosition;
+
+            // Reset the integral sums of PID controllers
+            xPID->ResetIntegral();
+            yPID->ResetIntegral();
+            zPID->ResetIntegral();
+            rollAttitudePID->ResetIntegral();
+            pitchAttitudePID->ResetIntegral();
+            yawAttitudePID->ResetIntegral();
         }
         else
         {
@@ -186,6 +197,14 @@ void QuadDroneController::Update(double a_deltaTime)
                 // Update setPoint and positionError for the new waypoint
                 setPoint = currentNav->waypoints[curPos];
                 positionError = setPoint - currentPosition;
+
+                // Reset the integral sums of PID controllers
+                xPID->ResetIntegral();
+                yPID->ResetIntegral();
+                zPID->ResetIntegral();
+                rollAttitudePID->ResetIntegral();
+                pitchAttitudePID->ResetIntegral();
+                yawAttitudePID->ResetIntegral();
             }
         }
     }
@@ -224,6 +243,140 @@ void QuadDroneController::Update(double a_deltaTime)
     
     //ImGui
     RenderImGui(Thrusts, roll_error, pitch_error, currentRotation, setPoint, currentPosition, positionError, desiredVelocity, currentVelocity, x_output, y_output, z_output,a_deltaTime);
+    
+    RenderImPlot(Thrusts, roll_error, pitch_error, currentRotation, setPoint, currentPosition, positionError, desiredVelocity, currentVelocity, x_output, y_output, z_output,a_deltaTime);
+
+}
+void QuadDroneController::RenderImPlot(
+    TArray<float>& ThrustsVal,
+    float rollError, float pitchError,
+    const FRotator& currentRotation,
+    const FVector& waypoint, const FVector& currLoc,
+    const FVector& error, const FVector& desiredVelocity,
+    const FVector& currentVelocity,
+    float xOutput, float yOutput, float zOutput, float deltaTime)
+{
+    static TArray<float> TimeData;
+    static float CumulativeTime = 0.0f;
+    CumulativeTime += deltaTime;
+    TimeData.Add(CumulativeTime);
+
+    static TArray<float> waypointArrayX;
+    waypointArrayX.Add(waypoint.X);
+    static TArray<float> waypointArrayY;
+    waypointArrayY.Add(waypoint.Y);
+    static TArray<float> waypointArrayZ;
+    waypointArrayZ.Add(waypoint.Z);
+
+    static TArray<float> currentPosArrayX;
+    currentPosArrayX.Add(currLoc.X);
+    static TArray<float> currentPosArrayY;
+    currentPosArrayY.Add(currLoc.Y);
+    static TArray<float> currentPosArrayZ;
+    currentPosArrayZ.Add(currLoc.Z);
+
+    // --- New Code for Thrust Values ---
+    static TArray<TArray<float>> thrustValues;
+
+    // Initialize thrustValues if empty
+    if (thrustValues.Num() == 0)
+    {
+        thrustValues.SetNum(ThrustsVal.Num());
+    }
+
+    // Ensure thrustValues matches the number of thrusts
+    if (thrustValues.Num() != ThrustsVal.Num())
+    {
+        thrustValues.SetNum(ThrustsVal.Num());
+    }
+
+    // Add current thrust values
+    for (int i = 0; i < ThrustsVal.Num(); ++i)
+    {
+        thrustValues[i].Add(ThrustsVal[i]);
+    }
+
+    // Limit data size to prevent memory issues
+    const int MaxSize = 5000;
+    if (TimeData.Num() > MaxSize)
+    {
+        TimeData.RemoveAt(0);
+        waypointArrayX.RemoveAt(0);
+        waypointArrayY.RemoveAt(0);
+        waypointArrayZ.RemoveAt(0);
+        currentPosArrayX.RemoveAt(0);
+        currentPosArrayY.RemoveAt(0);
+        currentPosArrayZ.RemoveAt(0);
+
+        // Remove the oldest data point from each thrust array
+        for (int i = 0; i < thrustValues.Num(); ++i)
+        {
+            thrustValues[i].RemoveAt(0);
+        }
+    }
+
+    // Define the time window for scrolling (e.g., last 10 seconds)
+    const float TimeWindow = 10.0f; // Adjust as needed
+
+    // Define the extra space ahead of the current time
+    const float TimeOffset = 1.0f; // Adjust this value to control the space ahead
+
+    // Begin a new ImGui window
+    ImGui::Begin("Drone PID Plots", nullptr, ImGuiWindowFlags_None);
+
+    // Helper lambda to set up scrolling x-axis limits
+    auto SetupScrollingXLimits = [&](float cumulativeTime)
+    {
+        float xMin = cumulativeTime - TimeWindow;
+        float xMax = cumulativeTime + TimeOffset; // Add TimeOffset to xMax
+        if (xMin < 0) xMin = 0;
+        ImPlot::SetupAxisLimits(ImAxis_X1, xMin, xMax, ImGuiCond_Always);
+    };
+
+    // Plot Desired vs. Current Altitude
+    if (ImPlot::BeginPlot("Desired vs. Current Altitude",
+                          ImVec2(600, 400)))
+    {
+        SetupScrollingXLimits(CumulativeTime);
+
+        ImPlot::SetupAxis(ImAxis_X1, "Time (s)");
+        ImPlot::SetupAxis(ImAxis_Y1, "Altitude (m)");
+
+        // Plot Desired Altitude
+        ImPlot::PlotLine("Desired Altitude",
+                         TimeData.GetData(), waypointArrayZ.GetData(),
+                         TimeData.Num());
+
+        // Plot Current Altitude
+        ImPlot::PlotLine("Current Altitude",
+                         TimeData.GetData(), currentPosArrayZ.GetData(),
+                         TimeData.Num());
+
+        ImPlot::EndPlot();
+    }
+
+    // Plot Individual Thrust Values
+    if (ImPlot::BeginPlot("Thrust Values",
+                          ImVec2(600, 400)))
+    {
+        SetupScrollingXLimits(CumulativeTime);
+
+        ImPlot::SetupAxis(ImAxis_X1, "Time (s)");
+        ImPlot::SetupAxis(ImAxis_Y1, "Thrust (units)");
+
+        // Plot each thrust over time
+        for (int i = 0; i < thrustValues.Num(); ++i)
+        {
+            FString label = FString::Printf(TEXT("Thrust %d"), i + 1);
+            ImPlot::PlotLine(TCHAR_TO_ANSI(*label),
+                             TimeData.GetData(), thrustValues[i].GetData(),
+                             TimeData.Num());
+        }
+
+        ImPlot::EndPlot();
+    }
+
+    ImGui::End(); // End the ImGui window
 }
 
 void QuadDroneController::RenderImGui(
@@ -235,50 +388,12 @@ void QuadDroneController::RenderImGui(
     const FVector& currentVelocity,
     float xOutput, float yOutput, float zOutput,float deltaTime)
 {
-    // Static variables to accumulate data over time
-    static float ElapsedTime = 0.0f;
-    static TArray<float> TimeData;
-    static TArray<float> DesiredAltitudeData;
-    static TArray<float> CurrentAltitudeData;
-    static TArray<float> ZPIDOutputData;
-    static TArray<float> ZPTermData;
-    static TArray<float> ZITermData;
-    static TArray<float> ZDTermData;
+    ImGui::SetNextWindowPos(ImVec2(420, 10), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(600, 600), ImGuiCond_FirstUseEver);
+    
+    ImGui::Begin("Drone Controller");
 
-    // Update elapsed time
-    ElapsedTime += deltaTime;
-
-    // Accumulate data
-    TimeData.Add(ElapsedTime);
-    DesiredAltitudeData.Add(waypoint.Z);
-    CurrentAltitudeData.Add(currLoc.Z);
-    ZPIDOutputData.Add(zOutput);
-
-    // Assuming you have methods to get PID terms
-    float z_pTerm = zPID->ProportionalGain;
-    float z_iTerm = zPID->IntegralGain;
-    float z_dTerm = zPID->DerivativeGain;
-
-    ZPTermData.Add(z_pTerm);
-    ZITermData.Add(z_iTerm);
-    ZDTermData.Add(z_dTerm);
-
-    // Limit data size to prevent memory issues
-    const int MaxSize = 1000; // Adjust as needed
-    if (TimeData.Num() > MaxSize)
-    {
-        TimeData.RemoveAt(0);
-        DesiredAltitudeData.RemoveAt(0);
-        CurrentAltitudeData.RemoveAt(0);
-        ZPIDOutputData.RemoveAt(0);
-        ZPTermData.RemoveAt(0);
-        ZITermData.RemoveAt(0);
-        ZDTermData.RemoveAt(0);
-    }
-
-    ImGui::Begin("Drone Controller", nullptr, ImGuiWindowFlags_None);
-
-    // Basic Model Feedback
+    // Basic Model Feedbackg
     ImGui::Text("Drone Model Feedback");
     float droneMass = dronePawn ? dronePawn->DroneBody->GetMass() : 0.0f;
     ImGui::Text("Drone Mass: %.2f kg", droneMass);
@@ -294,10 +409,10 @@ void QuadDroneController::RenderImGui(
     ImGui::Checkbox("Drone Waypoint", &Debug_DrawDroneWaypoint);
     ImGui::Separator();
     
-    ImGui::Separator();
-    ImGui::Text("Control All Thrusts");
-
-    static float AllThrustValue = 0.0f; // Initial thrust value
+    // ImGui::Separator();
+    // ImGui::Text("Control All Thrusts");
+    //
+    // static float AllThrustValue = 0.0f; // Initial thrust value
     //
     // if (ImGui::SliderFloat("All Thrusts", &AllThrustValue, -maxPIDOutput, maxPIDOutput))
     // {
@@ -319,22 +434,22 @@ void QuadDroneController::RenderImGui(
     }
     ImGui::Separator();
 
-    ImGui::Text("Desired Roll: %.2f", rollError);
-    ImGui::SameLine();
-    ImGui::Text("Current Roll: %.2f", currentRotation.Roll);
-
-    ImGui::Text("Desired Pitch: %.2f", pitchError);
-    ImGui::SameLine();
-    ImGui::Text("Current Pitch: %.2f", currentRotation.Pitch);
-
-    ImGui::Separator();
-    ImGui::Text("Desired Position X, Y, Z: %.2f, %.2f, %.2f", waypoint.X, waypoint.Y, waypoint.Z);
-    ImGui::Text("Current Position X, Y, Z: %.2f, %.2f, %.2f", currLoc.X, currLoc.Y, currLoc.Z);
-    ImGui::Text("Position Error X, Y, Z: %.2f, %.2f, %.2f", error.X, error.Y, error.Z);
-    ImGui::Spacing();
-    ImGui::Text("Desired Velocity X, Y, Z: %.2f, %.2f, %.2f", desiredVelocity.X, desiredVelocity.Y, desiredVelocity.Z);
-    ImGui::Text("Current Velocity X, Y, Z: %.2f, %.2f, %.2f", currentVelocity.X, currentVelocity.Y, currentVelocity.Z);
-    ImGui::Spacing();
+    // ImGui::Text("Desired Roll: %.2f", rollError);
+    // ImGui::SameLine();
+    // ImGui::Text("Current Roll: %.2f", currentRotation.Roll);
+    //
+    // ImGui::Text("Desired Pitch: %.2f", pitchError);
+    // ImGui::SameLine();
+    // ImGui::Text("Current Pitch: %.2f", currentRotation.Pitch);
+    //
+    // ImGui::Separator();
+    // ImGui::Text("Desired Position X, Y, Z: %.2f, %.2f, %.2f", waypoint.X, waypoint.Y, waypoint.Z);
+    // ImGui::Text("Current Position X, Y, Z: %.2f, %.2f, %.2f", currLoc.X, currLoc.Y, currLoc.Z);
+    // ImGui::Text("Position Error X, Y, Z: %.2f, %.2f, %.2f", error.X, error.Y, error.Z);
+    // ImGui::Spacing();
+    // ImGui::Text("Desired Velocity X, Y, Z: %.2f, %.2f, %.2f", desiredVelocity.X, desiredVelocity.Y, desiredVelocity.Z);
+    // ImGui::Text("Current Velocity X, Y, Z: %.2f, %.2f, %.2f", currentVelocity.X, currentVelocity.Y, currentVelocity.Z);
+    // ImGui::Spacing();
 
     // PID Settings Section
     if (ImGui::CollapsingHeader("PID Settings", ImGuiTreeNodeFlags_DefaultOpen))
@@ -481,40 +596,6 @@ void QuadDroneController::RenderImGui(
         }
     }
 
-    ImGui::End();
-
-    // Begin a new ImGui window for the plots
- ImGui::Begin("Drone PID Plots", nullptr, ImGuiWindowFlags_None);
-
-    // Plot Desired vs. Current Altitude
-    if (DesiredAltitudeData.Num() > 0 && CurrentAltitudeData.Num() > 0)
-    {
-        ImGui::Text("Desired vs. Current Altitude");
-        ImGui::PlotLines("Desired Altitude", DesiredAltitudeData.GetData(), DesiredAltitudeData.Num(), 0, nullptr, FLT_MAX, FLT_MAX, ImVec2(0, 150));
-        ImGui::PlotLines("Current Altitude", CurrentAltitudeData.GetData(), CurrentAltitudeData.Num(), 0, nullptr, FLT_MAX, FLT_MAX, ImVec2(0, 150));
-    }
-
-    ImGui::Separator();
-
-    // Plot Z PID Output and its components
-    if (ZPIDOutputData.Num() > 0)
-    {
-        ImGui::Text("Z PID Output and Components");
-
-        ImGui::PlotLines("PID Output", ZPIDOutputData.GetData(), ZPIDOutputData.Num(), 0, nullptr, FLT_MAX, FLT_MAX, ImVec2(0, 100));
-
-        // P Term
-        ImGui::PlotLines("P Term", ZPTermData.GetData(), ZPTermData.Num(), 0, nullptr, FLT_MAX, FLT_MAX, ImVec2(0, 100));
-
-        // I Term
-        ImGui::PlotLines("I Term", ZITermData.GetData(), ZITermData.Num(), 0, nullptr, FLT_MAX, FLT_MAX, ImVec2(0, 100));
-
-        // D Term
-        ImGui::PlotLines("D Term", ZDTermData.GetData(), ZDTermData.Num(), 0, nullptr, FLT_MAX, FLT_MAX, ImVec2(0, 100));
-    }
-
-    ImGui::End();  // End of the plotting window
-    // Close the plotting window
     ImGui::End();
 }
 

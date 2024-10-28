@@ -57,6 +57,7 @@ public:
 	void SetGains(float pGain, float iGain, float dGain);
 	void SetLimits(float min_output, float max_output);
 	void Reset();
+	void ResetIntegral();
 
 	float Calculate(float error, float dt);
 

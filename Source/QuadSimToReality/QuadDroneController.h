@@ -21,6 +21,7 @@ public:
 	void SetNavPlan(FString Name);
 	void DrawDebugVisuals(const FVector& currentPosition, const FVector& setPoint)const;
 	void RenderImGui(TArray<float>& ThrustsVal,float rollError, float pitchError,const FRotator& currentRotation,const FVector& waypoint, const FVector& currLoc,const FVector& error, const FVector& desiredVelocity,const FVector& currentVelocity,float xOutput, float yOutput, float zOutput,float deltaTime);
+	void RenderImPlot(TArray<float>& ThrustsVal,float rollError, float pitchError,const FRotator& currentRotation,const FVector& waypoint, const FVector& currLoc,const FVector& error, const FVector& desiredVelocity,const FVector& currentVelocity,float xOutput, float yOutput, float zOutput,float deltaTime);
 	void IncreaseAllThrusts(float Amount);
 
 	TArray<float> Thrusts;

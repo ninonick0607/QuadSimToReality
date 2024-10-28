@@ -26,7 +26,7 @@ static TArray<FVector> make_test_dests()
     const int z_step = 200;
     TArray<FVector> xyzSetpoint;
     xyzSetpoint.Add(start);
-    for (int i = 0; i < 30; i++)
+    for (int i = 0; i < 1000; i++)
     {
         bool z = FMath::RandBool();
         bool x = FMath::RandBool();
@@ -146,11 +146,11 @@ void AQuadPawn::BeginPlay()
     }
     
     float DroneMass = 1.0f; // Adjust this value to something appropriate for the drone size
-    DroneBody->GetBodyInstance()->SetMassOverride(DroneMass);
+    DroneBody->GetBodyInstance()->SetMassOverride(DroneMass);   
     DroneBody->GetBodyInstance()->UpdateMassProperties();
 
-    // DroneCamMesh->GetBodyInstance()->SetMassOverride(0);
-    // DroneCamMesh->GetBodyInstance()->UpdateMassProperties();
+    DroneCamMesh->GetBodyInstance()->SetMassOverride(0);
+    DroneCamMesh->GetBodyInstance()->UpdateMassProperties();
     
     quadController->Reset();
     Camera->SetActive(true);

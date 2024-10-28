@@ -10,7 +10,7 @@
 
 QuadPIDController::QuadPIDController()
     : ProportionalGain(0.0f), IntegralGain(0.0f), DerivativeGain(0.0f),
-      minOutput(-1.0f), maxOutput(1.0f),
+      minOutput(0.0f), maxOutput(1.0f),
       integralSum(0.0f), prevError(0.0f), lastOutput(0.0f)
 {
 }
@@ -21,7 +21,10 @@ void QuadPIDController::SetGains(float pGain, float iGain, float dGain)
     IntegralGain = iGain;
     DerivativeGain = dGain;
 }
-
+void QuadPIDController::ResetIntegral()
+{
+    integralSum = 0.0f;
+}
 float QuadPIDController::Calculate(float error, float dt)
 {
     if (dt <= KINDA_SMALL_NUMBER)
@@ -35,7 +38,8 @@ float QuadPIDController::Calculate(float error, float dt)
 
     // Integral term
     integralSum += error * dt;
-    float maxIntegral = 1000.0f;
+    //new waypoint zero out sum
+    float maxIntegral = 100.0f;
     integralSum = FMath::Clamp(integralSum, -maxIntegral, maxIntegral);
     float i_term = IntegralGain * integralSum;
 
