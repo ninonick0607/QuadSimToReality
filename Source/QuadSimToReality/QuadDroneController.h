@@ -16,6 +16,8 @@ public:
 	
 	void Reset();
 	void Update(double DeltaTime);
+	void AutoWaypointControl(double DeltaTime);
+	void ManualWaypointControl(double DeltaTime);
 	void ThrustMixer(float xOutput,float yOutput,float zOutput,float rollOutput,float pitchOutput);
 	void AddNavPlan(FString Name, TArray<FVector> Waypoints);
 	void SetNavPlan(FString Name);
@@ -57,4 +59,15 @@ private:
 	static inline const float maxPIDOutput = 600.f; // Max thrusting power individual rotor can provide
 	static constexpr float altitudeThresh = 0.6f; // If the relative z is more than this, we set roll and pitch to 0
 	static constexpr float minAltitudeLocal = 500.f;  // If the altitude is less than this in the beginning, the drone must ascend to this altitude
+
+protected:
+	TArray<float> TimeData;
+	TArray<float> waypointArrayX;
+	TArray<float> waypointArrayY;
+	TArray<float> waypointArrayZ;
+	TArray<float> currentPosArrayX;
+	TArray<float> currentPosArrayY;
+	TArray<float> currentPosArrayZ;
+	TArray<TArray<float>> thrustValues;
+	float CumulativeTime = 0.0f;
 };

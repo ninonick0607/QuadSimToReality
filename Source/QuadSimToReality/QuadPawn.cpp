@@ -148,9 +148,6 @@ void AQuadPawn::BeginPlay()
     float DroneMass = 1.0f; // Adjust this value to something appropriate for the drone size
     DroneBody->GetBodyInstance()->SetMassOverride(DroneMass);   
     DroneBody->GetBodyInstance()->UpdateMassProperties();
-
-    DroneCamMesh->GetBodyInstance()->SetMassOverride(0);
-    DroneCamMesh->GetBodyInstance()->UpdateMassProperties();
     
     quadController->Reset();
     Camera->SetActive(true);
@@ -227,9 +224,7 @@ void AQuadPawn::InitializeRotors()
         Thrusters[i]->AttachToComponent(Motors[i], FAttachmentTransformRules::KeepRelativeTransform);
         Thrusters[i]->SetRelativeRotation(FRotator(-90.0f, 0.0f, 0.0f));
         Thrusters[i]->bAutoActivate = true;
-
-        // Store the motor-thruster pair in the Rotors array
-        //Rotors[i] = TPair<UPhysicsThrusterComponent*, UStaticMeshComponent*>(Thrusters[i], Motors[i]);
+        
     }
 }
 

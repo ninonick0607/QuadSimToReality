@@ -8,7 +8,17 @@
 #include "string"
 #include "Math/UnrealMathUtility.h"
 
-#define ACCEPTABLE_DIST 50
+#define ACCEPTABLE_DIST 200
+
+enum class FlightMode
+{
+    None,
+    AutoWaypoint,
+    ManualWaypoint,
+    ManualFlightControl
+};
+
+FlightMode currentFlightMode = FlightMode::None;
 
 QuadDroneController::QuadDroneController(AQuadPawn* InPawn)
     : dronePawn(InPawn), currentNav(nullptr), curPos(0)
@@ -17,15 +27,15 @@ QuadDroneController::QuadDroneController(AQuadPawn* InPawn)
 
     xPID = new QuadPIDController();
     xPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-    xPID->SetGains(2.85f,  0.457f, 0.643f);
+    xPID->SetGains(1.f,  0.f, 0.1f);
     
     yPID = new QuadPIDController();
     yPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-    yPID->SetGains(2.85f,  0.457f, 0.643f);
+    yPID->SetGains(1.f,  0.f, 0.1f);
     
     zPID = new QuadPIDController();
     zPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-    zPID->SetGains(5.667f,  2.567f, 1.700f);
+    zPID->SetGains(5.f,  1.f, 0.1f);
     
     pitchAttitudePID = new QuadPIDController();
     pitchAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
@@ -133,7 +143,58 @@ inline float CalculateDesiredPitch(const FVector& normalizedError, const FVector
     }
 }
 
+
 void QuadDroneController::Update(double a_deltaTime)
+{
+    // ImGui Menu for Flight Mode Selection
+    ImGui::Begin("Flight Mode Selector");
+
+    if (ImGui::Button("Auto Waypoint", ImVec2(200, 50)))
+    {
+        currentFlightMode = FlightMode::AutoWaypoint;
+        curPos = 0; // Reset to start navigation
+    }
+
+    if (ImGui::Button("Manual Waypoint", ImVec2(200, 50)))
+    {
+        currentFlightMode = FlightMode::ManualWaypoint;
+        // Additional setup for manual waypoint mode can be added here
+    }
+
+    if (ImGui::Button("Manual Flight Control", ImVec2(200, 50)))
+    {
+        currentFlightMode = FlightMode::ManualFlightControl;
+        // Setup for manual flight control (controller input) will go here
+    }
+
+    ImGui::End();
+
+    switch (currentFlightMode)
+    {
+    case FlightMode::None:
+        // Drone stays idle until a mode is selected
+            return;
+
+    case FlightMode::AutoWaypoint:
+        AutoWaypointControl(a_deltaTime);
+        break;
+
+    case FlightMode::ManualWaypoint:
+        ManualWaypointControl(a_deltaTime);
+        break;
+
+    case FlightMode::ManualFlightControl:
+        // Placeholder for future manual flight control logic
+            break;
+    }
+}
+void QuadDroneController::ManualWaypointControl(double a_deltaTime)
+{
+    
+}
+
+
+void QuadDroneController::AutoWaypointControl(double a_deltaTime)
 {
     if (!currentNav || curPos >= currentNav->waypoints.Num()) return;
 
@@ -256,47 +317,27 @@ void QuadDroneController::RenderImPlot(
     const FVector& currentVelocity,
     float xOutput, float yOutput, float zOutput, float deltaTime)
 {
-    static TArray<float> TimeData;
-    static float CumulativeTime = 0.0f;
     CumulativeTime += deltaTime;
     TimeData.Add(CumulativeTime);
 
-    static TArray<float> waypointArrayX;
     waypointArrayX.Add(waypoint.X);
-    static TArray<float> waypointArrayY;
     waypointArrayY.Add(waypoint.Y);
-    static TArray<float> waypointArrayZ;
     waypointArrayZ.Add(waypoint.Z);
 
-    static TArray<float> currentPosArrayX;
     currentPosArrayX.Add(currLoc.X);
-    static TArray<float> currentPosArrayY;
     currentPosArrayY.Add(currLoc.Y);
-    static TArray<float> currentPosArrayZ;
     currentPosArrayZ.Add(currLoc.Z);
 
-    // --- New Code for Thrust Values ---
-    static TArray<TArray<float>> thrustValues;
-
-    // Initialize thrustValues if empty
     if (thrustValues.Num() == 0)
     {
         thrustValues.SetNum(ThrustsVal.Num());
     }
 
-    // Ensure thrustValues matches the number of thrusts
-    if (thrustValues.Num() != ThrustsVal.Num())
-    {
-        thrustValues.SetNum(ThrustsVal.Num());
-    }
-
-    // Add current thrust values
     for (int i = 0; i < ThrustsVal.Num(); ++i)
     {
         thrustValues[i].Add(ThrustsVal[i]);
     }
 
-    // Limit data size to prevent memory issues
     const int MaxSize = 5000;
     if (TimeData.Num() > MaxSize)
     {
@@ -308,75 +349,55 @@ void QuadDroneController::RenderImPlot(
         currentPosArrayY.RemoveAt(0);
         currentPosArrayZ.RemoveAt(0);
 
-        // Remove the oldest data point from each thrust array
         for (int i = 0; i < thrustValues.Num(); ++i)
         {
             thrustValues[i].RemoveAt(0);
         }
     }
 
-    // Define the time window for scrolling (e.g., last 10 seconds)
-    const float TimeWindow = 10.0f; // Adjust as needed
+    const float TimeWindow = 10.0f;
+    const float TimeOffset = 1.0f;
 
-    // Define the extra space ahead of the current time
-    const float TimeOffset = 1.0f; // Adjust this value to control the space ahead
-
-    // Begin a new ImGui window
     ImGui::Begin("Drone PID Plots", nullptr, ImGuiWindowFlags_None);
 
-    // Helper lambda to set up scrolling x-axis limits
     auto SetupScrollingXLimits = [&](float cumulativeTime)
     {
         float xMin = cumulativeTime - TimeWindow;
-        float xMax = cumulativeTime + TimeOffset; // Add TimeOffset to xMax
+        float xMax = cumulativeTime + TimeOffset;
         if (xMin < 0) xMin = 0;
         ImPlot::SetupAxisLimits(ImAxis_X1, xMin, xMax, ImGuiCond_Always);
     };
 
-    // Plot Desired vs. Current Altitude
-    if (ImPlot::BeginPlot("Desired vs. Current Altitude",
-                          ImVec2(600, 400)))
+    if (ImPlot::BeginPlot("Desired vs. Current Altitude", ImVec2(600, 400)))
     {
         SetupScrollingXLimits(CumulativeTime);
 
         ImPlot::SetupAxis(ImAxis_X1, "Time (s)");
         ImPlot::SetupAxis(ImAxis_Y1, "Altitude (m)");
 
-        // Plot Desired Altitude
-        ImPlot::PlotLine("Desired Altitude",
-                         TimeData.GetData(), waypointArrayZ.GetData(),
-                         TimeData.Num());
-
-        // Plot Current Altitude
-        ImPlot::PlotLine("Current Altitude",
-                         TimeData.GetData(), currentPosArrayZ.GetData(),
-                         TimeData.Num());
+        ImPlot::PlotLine("Desired Altitude", TimeData.GetData(), waypointArrayZ.GetData(), TimeData.Num());
+        ImPlot::PlotLine("Current Altitude", TimeData.GetData(), currentPosArrayZ.GetData(), TimeData.Num());
 
         ImPlot::EndPlot();
     }
 
-    // Plot Individual Thrust Values
-    if (ImPlot::BeginPlot("Thrust Values",
-                          ImVec2(600, 400)))
+    if (ImPlot::BeginPlot("Thrust Values", ImVec2(600, 400)))
     {
         SetupScrollingXLimits(CumulativeTime);
 
         ImPlot::SetupAxis(ImAxis_X1, "Time (s)");
         ImPlot::SetupAxis(ImAxis_Y1, "Thrust (units)");
 
-        // Plot each thrust over time
         for (int i = 0; i < thrustValues.Num(); ++i)
         {
             FString label = FString::Printf(TEXT("Thrust %d"), i + 1);
-            ImPlot::PlotLine(TCHAR_TO_ANSI(*label),
-                             TimeData.GetData(), thrustValues[i].GetData(),
-                             TimeData.Num());
+            ImPlot::PlotLine(TCHAR_TO_ANSI(*label), TimeData.GetData(), thrustValues[i].GetData(), TimeData.Num());
         }
 
         ImPlot::EndPlot();
     }
 
-    ImGui::End(); // End the ImGui window
+    ImGui::End();
 }
 
 void QuadDroneController::RenderImGui(
@@ -389,9 +410,9 @@ void QuadDroneController::RenderImGui(
     float xOutput, float yOutput, float zOutput,float deltaTime)
 {
     ImGui::SetNextWindowPos(ImVec2(420, 10), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(600, 600), ImGuiCond_FirstUseEver);
-    
-    ImGui::Begin("Drone Controller");
+    ImGui::SetNextWindowSize(ImVec2(500, 500), ImGuiCond_FirstUseEver); // Reduced window size
+
+    ImGui::Begin("Drone Controller", nullptr, ImGuiWindowFlags_AlwaysVerticalScrollbar); // Enable vertical scroll
 
     // Basic Model Feedbackg
     ImGui::Text("Drone Model Feedback");
@@ -409,47 +430,47 @@ void QuadDroneController::RenderImGui(
     ImGui::Checkbox("Drone Waypoint", &Debug_DrawDroneWaypoint);
     ImGui::Separator();
     
-    // ImGui::Separator();
-    // ImGui::Text("Control All Thrusts");
-    //
-    // static float AllThrustValue = 0.0f; // Initial thrust value
-    //
-    // if (ImGui::SliderFloat("All Thrusts", &AllThrustValue, -maxPIDOutput, maxPIDOutput))
-    // {
-    //     // Set all thrusts to the value from the slider
-    //     for (int i = 0; i < Thrusts.Num(); ++i)
-    //     {
-    //         Thrusts[i] = AllThrustValue;
-    //     }
-    // }
+    ImGui::Separator();
+    ImGui::Text("Control All Thrusts");
+    
+    static float AllThrustValue = 0.0f; // Initial thrust value
+    
+    if (ImGui::SliderFloat("All Thrusts", &AllThrustValue, -maxPIDOutput, maxPIDOutput))
+    {
+        // Set all thrusts to the value from the slider
+        for (int i = 0; i < Thrusts.Num(); ++i)
+        {
+            Thrusts[i] = AllThrustValue;
+        }
+    }
     ImGui::Separator();
     ImGui::Text("Thruster Power");
-    
+        
     if (ThrustsVal.Num() >= 4)
     {
-        ImGui::SliderFloat("Front Left", &ThrustsVal[0], -maxPIDOutput, maxPIDOutput);
-        ImGui::SliderFloat("Front Right", &ThrustsVal[1], -maxPIDOutput, maxPIDOutput);
-        ImGui::SliderFloat("Rear Left", &ThrustsVal[2], -maxPIDOutput, maxPIDOutput);
-        ImGui::SliderFloat("Rear Right", &ThrustsVal[3], -maxPIDOutput, maxPIDOutput);
+        ImGui::SliderFloat("Front Left", &ThrustsVal[0], 0, maxPIDOutput);
+        ImGui::SliderFloat("Front Right", &ThrustsVal[1], 0, maxPIDOutput);
+        ImGui::SliderFloat("Rear Left", &ThrustsVal[2], 0, maxPIDOutput);
+        ImGui::SliderFloat("Rear Right", &ThrustsVal[3], 0, maxPIDOutput);
     }
     ImGui::Separator();
 
-    // ImGui::Text("Desired Roll: %.2f", rollError);
-    // ImGui::SameLine();
-    // ImGui::Text("Current Roll: %.2f", currentRotation.Roll);
-    //
-    // ImGui::Text("Desired Pitch: %.2f", pitchError);
-    // ImGui::SameLine();
-    // ImGui::Text("Current Pitch: %.2f", currentRotation.Pitch);
-    //
-    // ImGui::Separator();
-    // ImGui::Text("Desired Position X, Y, Z: %.2f, %.2f, %.2f", waypoint.X, waypoint.Y, waypoint.Z);
-    // ImGui::Text("Current Position X, Y, Z: %.2f, %.2f, %.2f", currLoc.X, currLoc.Y, currLoc.Z);
-    // ImGui::Text("Position Error X, Y, Z: %.2f, %.2f, %.2f", error.X, error.Y, error.Z);
-    // ImGui::Spacing();
-    // ImGui::Text("Desired Velocity X, Y, Z: %.2f, %.2f, %.2f", desiredVelocity.X, desiredVelocity.Y, desiredVelocity.Z);
-    // ImGui::Text("Current Velocity X, Y, Z: %.2f, %.2f, %.2f", currentVelocity.X, currentVelocity.Y, currentVelocity.Z);
-    // ImGui::Spacing();
+    ImGui::Text("Desired Roll: %.2f", rollError);
+    ImGui::SameLine();
+    ImGui::Text("Current Roll: %.2f", currentRotation.Roll);
+    
+    ImGui::Text("Desired Pitch: %.2f", pitchError);
+    ImGui::SameLine();
+    ImGui::Text("Current Pitch: %.2f", currentRotation.Pitch);
+    
+    ImGui::Separator();
+    ImGui::Text("Desired Position X, Y, Z: %.2f, %.2f, %.2f", waypoint.X, waypoint.Y, waypoint.Z);
+    ImGui::Text("Current Position X, Y, Z: %.2f, %.2f, %.2f", currLoc.X, currLoc.Y, currLoc.Z);
+    ImGui::Text("Position Error X, Y, Z: %.2f, %.2f, %.2f", error.X, error.Y, error.Z);
+    ImGui::Spacing();
+    ImGui::Text("Desired Velocity X, Y, Z: %.2f, %.2f, %.2f", desiredVelocity.X, desiredVelocity.Y, desiredVelocity.Z);
+    ImGui::Text("Current Velocity X, Y, Z: %.2f, %.2f, %.2f", currentVelocity.X, currentVelocity.Y, currentVelocity.Z);
+    ImGui::Spacing();
 
     // PID Settings Section
     if (ImGui::CollapsingHeader("PID Settings", ImGuiTreeNodeFlags_DefaultOpen))
