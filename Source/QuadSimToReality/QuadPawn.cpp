@@ -190,14 +190,47 @@ void AQuadPawn::Tick(float DeltaTime)
     UpdateControl(DeltaTime);
 }
 
+void AQuadPawn::HandleThrustInput(float Value)
+{
+    if (quadController)
+    {
+        quadController->HandleThrustInput(Value);
+    }
+}
+
+void AQuadPawn::HandleYawInput(float Value)
+{
+    if (quadController)
+    {
+        quadController->HandleYawInput(Value);
+    }
+}
+
+void AQuadPawn::HandlePitchInput(float Value)
+{
+    if (quadController)
+    {
+        quadController->HandlePitchInput(Value);
+    }
+}
+
+void AQuadPawn::HandleRollInput(float Value)
+{
+    if (quadController)
+    {
+        quadController->HandleRollInput(Value);
+    }
+}
+
 void AQuadPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
     Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-    // Bind the "ToggleCameraMode" action to the SwitchCamera function
-    PlayerInputComponent->BindAction("ToggleCameraMode", IE_Pressed, this, &AQuadPawn::SwitchCamera);
-
-    // If you have other input bindings, include them here
+    // Bind axis mappings for controller input to wrapper functions
+    PlayerInputComponent->BindAxis("Thrust", this, &AQuadPawn::HandleThrustInput);
+    PlayerInputComponent->BindAxis("Yaw", this, &AQuadPawn::HandleYawInput);
+    PlayerInputComponent->BindAxis("Pitch", this, &AQuadPawn::HandlePitchInput);
+    PlayerInputComponent->BindAxis("Roll", this, &AQuadPawn::HandleRollInput);
 }
 
 void AQuadPawn::UpdateControl(float DeltaTime)

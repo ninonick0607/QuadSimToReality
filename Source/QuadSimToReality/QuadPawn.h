@@ -119,6 +119,10 @@ public:
     
     // Drone controller
     QuadDroneController* quadController;
+    void HandleThrustInput(float Value);
+    void HandleYawInput(float Value);
+    void HandlePitchInput(float Value);
+    void HandleRollInput(float Value);
     
 protected:
     // Overridden function called when the game starts or when spawned

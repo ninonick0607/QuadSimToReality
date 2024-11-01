@@ -18,6 +18,9 @@ public:
 	void Update(double DeltaTime);
 	void AutoWaypointControl(double DeltaTime);
 	void ManualWaypointControl(double DeltaTime);
+	void ApplyTorqueToRotors(float yawTorque);
+	float CalculateYawTorque(const FVector& waypoint, const FVector& currentPosition,const FRotator& currentRotation, double deltaTime);
+	void SmoothRotateTowardsWaypoint(const FVector& waypoint, float deltaTime);
 	void ThrustMixer(float xOutput,float yOutput,float zOutput,float rollOutput,float pitchOutput);
 	void AddNavPlan(FString Name, TArray<FVector> Waypoints);
 	void SetNavPlan(FString Name);
@@ -30,7 +33,23 @@ public:
 	float maxVelocity = 250.0f;   // The maximum desired velocity of each axis
 	float maxAngle = 15.f;         // The maximum tilt angle of the drone
 	float totalElapsedTime;
+
+	float thrustInput = 0.0f;
+	float yawInput = 0.0f;
+	float pitchInput = 0.0f;
+	float rollInput = 0.0f;
+
+	void HandleThrustInput(float Value);
+	void HandleYawInput(float Value);
+	void HandlePitchInput(float Value);
+	void HandleRollInput(float Value);
+    
+	void ApplyControllerInput(double a_deltaTime);
+
+	
 private:
+	float hoverThrustLevel;
+	float desiredAltitude = 0.0f;
 
 	struct NavPlan
 	{
