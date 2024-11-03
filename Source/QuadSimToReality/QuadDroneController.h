@@ -48,8 +48,11 @@ public:
 
 	
 private:
+	float desiredYaw = 0.0f;
+	bool bDesiredYawInitialized = false;
 	float hoverThrustLevel;
 	float desiredAltitude = 0.0f;
+	bool bDesiredAltitudeInitialized = false; // Flag to initialize desiredAltitude once
 
 	struct NavPlan
 	{

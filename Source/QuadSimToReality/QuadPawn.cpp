@@ -9,13 +9,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "DrawDebugHelpers.h"
 #include "imgui.h"
-/*
- *TO DO
- * Change physics thrusters to add force at location to see change
- * change derivative to acceleration like old code
- *
- * 
- */
+
 #define EPSILON 0.0001f
 
 const FVector start = FVector(0, 0, 1000);
