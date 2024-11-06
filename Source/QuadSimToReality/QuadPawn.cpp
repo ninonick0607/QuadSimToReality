@@ -113,7 +113,6 @@ AQuadPawn::AQuadPawn()
     Input_ToggleImguiInput = CreateDefaultSubobject<UInputComponent>(TEXT("Toggle Imgui Input"));
     Input_ToggleImguiInput->BindKey(EKeys::I, IE_Pressed, this, &AQuadPawn::ToggleImguiInput).bExecuteWhenPaused = true;
 
-
 }
 
 void AQuadPawn::BeginPlay()
