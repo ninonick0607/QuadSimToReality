@@ -38,26 +38,51 @@ QuadDroneController::QuadDroneController(AQuadPawn* InPawn)
     // This all just setup for the gains i have for each flight mode.
     // Each flight mode requires different games due to the differences in how they operate and manuever
      //Auto Waypoint
+     //xPID = new QuadPIDController();
+     //xPID->SetLimits(-maxPIDOutput, maxPIDOutput);
+     //xPID->SetGains(1.f,  0.f, 0.1f);
+    
+     //yPID = new QuadPIDController();
+     //yPID->SetLimits(-maxPIDOutput, maxPIDOutput);
+     //yPID->SetGains(1.f,  0.f, 0.1f);
+    
+     //zPID = new QuadPIDController();
+     //zPID->SetLimits(-maxPIDOutput, maxPIDOutput);
+     //zPID->SetGains(5.f,  1.f, 0.1f);
+    
+     //pitchAttitudePID = new QuadPIDController();
+     //pitchAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
+     //pitchAttitudePID->SetGains(2.934f, 0.297f, 3.633f);
+    
+     //rollAttitudePID = new QuadPIDController();
+     //rollAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
+     //rollAttitudePID->SetGains(2.934f, 0.297f, 3.633f);
+    
+     //yawAttitudePID = new QuadPIDController();
+     //yawAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
+     //yawAttitudePID->SetGains(0.f, 0.f, 0.f);
+
+     // Try these
      xPID = new QuadPIDController();
      xPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-     xPID->SetGains(1.f,  0.f, 0.1f);
-    
+     xPID->SetGains(2.329f, 3.626f, 1.832f);
+
      yPID = new QuadPIDController();
      yPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-     yPID->SetGains(1.f,  0.f, 0.1f);
-    
+     yPID->SetGains(2.329f, 3.626f, 1.832f);
+
      zPID = new QuadPIDController();
      zPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-     zPID->SetGains(5.f,  1.f, 0.1f);
-    
+     zPID->SetGains(5.344f, 1.f, 0.1f);
+
      pitchAttitudePID = new QuadPIDController();
      pitchAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
-     pitchAttitudePID->SetGains(2.934f, 0.297f, 3.633f);
-    
+     pitchAttitudePID->SetGains(11.755f, 5.267f, 9.008f);
+
      rollAttitudePID = new QuadPIDController();
      rollAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
-     rollAttitudePID->SetGains(2.934f, 0.297f, 3.633f);
-    
+     rollAttitudePID->SetGains(11.755f, 5.267f, 9.008f);
+
      yawAttitudePID = new QuadPIDController();
      yawAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
      yawAttitudePID->SetGains(0.f, 0.f, 0.f);
@@ -543,7 +568,7 @@ void QuadDroneController::AutoWaypointControl(double a_deltaTime)
     //ImGui
     RenderImGuiWaypoint(Thrusts, roll_error, pitch_error, currentRotation, setPoint, currentPosition, positionError, desiredVelocity, currentVelocity, x_output, y_output, z_output,a_deltaTime);
     
-    RenderImPlot(Thrusts, roll_error, pitch_error, currentRotation, setPoint, currentPosition, positionError, desiredVelocity, currentVelocity, x_output, y_output, z_output,a_deltaTime);
+    RenderImPlot(Thrusts, roll_error, pitch_error, currentRotation, setPoint, currentPosition, positionError, desiredVelocity, currentVelocity, x_output, y_output, z_output,roll_output,pitch_output,yaw_output,a_deltaTime);
 
 }
 
@@ -597,25 +622,53 @@ void QuadDroneController::VelocityControl(double a_deltaTime)
     const float mult = 0.5f;
 
     FVector currentVelocity = dronePawn->GetVelocity();
+    FRotator currentRotation = dronePawn->GetActorRotation();
 
     // Calculate velocity error
     FVector velocityError = desiredNewVelocity - currentVelocity;
 
     // Use PID controllers to calculate outputs
-    float x_output = xPID->Calculate(velocityError.X, a_deltaTime);
-    float y_output = yPID->Calculate(velocityError.Y, a_deltaTime);
-    float z_output = zPID->Calculate(velocityError.Z, a_deltaTime);
+    float x_output = xPIDVelocity->Calculate(velocityError.X, a_deltaTime);
+    float y_output = yPIDVelocity->Calculate(velocityError.Y, a_deltaTime);
+    float z_output = zPIDVelocity->Calculate(velocityError.Z, a_deltaTime);
 
     // Attitude stabilization (keeping roll and pitch at zero)
-    float roll_error = -dronePawn->GetActorRotation().Roll;
-    float pitch_error = -dronePawn->GetActorRotation().Pitch;
+    float roll_error = -currentRotation.Roll;
+    float pitch_error = -currentRotation.Pitch;
 
-    float roll_output = rollAttitudePID->Calculate(roll_error, a_deltaTime);
-    float pitch_output = pitchAttitudePID->Calculate(pitch_error, a_deltaTime);
+    float roll_output = rollAttitudePIDVelocity->Calculate(roll_error, a_deltaTime);
+    float pitch_output = pitchAttitudePIDVelocity->Calculate(pitch_error, a_deltaTime);
 
-    // Yaw stabilization (optional)
-    float yaw_error = 0.0f; // Maintain current yaw
-    float yaw_output = yawAttitudePID->Calculate(yaw_error, a_deltaTime);
+    // Calculate desired yaw based on velocity direction
+    FVector horizontalVelocity = desiredNewVelocity;
+    horizontalVelocity.Z = 0; // Ignore vertical component for yaw calculation
+
+    // Only update desired yaw if we have significant horizontal velocity
+    const float MIN_VELOCITY_FOR_YAW = 10.0f; // Adjust this threshold as needed
+    if (horizontalVelocity.SizeSquared() > MIN_VELOCITY_FOR_YAW * MIN_VELOCITY_FOR_YAW)
+    {
+        // Calculate the desired yaw angle based on velocity direction
+        desiredYaw = FMath::RadiansToDegrees(FMath::Atan2(horizontalVelocity.Y, horizontalVelocity.X));
+    }
+    else
+    {
+        // If velocity is too low, maintain current yaw to prevent erratic rotation
+        desiredYaw = currentRotation.Yaw;
+    }
+
+    // Normalize desiredYaw to [-180, 180]
+    desiredYaw = FMath::Fmod(desiredYaw + 180.0f, 360.0f) - 180.0f;
+
+    // Calculate yaw error
+    float yaw_error = desiredYaw - currentRotation.Yaw;
+    yaw_error = FMath::UnwindDegrees(yaw_error);  // Normalize the error to [-180, 180]
+
+    // Calculate yaw output using PID
+    float yaw_output = yawAttitudePIDVelocity->Calculate(yaw_error, a_deltaTime);
+
+    // Apply yaw torque directly to the drone body
+    FVector yawTorque = FVector(0.0f, 0.0f, yaw_output);
+    dronePawn->DroneBody->AddTorqueInDegrees(yawTorque, NAME_None, true);
 
     // Apply thrust mixing
     ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
@@ -626,8 +679,60 @@ void QuadDroneController::VelocityControl(double a_deltaTime)
         dronePawn->Rotors[i].Thruster->ThrustStrength = droneMass * mult * Thrusts[i];
     }
 
+    // Debug visualization for velocity direction
+    if (Debug_DrawDroneWaypoint)
+    {
+        FVector dronePos = dronePawn->GetActorLocation();
+        FVector velocityDirection = desiredNewVelocity.GetSafeNormal() * 200.0f; // Scale for visualization
+
+        DrawDebugLine(
+            dronePawn->GetWorld(),
+            dronePos,
+            dronePos + velocityDirection,
+            FColor::Yellow,
+            false,
+            -1.0f,
+            0,
+            2.0f
+        );
+    }
+
     // Optional: Render ImGui for debugging
-    RenderImGuiVelocity(Thrusts, roll_error, pitch_error, dronePawn->GetActorRotation(), FVector::ZeroVector, dronePawn->GetActorLocation(), FVector::ZeroVector, desiredNewVelocity, currentVelocity, x_output, y_output, z_output, a_deltaTime);
+    RenderImGuiVelocity(
+        Thrusts,
+        roll_error,
+        pitch_error,
+        currentRotation,
+        FVector::ZeroVector,
+        dronePawn->GetActorLocation(),
+        FVector::ZeroVector,
+        desiredNewVelocity,
+        currentVelocity,
+        x_output,
+        y_output,
+        z_output,
+        a_deltaTime
+    );
+
+    // Update plots
+    RenderImPlot(
+        Thrusts,
+        roll_error,
+        pitch_error,
+        currentRotation,
+        FVector::ZeroVector,
+        dronePawn->GetActorLocation(),
+        FVector::ZeroVector,
+        desiredNewVelocity,
+        currentVelocity,
+        x_output,
+        y_output,
+        z_output,
+        roll_output,
+        pitch_output,
+        yaw_output,
+        a_deltaTime
+    );
 }
 
 // ---------------------- Controller Handling ------------------------
@@ -663,84 +768,106 @@ void QuadDroneController::RenderImPlot(
     const FVector& waypoint, const FVector& currLoc,
     const FVector& error, const FVector& desiredVelocity,
     const FVector& currentVelocity,
-    float xOutput, float yOutput, float zOutput, float deltaTime)
+    float xOutput, float yOutput, float zOutput,
+    float rollOutput, float pitchOutput, float yawOutput,
+    float deltaTime)
 {
+    // Add time data
     CumulativeTime += deltaTime;
     TimeData.Add(CumulativeTime);
 
-    waypointArrayX.Add(waypoint.X);
-    waypointArrayY.Add(waypoint.Y);
-    waypointArrayZ.Add(waypoint.Z);
+    // Add PID outputs to history
+    xPIDOutputHistory.Add(xOutput);
+    yPIDOutputHistory.Add(yOutput);
+    zPIDOutputHistory.Add(zOutput);
+    rollPIDOutputHistory.Add(rollOutput);
+    pitchPIDOutputHistory.Add(pitchOutput);
+    yawPIDOutputHistory.Add(yawOutput);
 
-    currentPosArrayX.Add(currLoc.X);
-    currentPosArrayY.Add(currLoc.Y);
-    currentPosArrayZ.Add(currLoc.Z);
+    // Add error calculations
+    float positionError = error.Size();  // Magnitude of position error
+    float velocityError = (desiredVelocity - currentVelocity).Size();  // Magnitude of velocity error
 
-    if (thrustValues.Num() == 0)
-    {
-        thrustValues.SetNum(ThrustsVal.Num());
-    }
+    positionErrorHistory.Add(positionError);
+    velocityErrorHistory.Add(velocityError);
 
-    for (int i = 0; i < ThrustsVal.Num(); ++i)
-    {
-        thrustValues[i].Add(ThrustsVal[i]);
-    }
+    // Keep arrays within the MaxSize
+    const int MaxSize = 1000; // Reduced from 5000 to prevent excessive memory usage
 
-    const int MaxSize = 5000;
-    if (TimeData.Num() > MaxSize)
-    {
-        TimeData.RemoveAt(0);
-        waypointArrayX.RemoveAt(0);
-        waypointArrayY.RemoveAt(0);
-        waypointArrayZ.RemoveAt(0);
-        currentPosArrayX.RemoveAt(0);
-        currentPosArrayY.RemoveAt(0);
-        currentPosArrayZ.RemoveAt(0);
-
-        for (int i = 0; i < thrustValues.Num(); ++i)
-        {
-            thrustValues[i].RemoveAt(0);
+    auto TrimArrayToSize = [MaxSize](TArray<float>& array) {
+        if (array.Num() > MaxSize) {
+            array.RemoveAt(0, array.Num() - MaxSize);
         }
-    }
+        };
 
-    const float TimeWindow = 10.0f;
-    const float TimeOffset = 1.0f;
+    TrimArrayToSize(TimeData);
+    TrimArrayToSize(xPIDOutputHistory);
+    TrimArrayToSize(yPIDOutputHistory);
+    TrimArrayToSize(zPIDOutputHistory);
+    TrimArrayToSize(rollPIDOutputHistory);
+    TrimArrayToSize(pitchPIDOutputHistory);
+    TrimArrayToSize(yawPIDOutputHistory);
+    TrimArrayToSize(positionErrorHistory);
+    TrimArrayToSize(velocityErrorHistory);
 
-    ImGui::Begin("Drone PID Plots", nullptr, ImGuiWindowFlags_None);
+    // Begin ImGui window
+    ImGui::Begin("Drone PID Analysis");
 
-    auto SetupScrollingXLimits = [&](float cumulativeTime)
-    {
-        float xMin = cumulativeTime - TimeWindow;
-        float xMax = cumulativeTime + TimeOffset;
-        if (xMin < 0) xMin = 0;
-        ImPlot::SetupAxisLimits(ImAxis_X1, xMin, xMax, ImGuiCond_Always);
-    };
-
-    if (ImPlot::BeginPlot("Desired vs. Current Altitude", ImVec2(600, 400)))
-    {
-        SetupScrollingXLimits(CumulativeTime);
-
+    // Position Control Plot
+    if (ImPlot::BeginPlot("Position Control", ImVec2(600, 300))) {
+        ImPlot::SetupAxisLimits(ImAxis_X1, CumulativeTime - 10.0f, CumulativeTime, ImGuiCond_Always);
         ImPlot::SetupAxis(ImAxis_X1, "Time (s)");
-        ImPlot::SetupAxis(ImAxis_Y1, "Altitude (m)");
+        ImPlot::SetupAxis(ImAxis_Y1, "Output");
 
-        ImPlot::PlotLine("Desired Altitude", TimeData.GetData(), waypointArrayZ.GetData(), TimeData.Num());
-        ImPlot::PlotLine("Current Altitude", TimeData.GetData(), currentPosArrayZ.GetData(), TimeData.Num());
+        ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
+        ImPlot::PlotLine("X PID", TimeData.GetData(), xPIDOutputHistory.GetData(), TimeData.Num());
+        ImPlot::PopStyleColor();
+
+        ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.0f, 1.0f, 0.0f, 1.0f));
+        ImPlot::PlotLine("Y PID", TimeData.GetData(), yPIDOutputHistory.GetData(), TimeData.Num());
+        ImPlot::PopStyleColor();
+
+        ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.0f, 0.0f, 1.0f, 1.0f));
+        ImPlot::PlotLine("Z PID", TimeData.GetData(), zPIDOutputHistory.GetData(), TimeData.Num());
+        ImPlot::PopStyleColor();
 
         ImPlot::EndPlot();
     }
 
-    if (ImPlot::BeginPlot("Thrust Values", ImVec2(600, 400)))
-    {
-        SetupScrollingXLimits(CumulativeTime);
-
+    // Attitude Control Plot
+    if (ImPlot::BeginPlot("Attitude Control", ImVec2(600, 300))) {
+        ImPlot::SetupAxisLimits(ImAxis_X1, CumulativeTime - 10.0f, CumulativeTime, ImGuiCond_Always);
         ImPlot::SetupAxis(ImAxis_X1, "Time (s)");
-        ImPlot::SetupAxis(ImAxis_Y1, "Thrust (units)");
+        ImPlot::SetupAxis(ImAxis_Y1, "Output");
 
-        for (int i = 0; i < thrustValues.Num(); ++i)
-        {
-            FString label = FString::Printf(TEXT("Thrust %d"), i + 1);
-            ImPlot::PlotLine(TCHAR_TO_ANSI(*label), TimeData.GetData(), thrustValues[i].GetData(), TimeData.Num());
-        }
+        ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(1.0f, 0.5f, 0.0f, 1.0f));
+        ImPlot::PlotLine("Roll PID", TimeData.GetData(), rollPIDOutputHistory.GetData(), TimeData.Num());
+        ImPlot::PopStyleColor();
+
+        ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.5f, 0.0f, 1.0f, 1.0f));
+        ImPlot::PlotLine("Pitch PID", TimeData.GetData(), pitchPIDOutputHistory.GetData(), TimeData.Num());
+        ImPlot::PopStyleColor();
+
+        ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(1.0f, 1.0f, 0.0f, 1.0f));
+        ImPlot::PlotLine("Yaw PID", TimeData.GetData(), yawPIDOutputHistory.GetData(), TimeData.Num());
+        ImPlot::PopStyleColor();
+
+        ImPlot::EndPlot();
+    }
+
+    // Error Plot
+    if (ImPlot::BeginPlot("Error Analysis", ImVec2(600, 300))) {
+        ImPlot::SetupAxisLimits(ImAxis_X1, CumulativeTime - 10.0f, CumulativeTime, ImGuiCond_Always);
+        ImPlot::SetupAxis(ImAxis_X1, "Time (s)");
+        ImPlot::SetupAxis(ImAxis_Y1, "Error Magnitude");
+
+        ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(1.0f, 0.0f, 1.0f, 1.0f));
+        ImPlot::PlotLine("Position Error", TimeData.GetData(), positionErrorHistory.GetData(), TimeData.Num());
+        ImPlot::PopStyleColor();
+
+        ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.0f, 1.0f, 1.0f, 1.0f));
+        ImPlot::PlotLine("Velocity Error", TimeData.GetData(), velocityErrorHistory.GetData(), TimeData.Num());
+        ImPlot::PopStyleColor();
 
         ImPlot::EndPlot();
     }

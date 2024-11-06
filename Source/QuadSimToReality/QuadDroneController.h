@@ -28,7 +28,14 @@ public:
 	void RenderImGuiWaypoint(TArray<float>& ThrustsVal,float rollError, float pitchError,const FRotator& currentRotation,const FVector& waypoint, const FVector& currLoc,const FVector& error, const FVector& desiredVelocity,const FVector& currentVelocity,float xOutput, float yOutput, float zOutput,float deltaTime);
 	void RenderImGuiVelocity(TArray<float>& ThrustsVal, float rollError, float pitchError, const FRotator& currentRotation, const FVector& waypoint, const FVector& currLoc, const FVector& error, const FVector& desiredVelocity, const FVector& currentVelocity, float xOutput, float yOutput, float zOutput, float deltaTime);
 	void RenderImGuiJoyStick(TArray<float>& ThrustsVal,float rollError, float pitchError,const FRotator& currentRotation,const FVector& waypoint, const FVector& currLoc,const FVector& error, const FVector& desiredVelocity,const FVector& currentVelocity,float xOutput, float yOutput, float zOutput,float deltaTime);
-	void RenderImPlot(TArray<float>& ThrustsVal,float rollError, float pitchError,const FRotator& currentRotation,const FVector& waypoint, const FVector& currLoc,const FVector& error, const FVector& desiredVelocity,const FVector& currentVelocity,float xOutput, float yOutput, float zOutput,float deltaTime);
+	void RenderImPlot(
+		TArray<float>& ThrustsVal,
+		float rollError, float pitchError,
+		const FRotator& currentRotation,
+		const FVector& waypoint, const FVector& currLoc,
+		const FVector& error, const FVector& desiredVelocity,
+		const FVector& currentVelocity,
+		float xOutput, float yOutput, float zOutput, float rollOutput, float pitchOutput, float yawOutput, float deltaTime);
 	void IncreaseAllThrusts(float Amount);
 
 	TArray<float> Thrusts;
@@ -108,5 +115,14 @@ protected:
 	TArray<float> currentPosArrayY;
 	TArray<float> currentPosArrayZ;
 	TArray<TArray<float>> thrustValues;
+
+	TArray<float> xPIDOutputHistory;
+	TArray<float> yPIDOutputHistory;
+	TArray<float> zPIDOutputHistory;
+	TArray<float> rollPIDOutputHistory;
+	TArray<float> pitchPIDOutputHistory;
+	TArray<float> yawPIDOutputHistory;
+	TArray<float> positionErrorHistory;
+	TArray<float> velocityErrorHistory;
 	float CumulativeTime = 0.0f;
 };
