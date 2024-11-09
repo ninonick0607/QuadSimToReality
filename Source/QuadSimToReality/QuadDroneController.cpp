@@ -360,7 +360,6 @@ void QuadDroneController::Update(double a_deltaTime)
 
 void QuadDroneController::ApplyControllerInput(double a_deltaTime)
 {
-    // Simple conditional for the existance of the drone
     if (!dronePawn) return;
 
     float droneMass = dronePawn->DroneBody->GetMass();
@@ -382,11 +381,12 @@ void QuadDroneController::ApplyControllerInput(double a_deltaTime)
         bDesiredYawInitialized = true;
     }
 
-
     // ------ Altitude Control ---------
-    float climbRate = 200.0f; // Step rate for altitude (WIP ADJUST)
-    desiredAltitude += thrustInput * climbRate * a_deltaTime;
+    // Modify desired altitude based on thrust input
+    float altitudeRate = 400.0f; // Units per second for altitude change
+    desiredAltitude += thrustInput * altitudeRate * a_deltaTime;
 
+    // Calculate error between desired and current altitude
     float z_error = desiredAltitude - currentPosition.Z;
     float z_output = zPIDJoyStick->Calculate(z_error, a_deltaTime);
 
@@ -395,25 +395,22 @@ void QuadDroneController::ApplyControllerInput(double a_deltaTime)
     float roll_error = desiredRoll - currentRotation.Roll;
     float roll_output = rollAttitudePIDJoyStick->Calculate(roll_error, a_deltaTime);
 
-    float desiredPitch = pitchInput * maxAngle; 
+    float desiredPitch = pitchInput * maxAngle;
     float pitch_error = desiredPitch - currentRotation.Pitch;
     float pitch_output = pitchAttitudePIDJoyStick->Calculate(pitch_error, a_deltaTime);
 
     // Yaw control 
-
-    float yawRate = 90.0f; // Degrees per second, adjust as necessary
+    float yawRate = 90.0f; // Degrees per second
     desiredYaw += yawInput * yawRate * a_deltaTime;
-
-    // Normalize desiredYaw to [-180, 180]
     desiredYaw = FMath::Fmod(desiredYaw + 180.0f, 360.0f) - 180.0f;
 
     float yaw_error = desiredYaw - currentRotation.Yaw;
     yaw_error = FMath::UnwindDegrees(yaw_error);
-
     float yaw_output = yawAttitudePIDJoyStick->Calculate(yaw_error, a_deltaTime);
 
-    FVector yawTorque = FVector(0.0f, 0.0f, yaw_output); // Torque around Z-axis
-    dronePawn->DroneBody->AddTorqueInDegrees(yawTorque, NAME_None, true); // Applying torque to body frame 
+    // Apply yaw torque
+    FVector yawTorque = FVector(0.0f, 0.0f, yaw_output);
+    dronePawn->DroneBody->AddTorqueInDegrees(yawTorque, NAME_None, true);
 
     // Thrust Mixing
     ThrustMixer(0, 0, z_output, roll_output, pitch_output);
@@ -424,18 +421,14 @@ void QuadDroneController::ApplyControllerInput(double a_deltaTime)
         dronePawn->Rotors[i].Thruster->ThrustStrength = droneMass * mult * Thrusts[i];
     }
 
-
-    // Collect data for ImGui
+    // Collect data for ImGui display
     TArray<float> ThrustsVal = Thrusts;
-
-    // Prepare data for ImGui
-    FVector waypoint(0, 0, desiredAltitude); // For visualization
+    FVector waypoint(0, 0, desiredAltitude);
     FVector error(0, 0, z_error);
-    FVector desiredVelocity(0, 0, 0); // Not used in manual control
+    FVector desiredVelocity(0, 0, 0);
     float xOutput = 0.0f;
     float yOutput = 0.0f;
 
-    // Call RenderImGui
     RenderImGuiJoyStick(ThrustsVal, roll_error, pitch_error, currentRotation, waypoint, currentPosition, error, desiredVelocity, dronePawn->GetVelocity(), xOutput, yOutput, z_output, a_deltaTime);
 }
 

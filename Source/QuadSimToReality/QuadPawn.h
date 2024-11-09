@@ -97,10 +97,22 @@ public:
 
         void Animate(float DeltaTime)
         {
-            const float Multiplier = 1.f;
-            const float Inertia = 0.2f;
-            const float RotorAcceleration = (Thruster->ThrustStrength * Multiplier - AngularVelocity) / Inertia;
+            // Increased multiplier for more realistic rotor speed
+            const float Multiplier = 20.f;  // Changed from 1.f to 20.f
+
+            // Reduced inertia to allow for quicker acceleration
+            const float Inertia = 0.1f;     // Changed from 0.2f to 0.1f
+
+            // Added base rotation speed to maintain minimum rotation even at low thrust
+            const float BaseRotationSpeed = 1000.f;
+
+            // Calculate rotor acceleration with base speed
+            const float RotorAcceleration = ((Thruster->ThrustStrength * Multiplier + BaseRotationSpeed) - AngularVelocity) / Inertia;
+
+            // Update angular velocity
             AngularVelocity += RotorAcceleration * DeltaTime;
+
+            // Update rotor rotation
             FRotator Rotation = Mesh->GetRelativeRotation();
             Rotation.Yaw += AngularVelocity * DeltaTime;
             Mesh->SetRelativeRotation(Rotation);

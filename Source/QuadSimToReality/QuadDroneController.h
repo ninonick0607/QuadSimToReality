@@ -71,7 +71,8 @@ private:
 		FString name;
 	};
 	
-
+	float hoverThrust;
+	bool bHoverThrustInitialized = false;
 	AQuadPawn* dronePawn;
 	TArray<NavPlan> setPointNavigation;
 	NavPlan* currentNav;
