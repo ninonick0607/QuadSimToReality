@@ -38,54 +38,54 @@ QuadDroneController::QuadDroneController(AQuadPawn* InPawn)
     // This all just setup for the gains i have for each flight mode.
     // Each flight mode requires different games due to the differences in how they operate and manuever
      //Auto Waypoint
-     //xPID = new QuadPIDController();
-     //xPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-     //xPID->SetGains(1.f,  0.f, 0.1f);
-    
-     //yPID = new QuadPIDController();
-     //yPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-     //yPID->SetGains(1.f,  0.f, 0.1f);
-    
-     //zPID = new QuadPIDController();
-     //zPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-     //zPID->SetGains(5.f,  1.f, 0.1f);
-    
-     //pitchAttitudePID = new QuadPIDController();
-     //pitchAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
-     //pitchAttitudePID->SetGains(2.934f, 0.297f, 3.633f);
-    
-     //rollAttitudePID = new QuadPIDController();
-     //rollAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
-     //rollAttitudePID->SetGains(2.934f, 0.297f, 3.633f);
-    
-     //yawAttitudePID = new QuadPIDController();
-     //yawAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
-     //yawAttitudePID->SetGains(0.f, 0.f, 0.f);
-
-     // Try these
      xPID = new QuadPIDController();
      xPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-     xPID->SetGains(2.329f, 3.626f, 1.832f);
-
+     xPID->SetGains(1.f,  0.f, 0.1f);
+    
      yPID = new QuadPIDController();
      yPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-     yPID->SetGains(2.329f, 3.626f, 1.832f);
-
+     yPID->SetGains(1.f,  0.f, 0.1f);
+    
      zPID = new QuadPIDController();
      zPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-     zPID->SetGains(5.344f, 1.f, 0.1f);
-
+     zPID->SetGains(5.f,  1.f, 0.1f);
+    
      pitchAttitudePID = new QuadPIDController();
      pitchAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
-     pitchAttitudePID->SetGains(11.755f, 5.267f, 9.008f);
-
+     pitchAttitudePID->SetGains(2.934f, 0.297f, 3.633f);
+    
      rollAttitudePID = new QuadPIDController();
      rollAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
-     rollAttitudePID->SetGains(11.755f, 5.267f, 9.008f);
-
+     rollAttitudePID->SetGains(2.934f, 0.297f, 3.633f);
+    
      yawAttitudePID = new QuadPIDController();
      yawAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
      yawAttitudePID->SetGains(0.f, 0.f, 0.f);
+
+     // Try these
+     //xPID = new QuadPIDController();
+     //xPID->SetLimits(-maxPIDOutput, maxPIDOutput);
+     //xPID->SetGains(2.329f, 3.626f, 1.832f);
+
+     //yPID = new QuadPIDController();
+     //yPID->SetLimits(-maxPIDOutput, maxPIDOutput);
+     //yPID->SetGains(2.329f, 3.626f, 1.832f);
+
+     //zPID = new QuadPIDController();
+     //zPID->SetLimits(-maxPIDOutput, maxPIDOutput);
+     //zPID->SetGains(5.344f, 1.f, 0.1f);
+
+     //pitchAttitudePID = new QuadPIDController();
+     //pitchAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
+     //pitchAttitudePID->SetGains(11.755f, 5.267f, 9.008f);
+
+     //rollAttitudePID = new QuadPIDController();
+     //rollAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
+     //rollAttitudePID->SetGains(11.755f, 5.267f, 9.008f);
+
+     //yawAttitudePID = new QuadPIDController();
+     //yawAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
+     //yawAttitudePID->SetGains(0.f, 0.f, 0.f);
 
     // Move by Velocity
      xPIDVelocity = new QuadPIDController();

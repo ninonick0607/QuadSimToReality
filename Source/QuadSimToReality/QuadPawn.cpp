@@ -5,6 +5,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Math/UnrealMathUtility.h"
+#include "EngineUtils.h"
 #include "Engine/Engine.h"
 #include "Kismet/GameplayStatics.h"
 #include "DrawDebugHelpers.h"
@@ -29,6 +30,74 @@ static TArray<FVector> make_test_dests()
         float z_base = 1000;
         xyzSetpoint.Add(FVector(last.X + (x ? step : -step), last.Y + (y ? step : -step), z ? z_base + z_step : z_base - z_step));
     }
+    return xyzSetpoint;
+}
+
+static TArray<FVector> spiralWaypoints()
+{
+    TArray<FVector> xyzSetpoint;
+    const float startHeight = 1000.0f;  // Height relative to current position (cm)
+    const float maxHeight = 10000.0f;   // Maximum height relative to start (cm)
+    const float radius = 3000.0f;       // Radius of spiral (cm)
+    const float heightStep = 500.0f;    // Vertical distance between loops (cm)
+    const int pointsPerLoop = 8;        // Number of points to create per loop
+    const float angleStep = 2.0f * PI / pointsPerLoop;  // Angle between each point
+
+    // Get current position
+    AQuadPawn* drone = nullptr;
+    FVector currentPos = FVector::ZeroVector;
+
+    // Find the drone in the world
+    for (TActorIterator<AQuadPawn> ActorItr(GWorld); ActorItr; ++ActorItr)
+    {
+        drone = *ActorItr;
+        if (drone)
+        {
+            currentPos = drone->GetActorLocation();
+            break;
+        }
+    }
+
+    // First point at starting height above current position
+    xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + startHeight));
+
+    // Calculate number of loops needed
+    int numLoops = FMath::CeilToInt((maxHeight - startHeight) / heightStep);
+
+    // Generate upward spiral
+    for (int loop = 0; loop < numLoops; loop++)
+    {
+        float height = currentPos.Z + startHeight + (loop * heightStep);
+
+        for (int point = 0; point < pointsPerLoop; point++)
+        {
+            float angle = point * angleStep;
+            float x = currentPos.X + radius * FMath::Cos(angle);
+            float y = currentPos.Y + radius * FMath::Sin(angle);
+            xyzSetpoint.Add(FVector(x, y, height));
+        }
+    }
+
+    // Add point at max height above current position
+    xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + maxHeight));
+
+    // Generate downward spiral (in reverse order)
+    for (int loop = numLoops - 1; loop >= 0; loop--)
+    {
+        float height = currentPos.Z + startHeight + (loop * heightStep);
+
+        for (int point = pointsPerLoop - 1; point >= 0; point--)
+        {
+            float angle = point * angleStep;
+            float x = currentPos.X + radius * FMath::Cos(angle);
+            float y = currentPos.Y + radius * FMath::Sin(angle);
+            xyzSetpoint.Add(FVector(x, y, height));
+        }
+    }
+
+    // Final point back at starting height above current position
+    xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + startHeight));
+
     return xyzSetpoint;
 }
 AQuadPawn::AQuadPawn()
@@ -128,7 +197,7 @@ void AQuadPawn::BeginPlay()
     NewWaypoint = FVector(0.0f, 0.0f, 0.0f);
     ManualWaypoints.Empty();
     // for testing
-    this->quadController->AddNavPlan("TestPlan", make_test_dests());
+    this->quadController->AddNavPlan("TestPlan", spiralWaypoints());
     this->quadController->SetNavPlan("TestPlan");
 
     for (auto& rotor : Rotors)
