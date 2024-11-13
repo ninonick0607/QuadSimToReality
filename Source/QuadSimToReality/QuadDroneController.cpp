@@ -37,7 +37,7 @@ QuadDroneController::QuadDroneController(AQuadPawn* InPawn)
     Thrusts.SetNum(4);
     // This all just setup for the gains i have for each flight mode.
     // Each flight mode requires different games due to the differences in how they operate and manuever
-     //Auto Waypoint
+    //Auto Waypoint
      xPID = new QuadPIDController();
      xPID->SetLimits(-maxPIDOutput, maxPIDOutput);
      xPID->SetGains(1.f,  0.f, 0.1f);
@@ -1315,7 +1315,7 @@ void QuadDroneController::RenderImGuiVelocity(
     velocityChanged |= ImGui::SliderFloat("Desired Velocity Y", &tempVy, -maxVelocity, maxVelocity);
 
     // Slider for Velocity Z
-    velocityChanged |= ImGui::SliderFloat("Desired Velocity Z", &tempVz, -maxVelocity, maxVelocity);
+    velocityChanged |= ImGui::SliderFloat("Desired Velocity Z", &tempVz, 0, maxVelocity);
 
     // If any velocity slider was changed, call MoveByVelocity
     if (velocityChanged)

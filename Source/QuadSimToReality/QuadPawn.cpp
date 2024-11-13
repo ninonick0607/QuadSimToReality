@@ -114,7 +114,7 @@ AQuadPawn::AQuadPawn()
     const FString ThrusterNames[] = { TEXT("ThrusterFL"), TEXT("ThrusterFR"), TEXT("ThrusterBL"), TEXT("ThrusterBR") };
 
     // Initialize components
-    DroneBody = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("DroneBody"));
+    DroneBody = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("DroneBody"));
     SetRootComponent(DroneBody);
 
     DroneBody->SetSimulatePhysics(true);
@@ -203,13 +203,13 @@ void AQuadPawn::BeginPlay()
     for (auto& rotor : Rotors)
     {
         rotor.Thruster->ThrustStrength = 0.0f;
-        rotor.Mesh->GetBodyInstance()->SetMassOverride(1.0f);
-        rotor.Mesh->GetBodyInstance()->UpdateMassProperties();
+        //rotor.Mesh->GetBodyInstance()->SetMassOverride(1.0f);
+        //rotor.Mesh->GetBodyInstance()->UpdateMassProperties();
     }
     
     float DroneMass = 1.0f; // Adjust this value to something appropriate for the drone size
-    DroneBody->GetBodyInstance()->SetMassOverride(DroneMass);   
-    DroneBody->GetBodyInstance()->UpdateMassProperties();
+    //DroneBody->GetBodyInstance()->SetMassOverride(DroneMass);   
+    //DroneBody->GetBodyInstance()->UpdateMassProperties();
     
     quadController->Reset();
     Camera->SetActive(true);

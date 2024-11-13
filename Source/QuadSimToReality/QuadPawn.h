@@ -38,7 +38,7 @@ public:
 
     // Drone components
     UPROPERTY(EditAnywhere, Category = "Drone Components")
-    UStaticMeshComponent* DroneBody;
+    USkeletalMeshComponent* DroneBody;
 
     UPROPERTY(EditAnywhere, Category = "Drone Components")
     UStaticMeshComponent* DroneCamMesh;
