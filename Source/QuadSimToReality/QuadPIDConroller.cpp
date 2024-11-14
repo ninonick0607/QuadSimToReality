@@ -1,10 +1,4 @@
 // QuadPIDController.cpp
-
-// #include "QuadPIDConroller.h"
-// #include "Math/UnrealMathUtility.h"
-// DEFINE_LOG_CATEGORY(PositionPIDLog);
-// DEFINE_LOG_CATEGORY(AttitudePIDLog);
-
 #include "QuadPIDConroller.h"
 #include "Math/UnrealMathUtility.h"
 
