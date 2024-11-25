@@ -1,23 +1,52 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
-
 using UnrealBuildTool;
+using System.IO;
 
 public class QuadSimToReality : ModuleRules
 {
-	public QuadSimToReality(ReadOnlyTargetRules Target) : base(Target)
-	{
-		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
-	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput","ImGui","Slate","SlateCore" ,"UMG" });
+    public QuadSimToReality(ReadOnlyTargetRules Target) : base(Target)
+    {
+        PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		PrivateDependencyModuleNames.AddRange(new string[] {  });
+        // Add public dependency module names
+        PublicDependencyModuleNames.AddRange(new string[] {
+            "Core",
+            "CoreUObject",
+            "Engine",
+            "InputCore",
+            "EnhancedInput",
+            "ChaosVehicles",
+            "PhysicsCore",
+            "RenderCore",
+            "RHI",
+            "Sockets",
+            "Networking",
+            "ImGui",
+            "Slate",
+            "SlateCore",
+            "UMG" 
+            // Add any other modules you need
+        });
 
-		// Uncomment if you are using Slate UI
-		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
-		
-		// Uncomment if you are using online features
-		// PrivateDependencyModuleNames.Add("OnlineSubsystem");
+        PrivateDependencyModuleNames.AddRange(new string[] { });
+        // Third-party library paths
+        string ThirdPartyPath = Path.Combine(ModuleDirectory, "../../ThirdParty/");
+        string ZeroMQPath = Path.Combine(ThirdPartyPath, "ZeroMQ");
+        string ZeroMQLibPath = Path.Combine(ZeroMQPath, "lib");
+        string ZeroMQIncludePath = Path.Combine(ZeroMQPath, "include");
 
-		// To include OnlineSubsystemSteam, add it to the plugins section in your uproject file with the Enabled attribute set to true
-	}
+        // Include paths
+        PublicIncludePaths.AddRange(new string[] {
+            ZeroMQIncludePath,
+            Path.Combine(ThirdPartyPath, "cppzmq", "include"),
+        });
+
+        // Library paths and libraries
+        PublicAdditionalLibraries.Add(Path.Combine(ZeroMQLibPath, "libzmq-v143-mt-4_3_6.lib"));
+
+        // Delay-load the DLL
+        PublicDelayLoadDLLs.Add("libzmq-v143-mt-4_3_6.dll");
+
+        // Add the DLL as a runtime dependency
+        RuntimeDependencies.Add("$(BinaryOutputDir)/libzmq-v143-mt-4_3_6.dll", Path.Combine(ZeroMQLibPath, "libzmq-v143-mt-4_3_6.dll"));
+    }
 }

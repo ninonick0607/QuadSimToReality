@@ -8,6 +8,7 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "QuadDroneController.h"
+
 #include "QuadPawn.generated.h"
 
 #define ACCEPTABLE_DIST 200
@@ -130,7 +131,9 @@ public:
     TArray<UPhysicsThrusterComponent*> Thrusters;
     
     // Drone controller
-    QuadDroneController* quadController;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Controller", meta = (AllowPrivateAccess = "true"))
+    UQuadDroneController* QuadController;
+
     void HandleThrustInput(float Value);
     void HandleYawInput(float Value);
     void HandlePitchInput(float Value);
@@ -140,21 +143,14 @@ protected:
     // Overridden function called when the game starts or when spawned
     virtual void BeginPlay() override;
 
-private:
-
-
-    // Function declarations
-    void RenderWaypointModeSelection();
-    void RenderManualWaypointInput();
-    
+private:    
     // Helper functions
-    //void UpdateAnimation(float DeltaTime);
     void UpdateControl(float DeltaTime);
     void InitializeRotors();
-    void InitializeWaypointMode();
 
     bool bWaypointModeSelected;
     // Input components
+    UPROPERTY(VisibleAnywhere)
     UInputComponent* Input_ToggleImguiInput;
 
 

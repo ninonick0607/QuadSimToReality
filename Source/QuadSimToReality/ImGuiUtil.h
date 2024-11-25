@@ -5,7 +5,9 @@
 // Forward declarations
 class AQuadPawn;
 class QuadPIDController;
-class QuadDroneController;
+class UQuadDroneController;
+
+
 
 class QUADSIMTOREALITY_API ImGuiUtil
 {
@@ -14,7 +16,7 @@ public:
 
     ImGuiUtil(
         AQuadPawn* InPawn,
-        QuadDroneController* InController,
+        UQuadDroneController* InController,
         FVector IndesiredNewVelocity,
         bool& InInitialTakeoff,
         bool& InAltitudeReached,
@@ -45,8 +47,6 @@ public:
         QuadPIDController* InyawAttitudePIDJoyStick
     );
     ~ImGuiUtil();
-
-    // Your existing methods...
     void AutoWaypointHud(
         TArray<float>& ThrustsVal,
         float rollError,
@@ -55,7 +55,6 @@ public:
         const FVector& waypoint,
         const FVector& currLoc,
         const FVector& error,
-        const FVector& desiredVelocity,
         const FVector& currentVelocity,
         float xOutput,
         float yOutput,
@@ -71,7 +70,6 @@ public:
         const FVector& waypoint,
         const FVector& currLoc,
         const FVector& error,
-        const FVector& desiredVelocity,
         const FVector& currentVelocity,
         float xOutput,
         float yOutput,
@@ -87,16 +85,46 @@ public:
         const FVector& waypoint,
         const FVector& currLoc,
         const FVector& error,
-        const FVector& desiredVelocity,
         const FVector& currentVelocity,
         float xOutput,
         float yOutput,
         float zOutput,
         float deltaTime
     );
-    void RenderImPlot(TArray<float>& ThrustsVal, float rollError, float pitchError, const FRotator& currentRotation, const FVector& waypoint, const FVector& currLoc, const FVector& error, const FVector& desiredVelocity, const FVector& currentVelocity, float xOutput, float yOutput, float zOutput, float rollOutput, float pitchOutput, float yawOutput, float deltaTime);
-
+    void RenderImPlot(
+        const TArray<float>& ThrustsVal,
+        float deltaTime
+    );
+    //void RenderImPlot(
+    //    TArray<float>& ThrustsVal,
+    //    float rollError,
+    //    float pitchError,
+    //    const FRotator& currentRotation,
+    //    const FVector& waypoint,
+    //    const FVector& currLoc,
+    //    const FVector& error,
+    //    const FVector& currentVelocity,
+    //    float xOutput,
+    //    float yOutput,
+    //    float zOutput,
+    //    float rollOutput,
+    //    float pitchOutput,
+    //    float yawOutput,
+    //    float deltaTime
+    //);
 private:
+
+    void DisplayDroneInfo();
+    void DisplayDebugOptions();
+    void DisplayThrusterControls(TArray<float>& ThrustsVal);
+    void DisplayPIDSettings(
+        QuadPIDController* xPIDParam, QuadPIDController* yPIDParam, QuadPIDController* zPIDParam,
+        QuadPIDController* rollPIDParam, QuadPIDController* pitchPIDParam, QuadPIDController* yawPIDParam,
+        const char* headerLabel, bool& synchronizeXYGains, bool& synchronizeGains);
+    void DisplayCameraControls();
+    void DisplayResetDroneButtons();
+    void DisplayDesiredVelocities();
+
     // Member variables
     AQuadPawn* dronePawn;
     bool& initialTakeoff;
@@ -128,27 +156,15 @@ private:
     QuadPIDController* pitchAttitudePIDJoyStick;
     QuadPIDController* yawAttitudePIDJoyStick;
 
-    QuadDroneController* controller;
+    UQuadDroneController* controller;
     FVector desiredNewVelocity;
-
-protected:
-    // Your existing protected variables...
+    // Member variables for thrust plotting
     TArray<float> TimeData;
-    TArray<float> waypointArrayX;
-    TArray<float> waypointArrayY;
-    TArray<float> waypointArrayZ;
-    TArray<float> currentPosArrayX;
-    TArray<float> currentPosArrayY;
-    TArray<float> currentPosArrayZ;
-    TArray<TArray<float>> thrustValues;
-
-    TArray<float> xPIDOutputHistory;
-    TArray<float> yPIDOutputHistory;
-    TArray<float> zPIDOutputHistory;
-    TArray<float> rollPIDOutputHistory;
-    TArray<float> pitchPIDOutputHistory;
-    TArray<float> yawPIDOutputHistory;
-    TArray<float> positionErrorHistory;
-    TArray<float> velocityErrorHistory;
+    TArray<float> Thrust0Data;
+    TArray<float> Thrust1Data;
+    TArray<float> Thrust2Data;
+    TArray<float> Thrust3Data;
     float CumulativeTime = 0.0f;
+    float MaxPlotTime = 10.0f; // Shows last 10 seconds
+    static const int MaxDataPoints = 1000;
 };

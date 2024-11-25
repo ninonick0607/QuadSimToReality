@@ -5,15 +5,21 @@
 #include "CoreMinimal.h"
 #include "QuadPIDConroller.h"
 #include "ImGuiUtil.h"
+#include "QuadDroneController.generated.h"
 
 class AQuadPawn; // Forward declaration
 
-
-class QUADSIMTOREALITY_API QuadDroneController
+UCLASS(Blueprintable, BlueprintType)
+class QUADSIMTOREALITY_API UQuadDroneController : public UObject
 {
-	friend class ImGuiUtil;
+	GENERATED_BODY()
 
 public:
+	UQuadDroneController(const FObjectInitializer& ObjectInitializer);
+
+	void Initialize(AQuadPawn* InPawn);
+
+	virtual ~UQuadDroneController();
 
 	enum class FlightMode
 	{
@@ -26,16 +32,24 @@ public:
 	};
 
 
-	QuadDroneController(AQuadPawn* InPawn);
-	~QuadDroneController();
+	UPROPERTY()
+	AQuadPawn* dronePawn;
+	UPROPERTY()
+	TArray<float> Thrusts;
 
 	void SetDesiredVelocity(const FVector& NewVelocity);
 	void SetFlightMode(FlightMode NewMode);
 	FlightMode GetFlightMode() const;
-	void Reset();
+
+	void ResetPID();
+
+	void ThrustMixer(float xOutput, float yOutput, float zOutput, float rollOutput, float pitchOutput);
+	FVector CalculateDesiredVelocity(const FVector& error, float InMaxVelocity);
+	float CalculateDesiredRoll(const FVector& normalizedError, const FVector& droneForwardVector, float maxTilt, float altitudeThreshold);
+	float CalculateDesiredPitch(const FVector& normalizedError, const FVector& droneForwardVector, float maxTilt, float altitudeThreshold);
+
 	void Update(double DeltaTime);
 	void AutoWaypointControl(double DeltaTime);
-	void ThrustMixer(float xOutput,float yOutput,float zOutput,float rollOutput,float pitchOutput);
 	void VelocityControl(double a_deltaTime);
 	void ManualThrustControl(double a_deltaTime);
 	void AddNavPlan(FString Name, TArray<FVector> Waypoints);
@@ -48,9 +62,6 @@ public:
 	void HandleRollInput(float Value);
 	void ApplyControllerInput(double a_deltaTime);
 
-	bool CheckForCrashOrUnstableCondition();
-	void StartAutoTune();            
-	void StopAutoTune();           
 
 private:
 
@@ -59,8 +70,6 @@ private:
 	float desiredAltitude;
 	bool bDesiredAltitudeInitialized;
 
-	AQuadPawn* dronePawn;
-	TArray<float> Thrusts;
 	FlightMode currentFlightMode;
 
 	struct NavPlan
@@ -72,15 +81,13 @@ private:
 	TArray<NavPlan> setPointNavigation;
 	NavPlan* currentNav;
 	int32 curPos;
-
-	ImGuiUtil* AutoWaypointHUD;
-	ImGuiUtil* VelocityHUD;
-	ImGuiUtil* JoyStickHUD;
-	ImGuiUtil* ManualThrustHUD;
-
      
-	float totalElapsedTime;
-	FVector desiredNewVelocity = FVector(0, 0, 0);
+	TUniquePtr<ImGuiUtil> AutoWaypointHUD;
+	TUniquePtr<ImGuiUtil> VelocityHUD;
+	TUniquePtr<ImGuiUtil>JoyStickHUD;
+	TUniquePtr<ImGuiUtil> ManualThrustHUD;
+
+	FVector desiredNewVelocity;
 
 	float maxVelocity;
 	float maxAngle;
@@ -98,47 +105,27 @@ private:
 	float hoverThrust;
 	bool bHoverThrustInitialized;
 
-	QuadPIDController* xPID;
-	QuadPIDController* yPID;
-	QuadPIDController* zPID;
-	QuadPIDController* rollAttitudePID;
-	QuadPIDController* pitchAttitudePID;
-	QuadPIDController* yawAttitudePID;
+	TUniquePtr<QuadPIDController> xPID;
+	TUniquePtr<QuadPIDController> yPID;
+	TUniquePtr<QuadPIDController> zPID;
+	TUniquePtr<QuadPIDController> rollAttitudePID;
+	TUniquePtr<QuadPIDController> pitchAttitudePID;
+	TUniquePtr<QuadPIDController> yawAttitudePID;
 
-	QuadPIDController* xPIDVelocity;
-	QuadPIDController* yPIDVelocity;
-	QuadPIDController* zPIDVelocity;
-	QuadPIDController* rollAttitudePIDVelocity;
-	QuadPIDController* pitchAttitudePIDVelocity;
-	QuadPIDController* yawAttitudePIDVelocity;
+	TUniquePtr<QuadPIDController> xPIDVelocity;
+	TUniquePtr<QuadPIDController> yPIDVelocity;
+	TUniquePtr<QuadPIDController> zPIDVelocity;
+	TUniquePtr<QuadPIDController> rollAttitudePIDVelocity;
+	TUniquePtr<QuadPIDController> pitchAttitudePIDVelocity;
+	TUniquePtr<QuadPIDController> yawAttitudePIDVelocity;
 
-	QuadPIDController* xPIDJoyStick;
-	QuadPIDController* yPIDJoyStick;
-	QuadPIDController* zPIDJoyStick;
-	QuadPIDController* rollAttitudePIDJoyStick;
-	QuadPIDController* pitchAttitudePIDJoyStick;
-	QuadPIDController* yawAttitudePIDJoyStick;
+	TUniquePtr<QuadPIDController> xPIDJoyStick;
+	TUniquePtr<QuadPIDController> yPIDJoyStick;
+	TUniquePtr<QuadPIDController> zPIDJoyStick;
+	TUniquePtr<QuadPIDController> rollAttitudePIDJoyStick;
+	TUniquePtr<QuadPIDController> pitchAttitudePIDJoyStick;
+	TUniquePtr<QuadPIDController> yawAttitudePIDJoyStick;
 
 
-	//Auto tuner testing
-	bool bAutoTune;
-	bool bAutoTuneInProgress;
-	float autoTuneIterationTime;
-	float autoTuneElapsedTime;
-	int currentPIDParameterIndex;
 
-	// Ziegler–Nichols tuning variables
-	bool bZNTuningInProgress;
-	float kpInitial;
-	float kpCurrent;
-	float ultimateGain;
-	float ultimatePeriod;
-	float znTestDuration;
-	float znObservationTime;
-	int znOscillationCount;
-	bool bOscillating;
-	float znPrevError;
-	float lastSetTime;
-
-	void PerformZieglerNicholsTuning(double deltaTime);
 };

@@ -13,94 +13,30 @@
 
 #define EPSILON 0.0001f
 
-const FVector start = FVector(0, 0, 1000);
 
-static TArray<FVector> make_test_dests()
-{
-    const int step = 1000;
-    const int z_step = 200;
-    TArray<FVector> xyzSetpoint;
-    xyzSetpoint.Add(start);
-    for (int i = 0; i < 1000; i++)
-    {
-        bool z = FMath::RandBool();
-        bool x = FMath::RandBool();
-        bool y = FMath::RandBool();
-        FVector last = xyzSetpoint[xyzSetpoint.Num() - 1];
-        float z_base = 1000;
-        xyzSetpoint.Add(FVector(last.X + (x ? step : -step), last.Y + (y ? step : -step), z ? z_base + z_step : z_base - z_step));
-    }
-    return xyzSetpoint;
-}
-
-static TArray<FVector> spiralWaypoints()
-{
-    TArray<FVector> xyzSetpoint;
-    const float startHeight = 1000.0f;  // Height relative to current position (cm)
-    const float maxHeight = 10000.0f;   // Maximum height relative to start (cm)
-    const float radius = 3000.0f;       // Radius of spiral (cm)
-    const float heightStep = 500.0f;    // Vertical distance between loops (cm)
-    const int pointsPerLoop = 8;        // Number of points to create per loop
-    const float angleStep = 2.0f * PI / pointsPerLoop;  // Angle between each point
-
-    // Get current position
-    AQuadPawn* drone = nullptr;
-    FVector currentPos = FVector::ZeroVector;
-
-    // Find the drone in the world
-    for (TActorIterator<AQuadPawn> ActorItr(GWorld); ActorItr; ++ActorItr)
-    {
-        drone = *ActorItr;
-        if (drone)
-        {
-            currentPos = drone->GetActorLocation();
-            break;
-        }
-    }
-
-    // First point at starting height above current position
-    xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + startHeight));
-
-    // Calculate number of loops needed
-    int numLoops = FMath::CeilToInt((maxHeight - startHeight) / heightStep);
-
-    // Generate upward spiral
-    for (int loop = 0; loop < numLoops; loop++)
-    {
-        float height = currentPos.Z + startHeight + (loop * heightStep);
-
-        for (int point = 0; point < pointsPerLoop; point++)
-        {
-            float angle = point * angleStep;
-            float x = currentPos.X + radius * FMath::Cos(angle);
-            float y = currentPos.Y + radius * FMath::Sin(angle);
-            xyzSetpoint.Add(FVector(x, y, height));
-        }
-    }
-
-    // Add point at max height above current position
-    xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + maxHeight));
-
-    // Generate downward spiral (in reverse order)
-    for (int loop = numLoops - 1; loop >= 0; loop--)
-    {
-        float height = currentPos.Z + startHeight + (loop * heightStep);
-
-        for (int point = pointsPerLoop - 1; point >= 0; point--)
-        {
-            float angle = point * angleStep;
-            float x = currentPos.X + radius * FMath::Cos(angle);
-            float y = currentPos.Y + radius * FMath::Sin(angle);
-            xyzSetpoint.Add(FVector(x, y, height));
-        }
-    }
-
-    // Final point back at starting height above current position
-    xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + startHeight));
-
-    return xyzSetpoint;
-}
 AQuadPawn::AQuadPawn()
+    : DroneBody(nullptr)                           // 1
+    , DroneCamMesh(nullptr)                        // 2
+    , SpringArm(nullptr)                           // 3
+    , Camera(nullptr)                              // 4
+    , CameraFPV(nullptr)                           // 5
+    , ThrusterFL(nullptr)                          // 6
+    , ThrusterFR(nullptr)                          // 7
+    , ThrusterBL(nullptr)                          // 8
+    , ThrusterBR(nullptr)                          // 9
+    , MotorFL(nullptr)                             // 10
+    , MotorFR(nullptr)                             // 11
+    , MotorBL(nullptr)                             // 12
+    , MotorBR(nullptr)                             // 13
+    , WaypointMode(EWaypointMode::WaitingForModeSelection)  // 14
+    , ManualWaypoints()                            // 15
+    , NewWaypoint(FVector::ZeroVector)             // 16
+    , Rotors()                                     // 17
+    , Motors()                                     // 18
+    , Thrusters()                                  // 19
+    , QuadController(nullptr)                      // 20
+    , bWaypointModeSelected(false)                 // 21
+    , Input_ToggleImguiInput(nullptr)
 {
     PrimaryActorTick.bCanEverTick = true;
 
@@ -122,16 +58,16 @@ AQuadPawn::AQuadPawn()
     DroneBody->SetAngularDamping(1.0f);
 
     DroneCamMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CamMesh"));
-    DroneCamMesh->AttachToComponent(DroneBody, FAttachmentTransformRules::KeepRelativeTransform);
+    DroneCamMesh->SetupAttachment(DroneBody);
 
     SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
-    SpringArm->AttachToComponent(DroneBody, FAttachmentTransformRules::KeepRelativeTransform);
+    SpringArm->SetupAttachment(DroneBody);
 
     Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
-    Camera->AttachToComponent(SpringArm, FAttachmentTransformRules::KeepRelativeTransform);
-    
+    Camera->SetupAttachment(SpringArm);
+
     CameraFPV = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraFPV"));
-    CameraFPV->AttachToComponent(DroneBody, FAttachmentTransformRules::KeepWorldTransform);
+    CameraFPV->SetupAttachment(DroneBody);
 
     CameraFPV->SetRelativeLocation(FVector(0, 0, 10));
 
@@ -177,10 +113,8 @@ AQuadPawn::AQuadPawn()
     bWaypointModeSelected = false;
 
     // Initialize the drone controller
-    quadController = new QuadDroneController(this);
-
-    Input_ToggleImguiInput = CreateDefaultSubobject<UInputComponent>(TEXT("Toggle Imgui Input"));
-    Input_ToggleImguiInput->BindKey(EKeys::I, IE_Pressed, this, &AQuadPawn::ToggleImguiInput).bExecuteWhenPaused = true;
+    QuadController = NewObject<UQuadDroneController>(this, TEXT("QuadDroneController"));
+    QuadController->Initialize(this);
 
 }
 
@@ -197,8 +131,8 @@ void AQuadPawn::BeginPlay()
     NewWaypoint = FVector(0.0f, 0.0f, 0.0f);
     ManualWaypoints.Empty();
     // for testing
-    this->quadController->AddNavPlan("TestPlan", spiralWaypoints());
-    this->quadController->SetNavPlan("TestPlan");
+    //this->QuadController->AddNavPlan("TestPlan", spiralWaypoints());
+    //this->QuadController->SetNavPlan("TestPlan");
 
     for (auto& rotor : Rotors)
     {
@@ -211,7 +145,7 @@ void AQuadPawn::BeginPlay()
     //DroneBody->GetBodyInstance()->SetMassOverride(DroneMass);   
     //DroneBody->GetBodyInstance()->UpdateMassProperties();
     
-    quadController->Reset();
+    QuadController->ResetPID();
     Camera->SetActive(true);
     CameraFPV->SetActive(false);
 }
@@ -254,33 +188,33 @@ void AQuadPawn::Tick(float DeltaTime)
 
 void AQuadPawn::HandleThrustInput(float Value)
 {
-    if (quadController)
+    if (QuadController)
     {
-        quadController->HandleThrustInput(Value);
+        QuadController->HandleThrustInput(Value);
     }
 }
 
 void AQuadPawn::HandleYawInput(float Value)
 {
-    if (quadController)
+    if (QuadController)
     {
-        quadController->HandleYawInput(Value);
+        QuadController->HandleYawInput(Value);
     }
 }
 
 void AQuadPawn::HandlePitchInput(float Value)
 {
-    if (quadController)
+    if (QuadController)
     {
-        quadController->HandlePitchInput(Value);
+        QuadController->HandlePitchInput(Value);
     }
 }
 
 void AQuadPawn::HandleRollInput(float Value)
 {
-    if (quadController)
+    if (QuadController)
     {
-        quadController->HandleRollInput(Value);
+        QuadController->HandleRollInput(Value);
     }
 }
 
@@ -293,11 +227,14 @@ void AQuadPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
     PlayerInputComponent->BindAxis("Yaw", this, &AQuadPawn::HandleYawInput);
     PlayerInputComponent->BindAxis("Pitch", this, &AQuadPawn::HandlePitchInput);
     PlayerInputComponent->BindAxis("Roll", this, &AQuadPawn::HandleRollInput);
+
+    PlayerInputComponent->BindAction("ToggleImGui", IE_Pressed, this, &AQuadPawn::ToggleImguiInput);
+
 }
 
 void AQuadPawn::UpdateControl(float DeltaTime)
 {
-    this->quadController->Update(DeltaTime);
+    this->QuadController->Update(DeltaTime);
 }
 
 
@@ -321,83 +258,4 @@ void AQuadPawn::InitializeRotors()
         Thrusters[i]->bAutoActivate = true;
         
     }
-}
-
-// Rendering waypoint selection using ImGui
-void AQuadPawn::RenderWaypointModeSelection()
-{
-    ImGui::Begin("Waypoint Mode Selection");
-    ImGui::Text("Select a Waypoint Mode");
-
-    if (!bWaypointModeSelected)
-    {
-        if (ImGui::Button("Random Waypoints"))
-        {
-            UE_LOG(LogTemp, Log, TEXT("Random Waypoints button pressed"));
-            quadController->Reset(); 
-            quadController->AddNavPlan("RandomPlan", make_test_dests());
-            quadController->SetNavPlan("RandomPlan");
-            WaypointMode = EWaypointMode::ReadyToStart;
-            bWaypointModeSelected = true;
-        }
-
-        if (ImGui::Button("Manual Waypoints"))
-        {
-            UE_LOG(LogTemp, Log, TEXT("Manual Waypoints button pressed"));
-            WaypointMode = EWaypointMode::ManualWaypointInput;
-            bWaypointModeSelected = true;
-        }
-    }
-
-    ImGui::End();
-}
-
-// Render manual waypoint input using ImGui
-void AQuadPawn::RenderManualWaypointInput()
-{
-    ImGui::Begin("Manual Waypoints Setup");
-
-    float waypointInput[3] = { static_cast<float>(NewWaypoint.X), static_cast<float>(NewWaypoint.Y), static_cast<float>(NewWaypoint.Z) };
-
-    if (ImGui::InputFloat3("New Waypoint", waypointInput))
-    {
-        NewWaypoint.X = static_cast<double>(waypointInput[0]);
-        NewWaypoint.Y = static_cast<double>(waypointInput[1]);
-        NewWaypoint.Z = static_cast<double>(waypointInput[2]);
-    }
-
-    if (ImGui::Button("Add Waypoint"))
-    {
-        ManualWaypoints.Add(NewWaypoint);
-    }
-
-    if (ImGui::Button("Clear Waypoints"))
-    {
-        ManualWaypoints.Empty();
-    }
-
-    ImGui::Separator();
-    ImGui::Text("Current Waypoints:");
-    for (int i = 0; i < ManualWaypoints.Num(); ++i)
-    {
-        ImGui::BulletText("Waypoint %d: X=%f, Y=%f, Z=%f", i + 1, ManualWaypoints[i].X, ManualWaypoints[i].Y, ManualWaypoints[i].Z);
-    }
-
-    ImGui::Separator();
-    if (ImGui::Button("Start Drone"))
-    {
-        if (ManualWaypoints.Num() > 0)
-        {
-            quadController->Reset(); 
-            quadController->AddNavPlan("ManualPlan", ManualWaypoints);
-            quadController->SetNavPlan("ManualPlan");
-            WaypointMode = EWaypointMode::ReadyToStart;
-        }
-        else
-        {
-            ImGui::Text("Please add at least one waypoint before starting the drone.");
-        }
-    }
-
-    ImGui::End();
 }

@@ -6,84 +6,165 @@
 #include "imgui.h"
 #include "implot.h"
 #include "string"
+#include "zmq.hpp"
+#include "ImGuiUtil.h"
 #include "Math/UnrealMathUtility.h"
 
 #define ACCEPTABLE_DIST 200
 
+const FVector start = FVector(0, 0, 1000);
 
+static TArray<FVector> make_test_dests()
+{
+    const int step = 1000;
+    const int z_step = 200;
+    TArray<FVector> xyzSetpoint;
+    xyzSetpoint.Add(start);
+    for (int i = 0; i < 1000; i++)
+    {
+        bool z = FMath::RandBool();
+        bool x = FMath::RandBool();
+        bool y = FMath::RandBool();
+        FVector last = xyzSetpoint[xyzSetpoint.Num() - 1];
+        float z_base = 1000;
+        xyzSetpoint.Add(FVector(last.X + (x ? step : -step), last.Y + (y ? step : -step), z ? z_base + z_step : z_base - z_step));
+    }
+    return xyzSetpoint;
+}
 
+//static TArray<FVector> spiralWaypoints()
+//{
+//    TArray<FVector> xyzSetpoint;
+//    const float startHeight = 1000.0f;  // Height relative to current position (cm)
+//    const float maxHeight = 10000.0f;   // Maximum height relative to start (cm)
+//    const float radius = 3000.0f;       // Radius of spiral (cm)
+//    const float heightStep = 500.0f;    // Vertical distance between loops (cm)
+//    const int pointsPerLoop = 8;        // Number of points to create per loop
+//    const float angleStep = 2.0f * PI / pointsPerLoop;  // Angle between each point
+//
+//    // Get current position
+//    AQuadPawn* drone = nullptr;
+//    FVector currentPos = FVector::ZeroVector;
+//
+//    // Find the drone in the world
+//    for (TActorIterator<AQuadPawn> ActorItr(GWorld); ActorItr; ++ActorItr)
+//    {
+//        drone = *ActorItr;
+//        if (drone)
+//        {
+//            currentPos = drone->GetActorLocation();
+//            break;
+//        }
+//    }
+//
+//    // First point at starting height above current position
+//    xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + startHeight));
+//
+//    // Calculate number of loops needed
+//    int numLoops = FMath::CeilToInt((maxHeight - startHeight) / heightStep);
+//
+//    // Generate upward spiral
+//    for (int loop = 0; loop < numLoops; loop++)
+//    {
+//        float height = currentPos.Z + startHeight + (loop * heightStep);
+//
+//        for (int point = 0; point < pointsPerLoop; point++)
+//        {
+//            float angle = point * angleStep;
+//            float x = currentPos.X + radius * FMath::Cos(angle);
+//            float y = currentPos.Y + radius * FMath::Sin(angle);
+//            xyzSetpoint.Add(FVector(x, y, height));
+//        }
+//    }
+//
+//    // Add point at max height above current position
+//    xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + maxHeight));
+//
+//    // Generate downward spiral (in reverse order)
+//    for (int loop = numLoops - 1; loop >= 0; loop--)
+//    {
+//        float height = currentPos.Z + startHeight + (loop * heightStep);
+//
+//        for (int point = pointsPerLoop - 1; point >= 0; point--)
+//        {
+//            float angle = point * angleStep;
+//            float x = currentPos.X + radius * FMath::Cos(angle);
+//            float y = currentPos.Y + radius * FMath::Sin(angle);
+//            xyzSetpoint.Add(FVector(x, y, height));
+//        }
+//    }
+//
+//    // Final point back at starting height above current position
+//    xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + startHeight));
+//
+//    return xyzSetpoint;
+//}
 
 // ---------------------- Constructor ------------------------
 
-QuadDroneController::QuadDroneController(AQuadPawn* InPawn)
-    : desiredYaw(0.f),
-    bDesiredYawInitialized(false),
-    desiredAltitude(0.0f),
-    bDesiredAltitudeInitialized(false),
-    dronePawn(InPawn),
-    currentNav(nullptr),
-    curPos(0),
-    currentFlightMode(FlightMode::None),
-    Thrusts({ 0, 0, 0, 0 }),
-    maxVelocity(250.0f),
-    maxAngle(15.f),
-    initialTakeoff(true),
-    altitudeReached(false),
-    Debug_DrawDroneCollisionSphere(true),
-    Debug_DrawDroneWaypoint(true),
-    thrustInput(0.0f),
-    yawInput(0.0f),
-    pitchInput(0.0f),
-    rollInput(0.0f),
-    bHoverThrustInitialized(false),
-    bAutoTune(false),
-    bAutoTuneInProgress(false),
-    autoTuneIterationTime(0.5f),
-    autoTuneElapsedTime(0.0f),
-    currentPIDParameterIndex(0),
-    bZNTuningInProgress(false),
-    kpInitial(0.0f),
-    kpCurrent(0.0f),
-    ultimateGain(0.0f),
-    ultimatePeriod(0.0f),
-    znTestDuration( 0.5f),
-    znObservationTime(0.0f),
-    znOscillationCount(0),
-    bOscillating(false),
-    znPrevError(0.0f),
-    lastSetTime(0.0f)
+UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectInitializer)
+    : dronePawn(nullptr),                                // 5
+    Thrusts({ 0, 0, 0, 0 }), 
+    desiredYaw(0.f),                                  // 1
+    bDesiredYawInitialized(false),                    // 2
+    desiredAltitude(0.0f),                            // 3
+    bDesiredAltitudeInitialized(false),               // 4
+
+                          // 6
+    currentFlightMode(FlightMode::None),              // 7
+
+    // setPointNavigation is default-initialized         // 8
+    currentNav(nullptr),                              // 9
+    curPos(0),                                        // 10
+
+    AutoWaypointHUD(nullptr),                         // 11
+    VelocityHUD(nullptr),                             // 12
+    JoyStickHUD(nullptr),                             // 13
+    ManualThrustHUD(nullptr),                         // 14
+
+    desiredNewVelocity(FVector(0, 0, 0)),             // 15
+
+    maxVelocity(250.0f),                              // 16
+    maxAngle(15.f),                                   // 17
+    initialTakeoff(true),                             // 18
+    altitudeReached(false),                           // 19
+    Debug_DrawDroneCollisionSphere(true),             // 20
+    Debug_DrawDroneWaypoint(true),                    // 21
+
+    // Static constants are not initialized here         // 22-24
+
+    thrustInput(0.0f),                                // 25
+    yawInput(0.0f),                                   // 26
+    pitchInput(0.0f),                                 // 27
+    rollInput(0.0f),                                  // 28
+    bHoverThrustInitialized(false)                    // 29
 {
 
+
     Thrusts.SetNum(4);
-    //Auto Tuning
-    bAutoTune = false;
-    bAutoTuneInProgress = false;
-    autoTuneIterationTime = 2.0f;  
-    autoTuneElapsedTime = 0.0f;
-    currentPIDParameterIndex = 0;
 
     // PID stuff
-    xPID = new QuadPIDController();
+    xPID = MakeUnique<QuadPIDController>();
     xPID->SetLimits(-maxPIDOutput, maxPIDOutput);
     xPID->SetGains(1.f,  0.f, 0.1f);
     
-    yPID = new QuadPIDController();
+    yPID = MakeUnique<QuadPIDController>();
     yPID->SetLimits(-maxPIDOutput, maxPIDOutput);
     yPID->SetGains(1.f,  0.f, 0.1f);
     
-    zPID = new QuadPIDController();
+    zPID = MakeUnique<QuadPIDController>();
     zPID->SetLimits(-maxPIDOutput, maxPIDOutput);
     zPID->SetGains(5.f,  1.f, 0.1f);
     
-    pitchAttitudePID = new QuadPIDController();
+    pitchAttitudePID = MakeUnique<QuadPIDController>();
     pitchAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
     pitchAttitudePID->SetGains(2.934f, 0.297f, 3.633f);
     
-    rollAttitudePID = new QuadPIDController();
+    rollAttitudePID = MakeUnique<QuadPIDController>();
     rollAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
     rollAttitudePID->SetGains(2.934f, 0.297f, 3.633f);
     
-    yawAttitudePID = new QuadPIDController();
+    yawAttitudePID = MakeUnique<QuadPIDController>();
     yawAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
     yawAttitudePID->SetGains(0.f, 0.f, 0.f);
 
@@ -113,100 +194,138 @@ QuadDroneController::QuadDroneController(AQuadPawn* InPawn)
     //yawAttitudePID->SetGains(0.f, 0.f, 0.f);
 
     // Move by Velocity
-    xPIDVelocity = new QuadPIDController();
+    xPIDVelocity = MakeUnique<QuadPIDController>();
     xPIDVelocity->SetLimits(-maxPIDOutput, maxPIDOutput);
     xPIDVelocity->SetGains(1.f, 0.f, 0.1f);
 
-    yPIDVelocity = new QuadPIDController();
+    yPIDVelocity = MakeUnique<QuadPIDController>();
     yPIDVelocity->SetLimits(-maxPIDOutput, maxPIDOutput);
     yPIDVelocity->SetGains(1.f, 0.f, 0.1f);
 
-    zPIDVelocity = new QuadPIDController();
+    zPIDVelocity = MakeUnique<QuadPIDController>();
     zPIDVelocity->SetLimits(-maxPIDOutput, maxPIDOutput);
     zPIDVelocity->SetGains(5.f, 1.f, 0.1f);
 
-    pitchAttitudePIDVelocity = new QuadPIDController();
+    pitchAttitudePIDVelocity = MakeUnique<QuadPIDController>();
     pitchAttitudePIDVelocity->SetLimits(-maxPIDOutput, maxPIDOutput);
     pitchAttitudePIDVelocity->SetGains(2.934f, 0.297f, 3.633f);
 
-    rollAttitudePIDVelocity = new QuadPIDController();
+    rollAttitudePIDVelocity = MakeUnique<QuadPIDController>();
     rollAttitudePIDVelocity->SetLimits(-maxPIDOutput, maxPIDOutput);
     rollAttitudePIDVelocity->SetGains(2.934f, 0.297f, 3.633f);
 
-    yawAttitudePIDVelocity = new QuadPIDController();
+    yawAttitudePIDVelocity = MakeUnique<QuadPIDController>();
     yawAttitudePIDVelocity->SetLimits(-maxPIDOutput, maxPIDOutput);
     yawAttitudePIDVelocity->SetGains(0.f, 0.f, 0.f);
 
     // Move by Controller
-    xPIDJoyStick = new QuadPIDController();
+    xPIDJoyStick = MakeUnique<QuadPIDController>();
     xPIDJoyStick->SetLimits(-maxPIDOutput, maxPIDOutput);
     xPIDJoyStick->SetGains(2.329f, 3.626f, 1.832f);
 
-    yPIDJoyStick = new QuadPIDController();
+    yPIDJoyStick = MakeUnique<QuadPIDController>();
     yPIDJoyStick->SetLimits(-maxPIDOutput, maxPIDOutput);
     yPIDJoyStick->SetGains(2.329f, 3.626f, 1.832f);
 
-    zPIDJoyStick = new QuadPIDController();
+    zPIDJoyStick = MakeUnique<QuadPIDController>();
     zPIDJoyStick->SetLimits(-maxPIDOutput, maxPIDOutput);
     zPIDJoyStick->SetGains(5.344f, 1.f, 0.1f);
 
-    pitchAttitudePIDJoyStick = new QuadPIDController();
+    pitchAttitudePIDJoyStick = MakeUnique<QuadPIDController>();
     pitchAttitudePIDJoyStick->SetLimits(-maxPIDOutput, maxPIDOutput);
     pitchAttitudePIDJoyStick->SetGains(11.755f, 5.267f, 9.008f);
 
-    rollAttitudePIDJoyStick = new QuadPIDController();
+    rollAttitudePIDJoyStick = MakeUnique<QuadPIDController>();
     rollAttitudePIDJoyStick->SetLimits(-maxPIDOutput, maxPIDOutput);
     rollAttitudePIDJoyStick->SetGains(11.755f, 5.267f, 9.008f);
 
-    yawAttitudePIDJoyStick = new QuadPIDController();
+    yawAttitudePIDJoyStick = MakeUnique<QuadPIDController>();
     yawAttitudePIDJoyStick->SetLimits(-maxPIDOutput, maxPIDOutput);
     yawAttitudePIDJoyStick->SetGains(0.f, 0.f, 0.f);
 
 
-    AutoWaypointHUD = new ImGuiUtil(dronePawn, this, desiredNewVelocity, initialTakeoff, altitudeReached, Debug_DrawDroneCollisionSphere, Debug_DrawDroneWaypoint, maxPIDOutput, altitudeThresh, minAltitudeLocal, maxVelocity, maxAngle, xPID, yPID, zPID, rollAttitudePID, pitchAttitudePID, yawAttitudePID, xPIDVelocity, yPIDVelocity, zPIDVelocity, rollAttitudePIDVelocity, pitchAttitudePIDVelocity, yawAttitudePIDVelocity, xPIDJoyStick, yPIDJoyStick, zPIDJoyStick, rollAttitudePIDJoyStick, pitchAttitudePIDJoyStick, yawAttitudePIDJoyStick);
-    VelocityHUD = new ImGuiUtil(dronePawn, this, desiredNewVelocity, initialTakeoff, altitudeReached, Debug_DrawDroneCollisionSphere, Debug_DrawDroneWaypoint, maxPIDOutput, altitudeThresh, minAltitudeLocal, maxVelocity, maxAngle, xPID, yPID, zPID, rollAttitudePID, pitchAttitudePID, yawAttitudePID, xPIDVelocity, yPIDVelocity, zPIDVelocity, rollAttitudePIDVelocity, pitchAttitudePIDVelocity, yawAttitudePIDVelocity, xPIDJoyStick, yPIDJoyStick, zPIDJoyStick, rollAttitudePIDJoyStick, pitchAttitudePIDJoyStick, yawAttitudePIDJoyStick);
-    JoyStickHUD = new ImGuiUtil(dronePawn, this, desiredNewVelocity, initialTakeoff, altitudeReached, Debug_DrawDroneCollisionSphere, Debug_DrawDroneWaypoint, maxPIDOutput, altitudeThresh, minAltitudeLocal, maxVelocity, maxAngle, xPID, yPID, zPID, rollAttitudePID, pitchAttitudePID, yawAttitudePID, xPIDVelocity, yPIDVelocity, zPIDVelocity, rollAttitudePIDVelocity, pitchAttitudePIDVelocity, yawAttitudePIDVelocity, xPIDJoyStick, yPIDJoyStick, zPIDJoyStick, rollAttitudePIDJoyStick, pitchAttitudePIDJoyStick, yawAttitudePIDJoyStick);
-    ManualThrustHUD = new ImGuiUtil(dronePawn, this, desiredNewVelocity, initialTakeoff, altitudeReached, Debug_DrawDroneCollisionSphere, Debug_DrawDroneWaypoint, maxPIDOutput, altitudeThresh, minAltitudeLocal, maxVelocity, maxAngle, xPID, yPID, zPID, rollAttitudePID, pitchAttitudePID, yawAttitudePID, xPIDVelocity, yPIDVelocity, zPIDVelocity, rollAttitudePIDVelocity, pitchAttitudePIDVelocity, yawAttitudePIDVelocity, xPIDJoyStick, yPIDJoyStick, zPIDJoyStick, rollAttitudePIDJoyStick, pitchAttitudePIDJoyStick, yawAttitudePIDJoyStick);
 
+    // Initialize ImGuiUtil instances using MakeUnique
+    AutoWaypointHUD = MakeUnique<ImGuiUtil>(
+        dronePawn, this, desiredNewVelocity, initialTakeoff, altitudeReached,
+        Debug_DrawDroneCollisionSphere, Debug_DrawDroneWaypoint, maxPIDOutput,
+        altitudeThresh, minAltitudeLocal, maxVelocity, maxAngle,
+        xPID.Get(), yPID.Get(), zPID.Get(), rollAttitudePID.Get(),
+        pitchAttitudePID.Get(), yawAttitudePID.Get(),
+        xPIDVelocity.Get(), yPIDVelocity.Get(), zPIDVelocity.Get(),
+        rollAttitudePIDVelocity.Get(), pitchAttitudePIDVelocity.Get(),
+        yawAttitudePIDVelocity.Get(),
+        xPIDJoyStick.Get(), yPIDJoyStick.Get(), zPIDJoyStick.Get(),
+        rollAttitudePIDJoyStick.Get(), pitchAttitudePIDJoyStick.Get(),
+        yawAttitudePIDJoyStick.Get()
+    );
+
+    VelocityHUD = MakeUnique<ImGuiUtil>(
+        dronePawn, this, desiredNewVelocity, initialTakeoff, altitudeReached,
+        Debug_DrawDroneCollisionSphere, Debug_DrawDroneWaypoint, maxPIDOutput,
+        altitudeThresh, minAltitudeLocal, maxVelocity, maxAngle,
+        xPID.Get(), yPID.Get(), zPID.Get(), rollAttitudePID.Get(),
+        pitchAttitudePID.Get(), yawAttitudePID.Get(),
+        xPIDVelocity.Get(), yPIDVelocity.Get(), zPIDVelocity.Get(),
+        rollAttitudePIDVelocity.Get(), pitchAttitudePIDVelocity.Get(),
+        yawAttitudePIDVelocity.Get(),
+        xPIDJoyStick.Get(), yPIDJoyStick.Get(), zPIDJoyStick.Get(),
+        rollAttitudePIDJoyStick.Get(), pitchAttitudePIDJoyStick.Get(),
+        yawAttitudePIDJoyStick.Get()
+    );
+
+    JoyStickHUD = MakeUnique<ImGuiUtil>(
+        dronePawn, this, desiredNewVelocity, initialTakeoff, altitudeReached,
+        Debug_DrawDroneCollisionSphere, Debug_DrawDroneWaypoint, maxPIDOutput,
+        altitudeThresh, minAltitudeLocal, maxVelocity, maxAngle,
+        xPID.Get(), yPID.Get(), zPID.Get(), rollAttitudePID.Get(),
+        pitchAttitudePID.Get(), yawAttitudePID.Get(),
+        xPIDVelocity.Get(), yPIDVelocity.Get(), zPIDVelocity.Get(),
+        rollAttitudePIDVelocity.Get(), pitchAttitudePIDVelocity.Get(),
+        yawAttitudePIDVelocity.Get(),
+        xPIDJoyStick.Get(), yPIDJoyStick.Get(), zPIDJoyStick.Get(),
+        rollAttitudePIDJoyStick.Get(), pitchAttitudePIDJoyStick.Get(),
+        yawAttitudePIDJoyStick.Get()
+    );
+
+    ManualThrustHUD = MakeUnique<ImGuiUtil>(
+        dronePawn, this, desiredNewVelocity, initialTakeoff, altitudeReached,
+        Debug_DrawDroneCollisionSphere, Debug_DrawDroneWaypoint, maxPIDOutput,
+        altitudeThresh, minAltitudeLocal, maxVelocity, maxAngle,
+        xPID.Get(), yPID.Get(), zPID.Get(), rollAttitudePID.Get(),
+        pitchAttitudePID.Get(), yawAttitudePID.Get(),
+        xPIDVelocity.Get(), yPIDVelocity.Get(), zPIDVelocity.Get(),
+        rollAttitudePIDVelocity.Get(), pitchAttitudePIDVelocity.Get(),
+        yawAttitudePIDVelocity.Get(),
+        xPIDJoyStick.Get(), yPIDJoyStick.Get(), zPIDJoyStick.Get(),
+        rollAttitudePIDJoyStick.Get(), pitchAttitudePIDJoyStick.Get(),
+        yawAttitudePIDJoyStick.Get()
+    );
 }
 
-QuadDroneController::~QuadDroneController()
+UQuadDroneController::~UQuadDroneController()
 {
-    // Just deleting all my PIDs
-    delete xPID;
-    delete yPID;
-    delete zPID;
-    delete rollAttitudePID;
-    delete pitchAttitudePID;
-    delete yawAttitudePID;
-
-    delete xPIDVelocity;
-    delete yPIDVelocity;
-    delete zPIDVelocity;
-    delete rollAttitudePIDVelocity;
-    delete pitchAttitudePIDVelocity;
-    delete yawAttitudePIDVelocity;
-
-    delete xPIDJoyStick;
-    delete yPIDJoyStick;
-    delete zPIDJoyStick;
-    delete rollAttitudePIDJoyStick;
-    delete pitchAttitudePIDJoyStick;
-    delete yawAttitudePIDJoyStick;
-
 }
 
+void UQuadDroneController::Initialize(AQuadPawn* InPawn)
+{
+    
+    dronePawn = InPawn;
+   
+}
 // ------------ Setter and Getter -------------------
-void QuadDroneController::SetDesiredVelocity(const FVector& NewVelocity)
+void UQuadDroneController::SetDesiredVelocity(const FVector& NewVelocity)
 {
     desiredNewVelocity = NewVelocity;
+    UE_LOG(LogTemp, Display, TEXT("SetDesiredVelocity called: %s"), *desiredNewVelocity.ToString());
+
 }
 
-void QuadDroneController::SetFlightMode(FlightMode NewMode)
+void UQuadDroneController::SetFlightMode(FlightMode NewMode)
 {
     currentFlightMode = NewMode;
 }
-QuadDroneController::FlightMode QuadDroneController::GetFlightMode() const
+UQuadDroneController::FlightMode UQuadDroneController::GetFlightMode() const
 {
     return currentFlightMode;
 }
@@ -214,7 +333,7 @@ QuadDroneController::FlightMode QuadDroneController::GetFlightMode() const
 
 // ---------------------- Waypoint Nav ------------------------
 
-void QuadDroneController::AddNavPlan(FString name, TArray<FVector> waypoints)
+void UQuadDroneController::AddNavPlan(FString name, TArray<FVector> waypoints)
 {
     NavPlan plan;
     plan.name = name;
@@ -222,7 +341,7 @@ void QuadDroneController::AddNavPlan(FString name, TArray<FVector> waypoints)
     setPointNavigation.Add(plan);
 }
 
-void QuadDroneController::SetNavPlan(FString name)
+void UQuadDroneController::SetNavPlan(FString name)
 {
     for (int i = 0; i < setPointNavigation.Num(); i++) {
         if (setPointNavigation[i].name == name) {
@@ -235,7 +354,7 @@ void QuadDroneController::SetNavPlan(FString name)
 
 // ---------------------- Reset PIDs ------------------------
 
-void QuadDroneController::Reset()
+void UQuadDroneController::ResetPID()
 {
     xPID->Reset();
     yPID->Reset();
@@ -263,7 +382,7 @@ void QuadDroneController::Reset()
 
 // ---------------------- Thrust, Desired Vel, Pitch, and Roll ------------------------
 
-void QuadDroneController::ThrustMixer(float xOutput,float yOutput,float zOutput,float rollOutput,float pitchOutput)
+void UQuadDroneController::ThrustMixer(float xOutput,float yOutput,float zOutput,float rollOutput,float pitchOutput)
 {
     //Order: FL,FR,BL,BR
 
@@ -296,14 +415,14 @@ void QuadDroneController::ThrustMixer(float xOutput,float yOutput,float zOutput,
     }
 }
 
-inline FVector CalculateDesiredVelocity(const FVector& error, float maxVelocity)
+FVector UQuadDroneController::CalculateDesiredVelocity(const FVector& error, float InMaxVelocity)
 {
     // Normalizing position error and multiplying with maxVel to get a smaller desiredVel
-    FVector desired_velocity = error.GetSafeNormal() * maxVelocity;
+    FVector desired_velocity = error.GetSafeNormal() * InMaxVelocity;
     return desired_velocity;
 }
 
-inline float CalculateDesiredRoll(const FVector& normalizedError, const FVector& droneForwardVector, float maxTilt, float altitudeThreshold)
+float UQuadDroneController::CalculateDesiredRoll(const FVector& normalizedError, const FVector& droneForwardVector, float maxTilt, float altitudeThreshold)
 {
     FVector horizontalError = FVector(normalizedError.X, normalizedError.Y, 0.0f);
     FVector horizontalNormalizedError = horizontalError.GetSafeNormal();
@@ -319,7 +438,7 @@ inline float CalculateDesiredRoll(const FVector& normalizedError, const FVector&
     }
 }
 
-inline float CalculateDesiredPitch(const FVector& normalizedError, const FVector& droneForwardVector, float maxTilt, float altitudeThreshold)
+float UQuadDroneController::CalculateDesiredPitch(const FVector& normalizedError, const FVector& droneForwardVector, float maxTilt, float altitudeThreshold)
 {
     FVector horizontalError = FVector(normalizedError.X, normalizedError.Y, 0.0f);
     FVector horizontalNormalizedError = horizontalError.GetSafeNormal();
@@ -338,8 +457,15 @@ inline float CalculateDesiredPitch(const FVector& normalizedError, const FVector
 
 // ---------------------- Update ------------------------
 
-void QuadDroneController::Update(double a_deltaTime)
+void UQuadDroneController::Update(double a_deltaTime)
 {
+    //this->QuadController->AddNavPlan("TestPlan", spiralWaypoints());
+    //this->QuadController->SetNavPlan("TestPlan");
+    AddNavPlan("TestPlan", make_test_dests());
+    SetNavPlan("TestPlan");
+
+    UE_LOG(LogTemp, Display, TEXT("uPDATE called: %s"), *desiredNewVelocity.ToString());
+
     ImGui::Begin("Flight Mode Selector");
 
     if (ImGui::Button("Auto Waypoint", ImVec2(200, 50)))
@@ -363,71 +489,35 @@ void QuadDroneController::Update(double a_deltaTime)
     {
         currentFlightMode = FlightMode::ManualFlightControl;
     }
-    if (ImGui::Button("Toggle Ziegler-Nichols AutoTune", ImVec2(250, 50)))
-    {
-        if (!bZNTuningInProgress)
-        {
-            bZNTuningInProgress = true;
-            kpInitial = xPID->ProportionalGain;
-            kpCurrent = kpInitial;
-            ultimateGain = 0.0f;
-            ultimatePeriod = 0.0f;
-            znObservationTime = 0.0f;
-            znOscillationCount = 0;
-            bOscillating = false;
-            znPrevError = 0.0f;
-            lastSetTime = 0.0f;
-
-            xPID->SetGains(0.0f, 0.0f, 0.0f);
-            yPID->SetGains(0.0f, 0.0f, 0.0f);
-            zPID->SetGains(0.0f, 0.0f, 0.0f);
-            rollAttitudePID->SetGains(0.0f, 0.0f, 0.0f);
-            pitchAttitudePID->SetGains(0.0f, 0.0f, 0.0f);
-            yawAttitudePID->SetGains(0.0f, 0.0f, 0.0f);
-
-        }
-        else
-        {
-            bZNTuningInProgress = false;
-            // If needed, revert to initial parameters or finalize them after tuning
-            xPID->SetGains(kpInitial, xPID->IntegralGain, xPID->DerivativeGain);
-        }
-    }
 
     // Adjust ImGui layout
     ImGui::End();
 
-    // If auto-tuning is active, run the tuning logic
-    if (bZNTuningInProgress)
+
+    switch (currentFlightMode)
     {
-        PerformZieglerNicholsTuning(a_deltaTime);
+    case FlightMode::None:
+        return;
+    case FlightMode::AutoWaypoint:
+        AutoWaypointControl(a_deltaTime);
+        break;
+    case FlightMode::ManualWaypoint:
+        //ManualWaypointControl(a_deltaTime);
+        break;
+    case FlightMode::ManualFlightControl:
+        ApplyControllerInput(a_deltaTime);
+        break;
+    case FlightMode::ManualThrustControl:
+        ManualThrustControl(a_deltaTime);
+        break;
+    case FlightMode::VelocityControl:
+        VelocityControl(a_deltaTime);
+        break;
     }
-    else
-    {
-        switch (currentFlightMode)
-        {
-        case FlightMode::None:
-            return;
-        case FlightMode::AutoWaypoint:
-            AutoWaypointControl(a_deltaTime);
-            break;
-        case FlightMode::ManualWaypoint:
-            //ManualWaypointControl(a_deltaTime);
-            break;
-        case FlightMode::ManualFlightControl:
-            ApplyControllerInput(a_deltaTime);
-            break;
-        case FlightMode::ManualThrustControl:
-            ManualThrustControl(a_deltaTime);
-            break;
-        case FlightMode::VelocityControl:
-            VelocityControl(a_deltaTime);
-            break;
-        }
-    }
+   
 }
 
-void QuadDroneController::ApplyControllerInput(double a_deltaTime)
+void UQuadDroneController::ApplyControllerInput(double a_deltaTime)
 {
     if (!dronePawn) return;
 
@@ -498,10 +588,10 @@ void QuadDroneController::ApplyControllerInput(double a_deltaTime)
     float xOutput = 0.0f;
     float yOutput = 0.0f;
 
-    JoyStickHUD->JoyStickHud(ThrustsVal, roll_error, pitch_error, currentRotation, waypoint, currentPosition, error, desiredVelocity, dronePawn->GetVelocity(), xOutput, yOutput, z_output, a_deltaTime);
+    //JoyStickHUD->JoyStickHud(ThrustsVal, roll_error, pitch_error, currentRotation, waypoint, currentPosition, error, desiredVelocity, dronePawn->GetVelocity(), xOutput, yOutput, z_output, a_deltaTime);
 }
 
-void QuadDroneController::AutoWaypointControl(double a_deltaTime)
+void UQuadDroneController::AutoWaypointControl(double a_deltaTime)
 {
     if (!currentNav || curPos >= currentNav->waypoints.Num()) return;
     
@@ -627,12 +717,12 @@ void QuadDroneController::AutoWaypointControl(double a_deltaTime)
         dronePawn->Rotors[i].Thruster->ThrustStrength = droneMass * mult * Thrusts[i];
     }
     
-    AutoWaypointHUD->AutoWaypointHud(Thrusts, roll_error, pitch_error, currentRotation, setPoint, currentPosition, positionError, desiredVelocity, currentVelocity, x_output, y_output, z_output,a_deltaTime); //****
-    AutoWaypointHUD->RenderImPlot(Thrusts, roll_error, pitch_error, currentRotation, setPoint, currentPosition, positionError, desiredVelocity, currentVelocity, x_output, y_output, z_output,roll_output,pitch_output,yaw_output,a_deltaTime);
+    AutoWaypointHUD->AutoWaypointHud(Thrusts, roll_error, pitch_error, currentRotation, setPoint, currentPosition, positionError, currentVelocity, x_output, y_output, z_output,a_deltaTime); //****
+    AutoWaypointHUD->RenderImPlot(Thrusts,a_deltaTime);
 
 }
 
-void QuadDroneController::ManualThrustControl(double a_deltaTime)
+void UQuadDroneController::ManualThrustControl(double a_deltaTime)
 {
     if (!dronePawn) return;
 
@@ -671,10 +761,10 @@ void QuadDroneController::ManualThrustControl(double a_deltaTime)
     float zOutput = 0.0f;
 
     // Call RenderImGui
-    ManualThrustHUD->AutoWaypointHud(Thrusts, 0.0f, 0.0f, currentRotation, waypoint, currentPosition, error, desiredVelocity, currentVelocity, xOutput, yOutput, zOutput, a_deltaTime);
+    //ManualThrustHUD->AutoWaypointHud(Thrusts, 0.0f, 0.0f, currentRotation, waypoint, currentPosition, error, desiredVelocity, currentVelocity, xOutput, yOutput, zOutput, a_deltaTime);
 }
 
-void QuadDroneController::VelocityControl(double a_deltaTime)
+void UQuadDroneController::VelocityControl(double a_deltaTime)
 {
     if (!dronePawn) return;
 
@@ -756,35 +846,35 @@ void QuadDroneController::VelocityControl(double a_deltaTime)
             2.0f
         );
     }
-    VelocityHUD->VelocityHud(Thrusts, roll_error, pitch_error, currentRotation, FVector::ZeroVector, dronePawn->GetActorLocation(), FVector::ZeroVector, desiredNewVelocity, currentVelocity, x_output, y_output, z_output, a_deltaTime);
-    VelocityHUD->RenderImPlot(Thrusts, roll_error, pitch_error, currentRotation, FVector::ZeroVector, dronePawn->GetActorLocation(), FVector::ZeroVector, desiredNewVelocity, currentVelocity, x_output, y_output, z_output,roll_output,pitch_output,yaw_output, a_deltaTime);
+    VelocityHUD->VelocityHud(Thrusts, roll_error, pitch_error, currentRotation, FVector::ZeroVector, dronePawn->GetActorLocation(), FVector::ZeroVector, currentVelocity, x_output, y_output, z_output, a_deltaTime);
+    VelocityHUD->RenderImPlot(Thrusts, a_deltaTime);
 
 }
 
 // ---------------------- Controller Handling ------------------------
 
-void QuadDroneController::HandleThrustInput(float Value)
+void UQuadDroneController::HandleThrustInput(float Value)
 {
     // Value ranges from -1 to 1
     thrustInput = Value; // Store the input value for use in ApplyControllerInput
 }
 
-void QuadDroneController::HandleYawInput(float Value)
+void UQuadDroneController::HandleYawInput(float Value)
 {
     yawInput = Value; // Store the raw input for later use with interpolation
 }
 
-void QuadDroneController::HandlePitchInput(float Value)
+void UQuadDroneController::HandlePitchInput(float Value)
 {
     pitchInput = Value; // Map Value to desired pitch range
 }
 
-void QuadDroneController::HandleRollInput(float Value)
+void UQuadDroneController::HandleRollInput(float Value)
 {
     rollInput = Value; // Map Value to desired roll range
 }
 
-void QuadDroneController::DrawDebugVisuals(const FVector& currentPosition, const FVector& setPoint) const
+void UQuadDroneController::DrawDebugVisuals(const FVector& currentPosition, const FVector& setPoint) const
 {
     if (Debug_DrawDroneCollisionSphere)
     {
@@ -830,7 +920,7 @@ void QuadDroneController::DrawDebugVisuals(const FVector& currentPosition, const
     }
 }
 
-void QuadDroneController::IncreaseAllThrusts(float Amount)
+void UQuadDroneController::IncreaseAllThrusts(float Amount)
 {
     for (int i = 0; i < Thrusts.Num(); ++i)
     {
@@ -840,129 +930,3 @@ void QuadDroneController::IncreaseAllThrusts(float Amount)
     }
 }
 
-void QuadDroneController::StartAutoTune()
-{
-    bAutoTune = true;
-    bAutoTuneInProgress = true;
-    autoTuneElapsedTime = 0.0f;
-    currentPIDParameterIndex = 0;
-
-    // Reset or initialize any auto-tune parameters here
-    // ...
-}
-
-void QuadDroneController::StopAutoTune()
-{
-    bAutoTune = false;
-    bAutoTuneInProgress = false;
-    // Reset PID parameters or finalize them if needed
-}
-
-bool QuadDroneController::CheckForCrashOrUnstableCondition()
-{
-    // Placeholder logic for detecting crash or instability
-    // For example, if the drone's pitch or roll exceed certain bounds
-    if (FMath::Abs(dronePawn->GetActorRotation().Roll) > 80.0f ||
-        FMath::Abs(dronePawn->GetActorRotation().Pitch) > 80.0f)
-    { 
-        return true;
-    }
-    return false;
-}
-
-void QuadDroneController::PerformZieglerNicholsTuning(double deltaTime)
-{
-    if (!dronePawn || !xPID)
-    {
-        bZNTuningInProgress = false;
-        return;
-    }
-
-    currentFlightMode = FlightMode::AutoWaypoint;
-
-    const float TargetXOffset = 100.0f; // Reduced offset for quicker movement
-
-    FVector currentPosition = dronePawn->GetActorLocation();
-    FVector targetPosition = currentPosition;
-    targetPosition.X += TargetXOffset;
-
-    float xError = (targetPosition - currentPosition).X;
-
-    float pitchCorrection = xPID->Calculate(xError, deltaTime);
-
-    // Increase pitch input scaling to move faster
-    float newPitchScaleFactor = 2.0f;
-    float pitchInputValue = FMath::Clamp(newPitchScaleFactor * pitchCorrection / maxAngle, -1.0f, 1.0f);
-    pitchInput = pitchInputValue;
-
-    if (!bHoverThrustInitialized)
-    {
-        hoverThrust = 0.5f * maxPIDOutput;
-        bHoverThrustInitialized = true;
-    }
-
-    FVector velocity = dronePawn->GetVelocity();
-    float verticalVelocity = velocity.Z;
-    float altitudeError = (currentPosition.Z - targetPosition.Z);
-
-    float zOutput = zPID->Calculate(-verticalVelocity, deltaTime);
-    float finalThrust = hoverThrust + zOutput;
-    finalThrust = FMath::Clamp(finalThrust, 0.0f, maxPIDOutput);
-
-    AutoWaypointControl(deltaTime);
-
-    znObservationTime += deltaTime;
-
-    if (FMath::Sign(znPrevError) != FMath::Sign(xError) && FMath::Abs(xError) > KINDA_SMALL_NUMBER)
-    {
-        znOscillationCount++;
-        znPrevError = xError;
-
-        // Only 2 sign changes required for quicker results (one full oscillation)
-        if (znOscillationCount >= 2)
-        {
-            ultimateGain = xPID->ProportionalGain;
-            ultimatePeriod = znObservationTime / 1.0f; // Using half an oscillation count for approximation
-
-            if (ultimatePeriod == 0.0f)
-            {
-                UE_LOG(LogTemp, Warning, TEXT("Could not determine ultimate period. Tuning aborted."));
-                bZNTuningInProgress = false;
-                return;
-            }
-
-            // Apply Ziegler–Nichols formula
-            xPID->ProportionalGain = 0.6f * ultimateGain;
-            xPID->IntegralGain = (2.0f * xPID->ProportionalGain) / ultimatePeriod;
-            xPID->DerivativeGain = 0.125f * xPID->ProportionalGain * ultimatePeriod;
-
-            UE_LOG(LogTemp, Log, TEXT("Z-N Tuning Complete: P=%.3f, I=%.3f, D=%.3f"), xPID->ProportionalGain, xPID->IntegralGain, xPID->DerivativeGain);
-
-            bZNTuningInProgress = false;
-            return;
-        }
-    }
-    else
-    {
-        znPrevError = xError;
-    }
-
-    // Reduced test duration and increased P increment
-    float customZnTestDuration = 1.0f;
-
-    if (znObservationTime > customZnTestDuration && znOscillationCount < 2)
-    {
-        xPID->ProportionalGain += 0.1f; // Larger increment for faster tuning
-        znObservationTime = 0.0f;
-        znOscillationCount = 0;
-        znPrevError = xError;
-        UE_LOG(LogTemp, Log, TEXT("Increasing P to: %.3f"), xPID->ProportionalGain);
-    }
-
-    if (CheckForCrashOrUnstableCondition())
-    {
-        bZNTuningInProgress = false;
-        xPID->SetGains(kpInitial, 0.0f, 0.0f);
-        UE_LOG(LogTemp, Warning, TEXT("Drone became unstable during tuning. Reverting to initial parameters."));
-    }
-}
