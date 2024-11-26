@@ -17,7 +17,7 @@ public:
     ImGuiUtil(
         AQuadPawn* InPawn,
         UQuadDroneController* InController,
-        FVector IndesiredNewVelocity,
+        FVector& IndesiredNewVelocity,
         bool& InInitialTakeoff,
         bool& InAltitudeReached,
         bool& InDebug_DrawDroneCollisionSphere,
@@ -95,23 +95,7 @@ public:
         const TArray<float>& ThrustsVal,
         float deltaTime
     );
-    //void RenderImPlot(
-    //    TArray<float>& ThrustsVal,
-    //    float rollError,
-    //    float pitchError,
-    //    const FRotator& currentRotation,
-    //    const FVector& waypoint,
-    //    const FVector& currLoc,
-    //    const FVector& error,
-    //    const FVector& currentVelocity,
-    //    float xOutput,
-    //    float yOutput,
-    //    float zOutput,
-    //    float rollOutput,
-    //    float pitchOutput,
-    //    float yawOutput,
-    //    float deltaTime
-    //);
+
 private:
 
     void DisplayDroneInfo();
@@ -157,7 +141,7 @@ private:
     QuadPIDController* yawAttitudePIDJoyStick;
 
     UQuadDroneController* controller;
-    FVector desiredNewVelocity;
+    FVector& desiredNewVelocity;
     // Member variables for thrust plotting
     TArray<float> TimeData;
     TArray<float> Thrust0Data;

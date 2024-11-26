@@ -5,10 +5,21 @@
 #include "CoreMinimal.h"
 #include "QuadPIDConroller.h"
 #include "ImGuiUtil.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "Components/SceneCaptureComponent2D.h"
 #include "QuadDroneController.generated.h"
 
 class AQuadPawn; // Forward declaration
-
+namespace zmq {
+	class context_t;
+	class socket_t;
+	class message_t;
+	class multipart_t;
+	enum class socket_type : int;
+	enum class recv_flags : int;
+	enum class send_flags : int;
+	class error_t;
+}
 UCLASS(Blueprintable, BlueprintType)
 class QUADSIMTOREALITY_API UQuadDroneController : public UObject
 {
@@ -37,6 +48,9 @@ public:
 	UPROPERTY()
 	TArray<float> Thrusts;
 
+	void BeginZMQController();
+
+
 	void SetDesiredVelocity(const FVector& NewVelocity);
 	void SetFlightMode(FlightMode NewMode);
 	FlightMode GetFlightMode() const;
@@ -64,6 +78,10 @@ public:
 
 
 private:
+
+	void CaptureAndSendImage();
+	void SendImageData(const TArray<uint8>& CompressedBitmap);
+	void ReceiveVelocityCommand();
 
 	float desiredYaw;
 	bool bDesiredYawInitialized;
@@ -126,6 +144,25 @@ private:
 	TUniquePtr<QuadPIDController> pitchAttitudePIDJoyStick;
 	TUniquePtr<QuadPIDController> yawAttitudePIDJoyStick;
 
+	//ZeroMQ Variables
+	static zmq::context_t* SharedZMQContext;
+	static zmq::socket_t* SharedZMQSocket;
+
+	zmq::socket_t* ZMQSocket;
+	zmq::socket_t* CommandSocket;
+
+
+	UPROPERTY()
+	USceneCaptureComponent2D* SceneCaptureComponent;
+
+	UPROPERTY()
+	UTextureRenderTarget2D* RenderTarget;
+
+	float UpdateInterval;
+	float TimeSinceLastUpdate;
+	static int32 SharedResourceRefCount;
+	bool bIsActive;
+	FString DroneID;
 
 
 };

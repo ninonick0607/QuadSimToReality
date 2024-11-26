@@ -6,7 +6,9 @@ import cv2
 
 class QuadSimEnv(gym.Env):
     def __init__(self):
+
         super(QuadSimEnv, self).__init__()
+
 
         self.action_space = gym.spaces.Box(
             low=np.array([-1, -1, -1]), 
@@ -39,18 +41,72 @@ class QuadSimEnv(gym.Env):
         self.command_socket = self.context.socket(zmq.PUB)
         self.command_socket.bind("tcp://*:5556")  
 
+
         time.sleep(0.1)
 
+    def reset(self):
+        self.state = {
+            'image': np.zeros((128, 128, 3), dtype=np.uint8),
+            'velocity': np.zeros(3, dtype=np.float32)
+        }
+        return self.state
+
+    def step(self, action):
+        
+
+        self.send_velocity_command(action)
+
+        image = self.get_image()
+        if image is not None:
+            self.state['image'] = image
+        else:
+            pass
+
+        self.state['velocity'] = action
+
+        reward = 0  
+        done = False  
+        info = {}
+
+        return self.state, reward, done, info
+
     def send_velocity_command(self, velocity):
+
         drone_id = "drone1"  
         message = np.array(velocity, dtype=np.float32).tobytes()
-        print(f"Sending velocity command: {velocity}")
+
+
+        print(velocity)
         self.command_socket.send_multipart([drone_id.encode(), message])
+
+    def get_image(self):
+        try:
+
+            [topic, message] = self.image_socket.recv_multipart(flags=zmq.NOBLOCK)
+            drone_id = topic.decode()
+            image_data = np.frombuffer(message, dtype=np.uint8)
+
+            image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
+            if image is not None:
+
+                return image
+            else:
+                print("Failed to decode image")
+                return None
+        except zmq.Again:
+            # No message was available
+            return None
+        except Exception as e:
+            print(f"Error receiving image: {e}")
+            return None
 
 if __name__ == "__main__":
     env = QuadSimEnv()
+    obs = env.reset()
 
-    # Command to move up at 250 m/s in the Z direction
-    velocity_command = [0, 0, 250]  
-    env.send_velocity_command(velocity_command)
-    print("Velocity command sent.")
+    while True:
+        action = env.action_space.sample()  
+        action = [0, 0, 150]
+        obs, reward, done, info = env.step(action)
+
+        time.sleep(0.1) 

@@ -112,16 +112,24 @@ AQuadPawn::AQuadPawn()
     
     bWaypointModeSelected = false;
 
-    // Initialize the drone controller
-    QuadController = NewObject<UQuadDroneController>(this, TEXT("QuadDroneController"));
-    QuadController->Initialize(this);
+    //// Initialize the drone controller
+    //QuadController = NewObject<UQuadDroneController>(this, TEXT("QuadDroneController"));
+    //QuadController->Initialize(this);
 
 }
 
 void AQuadPawn::BeginPlay()
 {
     Super::BeginPlay();
-
+    // Initialize QuadController here instead
+    if (!QuadController)
+    {
+        QuadController = NewObject<UQuadDroneController>(this, TEXT("QuadDroneController"));
+        if (QuadController)
+        {
+            QuadController->Initialize(this);
+        }
+    }
     for (auto& rotor : Rotors)
     {
         rotor.Thruster->ThrustStrength = 0.0f;

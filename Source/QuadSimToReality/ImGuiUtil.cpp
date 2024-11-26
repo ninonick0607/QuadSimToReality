@@ -13,7 +13,7 @@
 ImGuiUtil::ImGuiUtil(
     AQuadPawn* InPawn,
     UQuadDroneController* InController,
-    FVector IndesiredNewVelocity,
+    FVector& IndesiredNewVelocity,
     bool& InInitialTakeoff,
     bool& InAltitudeReached,
     bool& InDebug_DrawDroneCollisionSphere,
@@ -392,135 +392,6 @@ void ImGuiUtil::RenderImPlot(const TArray<float>& ThrustsVal, float deltaTime)
 
     ImGui::End();
 }
-//void ImGuiUtil::RenderImPlot(
-//    TArray<float>& ThrustsVal,
-//    float rollError, float pitchError,
-//    const FRotator& currentRotation,
-//    const FVector& waypoint, const FVector& currLoc,
-//    const FVector& error,
-//    const FVector& currentVelocity,
-//    float xOutput, float yOutput, float zOutput,
-//    float rollOutput, float pitchOutput, float yawOutput,
-//    float deltaTime)
-//{
-//    // Add time data
-//    CumulativeTime += deltaTime;
-//    TimeData.Add(CumulativeTime);
-//
-//    // Add PID outputs to history
-//    xPIDOutputHistory.Add(xOutput);
-//    yPIDOutputHistory.Add(yOutput);
-//    zPIDOutputHistory.Add(zOutput);
-//    rollPIDOutputHistory.Add(rollOutput);
-//    pitchPIDOutputHistory.Add(pitchOutput);
-//    yawPIDOutputHistory.Add(yawOutput);
-//
-//    // Add error calculations
-//    float positionError = error.Size();  // Magnitude of position error
-//    float velocityError = (desiredNewVelocity - currentVelocity).Size();  // Magnitude of velocity error
-//
-//    positionErrorHistory.Add(positionError);
-//    velocityErrorHistory.Add(velocityError);
-//
-//    // Begin ImGui window
-//    ImGui::Begin("Drone PID Analysis");
-//
-//    // Position Control Plot
-//    if (ImPlot::BeginPlot("Position Control", ImVec2(600, 300))) {
-//        float xMin = FMath::Max(0.0f, CumulativeTime - 10.0f);
-//        float xMax = CumulativeTime;
-//        ImPlot::SetupAxisLimits(ImAxis_X1, xMin, xMax, ImGuiCond_Always);
-//        ImPlot::SetupAxis(ImAxis_X1, "Time (s)");
-//        ImPlot::SetupAxis(ImAxis_Y1, "Output");
-//
-//        // Get data in order from oldest to newest
-//        TArray<float> TimeDataArray = TimeData.GetDataInOrder();
-//        TArray<float> xPIDDataArray = xPIDOutputHistory.GetDataInOrder();
-//        TArray<float> yPIDDataArray = yPIDOutputHistory.GetDataInOrder();
-//        TArray<float> zPIDDataArray = zPIDOutputHistory.GetDataInOrder();
-//        int DataCount = TimeData.Num();
-//
-//        // Plot X PID
-//        ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
-//        ImPlot::PlotLine("X PID", TimeDataArray.GetData(), xPIDDataArray.GetData(), DataCount);
-//        ImPlot::PopStyleColor();
-//
-//        // Plot Y PID
-//        ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.0f, 1.0f, 0.0f, 1.0f));
-//        ImPlot::PlotLine("Y PID", TimeDataArray.GetData(), yPIDDataArray.GetData(), DataCount);
-//        ImPlot::PopStyleColor();
-//
-//        // Plot Z PID
-//        ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.0f, 0.0f, 1.0f, 1.0f));
-//        ImPlot::PlotLine("Z PID", TimeDataArray.GetData(), zPIDDataArray.GetData(), DataCount);
-//        ImPlot::PopStyleColor();
-//
-//        ImPlot::EndPlot();
-//    }
-//
-//    // Attitude Control Plot
-//    if (ImPlot::BeginPlot("Attitude Control", ImVec2(600, 300))) {
-//        float xMin = FMath::Max(0.0f, CumulativeTime - 10.0f);
-//        float xMax = CumulativeTime;
-//        ImPlot::SetupAxisLimits(ImAxis_X1, xMin, xMax, ImGuiCond_Always);
-//        ImPlot::SetupAxis(ImAxis_X1, "Time (s)");
-//        ImPlot::SetupAxis(ImAxis_Y1, "Output");
-//
-//        // Get data in order
-//        TArray<float> TimeDataArray = TimeData.GetDataInOrder();
-//        TArray<float> rollPIDDataArray = rollPIDOutputHistory.GetDataInOrder();
-//        TArray<float> pitchPIDDataArray = pitchPIDOutputHistory.GetDataInOrder();
-//        TArray<float> yawPIDDataArray = yawPIDOutputHistory.GetDataInOrder();
-//        int DataCount = TimeData.Num();
-//
-//        // Plot Roll PID
-//        ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(1.0f, 0.5f, 0.0f, 1.0f));
-//        ImPlot::PlotLine("Roll PID", TimeDataArray.GetData(), rollPIDDataArray.GetData(), DataCount);
-//        ImPlot::PopStyleColor();
-//
-//        // Plot Pitch PID
-//        ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.5f, 0.0f, 1.0f, 1.0f));
-//        ImPlot::PlotLine("Pitch PID", TimeDataArray.GetData(), pitchPIDDataArray.GetData(), DataCount);
-//        ImPlot::PopStyleColor();
-//
-//        // Plot Yaw PID
-//        ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(1.0f, 1.0f, 0.0f, 1.0f));
-//        ImPlot::PlotLine("Yaw PID", TimeDataArray.GetData(), yawPIDDataArray.GetData(), DataCount);
-//        ImPlot::PopStyleColor();
-//
-//        ImPlot::EndPlot();
-//    }
-//
-//    // Error Plot
-//    if (ImPlot::BeginPlot("Error Analysis", ImVec2(600, 300))) {
-//        float xMin = FMath::Max(0.0f, CumulativeTime - 10.0f);
-//        float xMax = CumulativeTime;
-//        ImPlot::SetupAxisLimits(ImAxis_X1, xMin, xMax, ImGuiCond_Always);
-//        ImPlot::SetupAxis(ImAxis_X1, "Time (s)");
-//        ImPlot::SetupAxis(ImAxis_Y1, "Error Magnitude");
-//
-//        // Get data in order
-//        TArray<float> TimeDataArray = TimeData.GetDataInOrder();
-//        TArray<float> positionErrorDataArray = positionErrorHistory.GetDataInOrder();
-//        TArray<float> velocityErrorDataArray = velocityErrorHistory.GetDataInOrder();
-//        int DataCount = TimeData.Num();
-//
-//        // Plot Position Error
-//        ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(1.0f, 0.0f, 1.0f, 1.0f));
-//        ImPlot::PlotLine("Position Error", TimeDataArray.GetData(), positionErrorDataArray.GetData(), DataCount);
-//        ImPlot::PopStyleColor();
-//
-//        // Plot Velocity Error
-//        ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.0f, 1.0f, 1.0f, 1.0f));
-//        ImPlot::PlotLine("Velocity Error", TimeDataArray.GetData(), velocityErrorDataArray.GetData(), DataCount);
-//        ImPlot::PopStyleColor();
-//
-//        ImPlot::EndPlot();
-//    }
-//
-//    ImGui::End();
-//}
-//-------------------------- Main functionality -------------------------//
 
 void ImGuiUtil::DisplayDroneInfo()
 {
