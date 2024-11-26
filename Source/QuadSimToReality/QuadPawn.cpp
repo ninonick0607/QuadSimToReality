@@ -112,21 +112,17 @@ AQuadPawn::AQuadPawn()
     
     bWaypointModeSelected = false;
 
-    //// Initialize the drone controller
-    //QuadController = NewObject<UQuadDroneController>(this, TEXT("QuadDroneController"));
-    //QuadController->Initialize(this);
-
 }
 
 void AQuadPawn::BeginPlay()
 {
     Super::BeginPlay();
-    // Initialize QuadController here instead
     if (!QuadController)
     {
         QuadController = NewObject<UQuadDroneController>(this, TEXT("QuadDroneController"));
         if (QuadController)
         {
+            UE_LOG(LogTemp, Error, TEXT("Initialize called with QuadPawn"));
             QuadController->Initialize(this);
         }
     }
@@ -138,20 +134,12 @@ void AQuadPawn::BeginPlay()
     WaypointMode = EWaypointMode::WaitingForModeSelection;
     NewWaypoint = FVector(0.0f, 0.0f, 0.0f);
     ManualWaypoints.Empty();
-    // for testing
-    //this->QuadController->AddNavPlan("TestPlan", spiralWaypoints());
-    //this->QuadController->SetNavPlan("TestPlan");
-
+   
     for (auto& rotor : Rotors)
     {
         rotor.Thruster->ThrustStrength = 0.0f;
-        //rotor.Mesh->GetBodyInstance()->SetMassOverride(1.0f);
-        //rotor.Mesh->GetBodyInstance()->UpdateMassProperties();
+;
     }
-    
-    float DroneMass = 1.0f; // Adjust this value to something appropriate for the drone size
-    //DroneBody->GetBodyInstance()->SetMassOverride(DroneMass);   
-    //DroneBody->GetBodyInstance()->UpdateMassProperties();
     
     QuadController->ResetPID();
     Camera->SetActive(true);

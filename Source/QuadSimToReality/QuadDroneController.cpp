@@ -10,6 +10,7 @@
         #include <zmq_addon.hpp>
         #include "ImGuiUtil.h"
         #include "ImageUtils.h"
+        #include "EngineUtils.h"
         #include "Math/UnrealMathUtility.h"
 
         zmq::context_t* UQuadDroneController::SharedZMQContext = nullptr;
@@ -37,74 +38,63 @@
             return xyzSetpoint;
         }
 
-        //static TArray<FVector> spiralWaypoints()
-        //{
-        //    TArray<FVector> xyzSetpoint;
-        //    const float startHeight = 1000.0f;  // Height relative to current position (cm)
-        //    const float maxHeight = 10000.0f;   // Maximum height relative to start (cm)
-        //    const float radius = 3000.0f;       // Radius of spiral (cm)
-        //    const float heightStep = 500.0f;    // Vertical distance between loops (cm)
-        //    const int pointsPerLoop = 8;        // Number of points to create per loop
-        //    const float angleStep = 2.0f * PI / pointsPerLoop;  // Angle between each point
-        //
-        //    // Get current position
-        //    AQuadPawn* drone = nullptr;
-        //    FVector currentPos = FVector::ZeroVector;
-        //
-        //    // Find the drone in the world
-        //    for (TActorIterator<AQuadPawn> ActorItr(GWorld); ActorItr; ++ActorItr)
-        //    {
-        //        drone = *ActorItr;
-        //        if (drone)
-        //        {
-        //            currentPos = drone->GetActorLocation();
-        //            break;
-        //        }
-        //    }
-        //
-        //    // First point at starting height above current position
-        //    xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + startHeight));
-        //
-        //    // Calculate number of loops needed
-        //    int numLoops = FMath::CeilToInt((maxHeight - startHeight) / heightStep);
-        //
-        //    // Generate upward spiral
-        //    for (int loop = 0; loop < numLoops; loop++)
-        //    {
-        //        float height = currentPos.Z + startHeight + (loop * heightStep);
-        //
-        //        for (int point = 0; point < pointsPerLoop; point++)
-        //        {
-        //            float angle = point * angleStep;
-        //            float x = currentPos.X + radius * FMath::Cos(angle);
-        //            float y = currentPos.Y + radius * FMath::Sin(angle);
-        //            xyzSetpoint.Add(FVector(x, y, height));
-        //        }
-        //    }
-        //
-        //    // Add point at max height above current position
-        //    xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + maxHeight));
-        //
-        //    // Generate downward spiral (in reverse order)
-        //    for (int loop = numLoops - 1; loop >= 0; loop--)
-        //    {
-        //        float height = currentPos.Z + startHeight + (loop * heightStep);
-        //
-        //        for (int point = pointsPerLoop - 1; point >= 0; point--)
-        //        {
-        //            float angle = point * angleStep;
-        //            float x = currentPos.X + radius * FMath::Cos(angle);
-        //            float y = currentPos.Y + radius * FMath::Sin(angle);
-        //            xyzSetpoint.Add(FVector(x, y, height));
-        //        }
-        //    }
-        //
-        //    // Final point back at starting height above current position
-        //    xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + startHeight));
-        //
-        //    return xyzSetpoint;
-        //}
+        static TArray<FVector> spiralWaypoints()
+        {
+            TArray<FVector> points;
+            const float baseHeight = 1000.0f;  // Height to rise from current position (cm)
+            const float radius = 1500.0f;      // Radius of movements (cm)
 
+            // Get current drone position
+            AQuadPawn* drone = nullptr;
+            FVector currentPos;
+
+            // Find the drone in the world
+            for (TActorIterator<AQuadPawn> ActorItr(GWorld); ActorItr; ++ActorItr)
+            {
+                drone = *ActorItr;
+                if (drone)
+                {
+                    currentPos = drone->GetActorLocation();
+                    break;
+                }
+            }
+
+            // Define the working height once
+            float workingHeight = currentPos.Z + baseHeight;
+
+            // Rise up to testing height
+            points.Add(FVector(currentPos.X, currentPos.Y, workingHeight));
+
+            // Square pattern for clear yaw changes
+            points.Add(FVector(currentPos.X + radius, currentPos.Y, workingHeight));         // Forward
+            points.Add(FVector(currentPos.X + radius, currentPos.Y + radius, workingHeight));    // Right
+            points.Add(FVector(currentPos.X - radius, currentPos.Y + radius, workingHeight));   // Back
+            points.Add(FVector(currentPos.X - radius, currentPos.Y - radius, workingHeight));  // Left
+            points.Add(FVector(currentPos.X + radius, currentPos.Y - radius, workingHeight));   // Forward
+
+            // Octagon pattern for smoother yaw transitions
+            const int octagonPoints = 8;
+            const float angleStep = 2.0f * PI / octagonPoints;
+            for (int i = 0; i <= octagonPoints; i++)
+            {
+                float angle = i * angleStep;
+                float x = currentPos.X + (radius * 1.5f * FMath::Cos(angle));
+                float y = currentPos.Y + (radius * 1.5f * FMath::Sin(angle));
+                points.Add(FVector(x, y, workingHeight + 500.0f)); // Slightly higher
+            }
+
+            // Cross pattern for quick direction changes
+            points.Add(FVector(currentPos.X + radius * 2, currentPos.Y, workingHeight));     // Right
+            points.Add(FVector(currentPos.X, currentPos.Y, workingHeight));                  // Center
+            points.Add(FVector(currentPos.X - radius * 2, currentPos.Y, workingHeight));     // Left
+            points.Add(FVector(currentPos.X, currentPos.Y, workingHeight));                  // Center
+            points.Add(FVector(currentPos.X, currentPos.Y + radius * 2, workingHeight));     // Forward
+            points.Add(FVector(currentPos.X, currentPos.Y, workingHeight));                  // Center
+            points.Add(FVector(currentPos.X, currentPos.Y - radius * 2, workingHeight));     // Back
+            points.Add(FVector(currentPos.X, currentPos.Y, workingHeight));                  // Center
+
+            return points;
+        }
         // ---------------------- Constructor ------------------------
 
         UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectInitializer)
@@ -173,30 +163,6 @@
             yawAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
             yawAttitudePID->SetGains(0.f, 0.f, 0.f);
 
-            // Try these
-            //xPID = new QuadPIDController();
-            //xPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-            //xPID->SetGains(2.329f, 3.626f, 1.832f);
-
-            //yPID = new QuadPIDController();
-            //yPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-            //yPID->SetGains(2.329f, 3.626f, 1.832f);
-
-            //zPID = new QuadPIDController();
-            //zPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-            //zPID->SetGains(5.344f, 1.f, 0.1f);
-
-            //pitchAttitudePID = new QuadPIDController();
-            //pitchAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
-            //pitchAttitudePID->SetGains(11.755f, 5.267f, 9.008f);
-
-            //rollAttitudePID = new QuadPIDController();
-            //rollAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
-            //rollAttitudePID->SetGains(11.755f, 5.267f, 9.008f);
-
-            //yawAttitudePID = new QuadPIDController();
-            //yawAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
-            //yawAttitudePID->SetGains(0.f, 0.f, 0.f);
 
             // Move by Velocity
             xPIDVelocity = MakeUnique<QuadPIDController>();
@@ -213,20 +179,20 @@
 
             pitchAttitudePIDVelocity = MakeUnique<QuadPIDController>();
             pitchAttitudePIDVelocity->SetLimits(-maxPIDOutput, maxPIDOutput);
-            pitchAttitudePIDVelocity->SetGains(2.934f, 0.297f, 3.633f);
+            pitchAttitudePIDVelocity->SetGains(8.f, 0.3f, 3.7);
 
             rollAttitudePIDVelocity = MakeUnique<QuadPIDController>();
             rollAttitudePIDVelocity->SetLimits(-maxPIDOutput, maxPIDOutput);
-            rollAttitudePIDVelocity->SetGains(2.934f, 0.297f, 3.633f);
+            rollAttitudePIDVelocity->SetGains(8.f, 0.3f, 3.7);
 
             yawAttitudePIDVelocity = MakeUnique<QuadPIDController>();
             yawAttitudePIDVelocity->SetLimits(-maxPIDOutput, maxPIDOutput);
-            yawAttitudePIDVelocity->SetGains(0.f, 0.f, 0.f);
+            yawAttitudePIDVelocity->SetGains(1.8f, 0.15f, 1.5f);
 
             // Move by Controller
             xPIDJoyStick = MakeUnique<QuadPIDController>();
             xPIDJoyStick->SetLimits(-maxPIDOutput, maxPIDOutput);
-            xPIDJoyStick->SetGains(2.329f, 3.626f, 1.832f);
+            xPIDJoyStick->SetGains(8, 3.626f, 1.832f);
 
             yPIDJoyStick = MakeUnique<QuadPIDController>();
             yPIDJoyStick->SetLimits(-maxPIDOutput, maxPIDOutput);
@@ -530,10 +496,10 @@
         void UQuadDroneController::Update(double a_deltaTime)
         {
 
-            AddNavPlan("TestPlan", make_test_dests());
+            AddNavPlan("TestPlan", spiralWaypoints());
             SetNavPlan("TestPlan");
 
-            UE_LOG(LogTemp, Display, TEXT("uPDATE called: %s"), *desiredNewVelocity.ToString());
+            //UE_LOG(LogTemp, Display, TEXT("uPDATE called: %s"), *desiredNewVelocity.ToString());
 
             ImGui::Begin("Flight Mode Selector");
 
@@ -585,24 +551,6 @@
             }
    
 
-            // ZMQ
-
-            if (!bIsActive) return;
-
-            if (UpdateInterval == 0.0) {
-                CaptureAndSendImage();
-            }
-            else {
-                TimeSinceLastUpdate += a_deltaTime;
-
-                // Check if it's time to capture and send a new image
-                if (TimeSinceLastUpdate >= UpdateInterval)
-                {
-                    CaptureAndSendImage();
-                    TimeSinceLastUpdate = 0.0f; // Reset the timer
-                }
-            }
-            ReceiveVelocityCommand();
         }
 
         void UQuadDroneController::ApplyControllerInput(double a_deltaTime)
@@ -855,6 +803,27 @@
         void UQuadDroneController::VelocityControl(double a_deltaTime)
         {
             if (!dronePawn) return;
+            // ZMQ
+
+            if (!bIsActive) return;
+
+            if (UpdateInterval == 0.0) {
+                CaptureAndSendImage();
+            }
+            else {
+                TimeSinceLastUpdate += a_deltaTime;
+
+                // Check if it's time to capture and send a new image
+                if (TimeSinceLastUpdate >= UpdateInterval)
+                {
+                    CaptureAndSendImage();
+                    TimeSinceLastUpdate = 0.0f; // Reset the timer
+                }
+            }
+
+            ReceiveVelocityCommand();
+
+            
 
             float droneMass = dronePawn->DroneBody->GetMass();
             const float mult = 0.5f;
@@ -1214,3 +1183,61 @@
                 UE_LOG(LogTemp, Error, TEXT("ZeroMQ Error during sending image data: %s"), UTF8_TO_TCHAR(e.what()));
             }
         }
+
+
+        void UQuadDroneController::StoreInitialPosition()
+        {
+            if (dronePawn)
+            {
+                initialDronePosition = dronePawn->GetActorLocation();
+                UE_LOG(LogTemp, Display, TEXT("Stored initial drone position: %s"), *initialDronePosition.ToString());
+            }
+        }
+
+ 
+
+       void UQuadDroneController::ResetDroneHigh()
+       {
+           if (dronePawn)
+           {
+               // Reset to high position (10000cm up)
+               dronePawn->SetActorLocation(FVector(0.0f, 0.0f, 10000.0f), false, nullptr, ETeleportType::TeleportPhysics);
+               dronePawn->SetActorRotation(FRotator::ZeroRotator, ETeleportType::TeleportPhysics);
+
+               if (dronePawn->DroneBody)
+               {
+                   dronePawn->DroneBody->SetPhysicsLinearVelocity(FVector::ZeroVector);
+                   dronePawn->DroneBody->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+                   dronePawn->DroneBody->WakeAllRigidBodies();
+               }
+
+               // Reset controller states
+               ResetPID();
+               desiredNewVelocity = FVector::ZeroVector;
+               initialTakeoff = true;
+               altitudeReached = false;
+           }
+       }
+
+       void UQuadDroneController::ResetDroneOrigin()
+       {
+           if (dronePawn)
+           {
+               // Reset to origin (10cm up)
+               dronePawn->SetActorLocation(FVector(0.0f, 0.0f, 10.0f), false, nullptr, ETeleportType::TeleportPhysics);
+               dronePawn->SetActorRotation(FRotator::ZeroRotator, ETeleportType::TeleportPhysics);
+
+               if (dronePawn->DroneBody)
+               {
+                   dronePawn->DroneBody->SetPhysicsLinearVelocity(FVector::ZeroVector);
+                   dronePawn->DroneBody->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+                   dronePawn->DroneBody->WakeAllRigidBodies();
+               }
+
+               // Reset controller states
+               ResetPID();
+               desiredNewVelocity = FVector::ZeroVector;
+               initialTakeoff = true;
+               altitudeReached = false;
+           }
+       }

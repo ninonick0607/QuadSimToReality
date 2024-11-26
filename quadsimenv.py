@@ -106,7 +106,7 @@ if __name__ == "__main__":
 
     while True:
         action = env.action_space.sample()  
-        action = [0, 0, 150]
+        action = [0, 0, 250]
         obs, reward, done, info = env.step(action)
 
         time.sleep(0.1) 

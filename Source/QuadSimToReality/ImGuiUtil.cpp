@@ -622,9 +622,9 @@ void ImGuiUtil::DisplayPIDSettings(
         // Yaw
         ImGui::Indent();
         ImGui::Text("Yaw");
-        DrawPIDGainControl("Yaw P", &yawPIDParam->ProportionalGain, 0.0f, 20.0f);
-        DrawPIDGainControl("Yaw I", &yawPIDParam->IntegralGain, 0.0f, 20.0f);
-        DrawPIDGainControl("Yaw D", &yawPIDParam->DerivativeGain, 0.0f, 20.0f);
+        DrawPIDGainControl("Yaw P", &yawPIDParam->ProportionalGain, 0.0f, 2.0f);
+        DrawPIDGainControl("Yaw I", &yawPIDParam->IntegralGain, 0.0f, 2.0f);
+        DrawPIDGainControl("Yaw D", &yawPIDParam->DerivativeGain, 0.0f, 2.0f);
         ImGui::Unindent();
 
         ImGui::Separator();
@@ -687,45 +687,20 @@ void ImGuiUtil::DisplayResetDroneButtons()
 
     if (ImGui::Button("Reset Drone up high", ImVec2(200, 100)))
     {
-        if (dronePawn)
+        if (controller)
         {
-            dronePawn->SetActorLocation(FVector(0.0f, 0.0f, 10000.0f), false, nullptr, ETeleportType::TeleportPhysics);
-            dronePawn->SetActorRotation(FRotator::ZeroRotator);
-
-            UPrimitiveComponent* droneBody = dronePawn->DroneBody;
-            if (droneBody)
-            {
-                droneBody->SetPhysicsLinearVelocity(FVector::ZeroVector);
-                droneBody->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
-                droneBody->WakeAllRigidBodies();
-            }
-
-            altitudeReached = false;
-            initialTakeoff = true;
+            controller->ResetDroneHigh();
         }
     }
 
     if (ImGui::Button("Reset Drone 0 point", ImVec2(200, 100)))
     {
-        if (dronePawn)
+        if (controller)
         {
-            dronePawn->SetActorLocation(FVector(0.0f, 0.0f, 10.f), false, nullptr, ETeleportType::TeleportPhysics);
-            dronePawn->SetActorRotation(FRotator::ZeroRotator);
-
-            UPrimitiveComponent* droneBody = dronePawn->DroneBody;
-            if (droneBody)
-            {
-                droneBody->SetPhysicsLinearVelocity(FVector::ZeroVector);
-                droneBody->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
-                droneBody->WakeAllRigidBodies();
-            }
-
-            altitudeReached = false;
-            initialTakeoff = true;
+            controller->ResetDroneOrigin();
         }
     }
 }
-
 void ImGuiUtil::DisplayDesiredVelocities()
 {
     ImGui::Text("Desired Velocities");

@@ -76,7 +76,11 @@ public:
 	void HandleRollInput(float Value);
 	void ApplyControllerInput(double a_deltaTime);
 
+	void StoreInitialPosition();
+	void ResetDroneHigh();
+	void ResetDroneOrigin();
 
+	const FVector& GetInitialPosition() const { return initialDronePosition; }
 private:
 
 	void CaptureAndSendImage();
@@ -163,6 +167,6 @@ private:
 	static int32 SharedResourceRefCount;
 	bool bIsActive;
 	FString DroneID;
-
+	FVector initialDronePosition;
 
 };
