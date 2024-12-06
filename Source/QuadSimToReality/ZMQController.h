@@ -42,10 +42,12 @@ private:
 
     zmq::socket_t* ZMQSocket;
     zmq::socket_t* CommandSocket;
+    zmq::socket_t* ControlSocket;
 
     void CaptureAndSendImage();
     void SendImageData(const TArray<uint8>& CompressedBitmap);
     void ReceiveVelocityCommand();
+    void SendData();
 
     UQuadDroneController* DroneController;
 
@@ -53,17 +55,21 @@ private:
     USceneCaptureComponent2D* SceneCaptureComponent;
 
     UPROPERTY()
+    AActor* SM_PillarFrameActor;
+
+    UPROPERTY()
     UTextureRenderTarget2D* RenderTarget;
 
-    // Declare UpdateInterval before TimeSinceLastUpdate
     float UpdateInterval;
     float TimeSinceLastUpdate;
 
-    // Add reference counting for shared ZMQ context and socket
     static int32 SharedResourceRefCount;
 
     // Add an active flag
     bool bIsActive;
 
+    AQuadPawn* DronePawn; 
+    FVector InitialPosition;
+    FVector GoalPosition; 
     FString DroneID;
 };
