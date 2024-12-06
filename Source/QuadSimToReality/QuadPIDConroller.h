@@ -18,7 +18,7 @@ public:
 	float ProportionalGain;
 	float IntegralGain;
 	float DerivativeGain;
-	
+
 	// Last output for debugging or logging
 	float lastOutput;
 

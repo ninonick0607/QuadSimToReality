@@ -9,95 +9,121 @@
 #include "HAL/PlatformFilemanager.h"
 #include "Misc/DateTime.h"
 
-
 ImGuiUtil::ImGuiUtil(
-    AQuadPawn* InPawn,
-    UQuadDroneController* InController,
-    FVector& IndesiredNewVelocity,
-    bool& InInitialTakeoff,
-    bool& InAltitudeReached,
-    bool& InDebug_DrawDroneCollisionSphere,
-    bool& InDebug_DrawDroneWaypoint,
+    AQuadPawn *InPawn,
+    UQuadDroneController *InController,
+    FVector &IndesiredNewVelocity,
+    bool &InInitialTakeoff,
+    bool &InAltitudeReached,
+    bool &InDebug_DrawDroneCollisionSphere,
+    bool &InDebug_DrawDroneWaypoint,
     float InMaxPIDOutput,
     float InAltitudeThresh,
     float InMinAltitudeLocal,
-    float& InMaxVelocity,
-    float& InMaxAngle,
-    QuadPIDController* InXPID,
-    QuadPIDController* InYPID,
-    QuadPIDController* InZPID,
-    QuadPIDController* InRollAttitudePID,
-    QuadPIDController* InPitchAttitudePID,
-    QuadPIDController* InYawAttitudePID,
+    float &InMaxVelocity,
+    float &InMaxAngle,
+    QuadPIDController *InXPID,
+    QuadPIDController *InYPID,
+    QuadPIDController *InZPID,
+    QuadPIDController *InRollAttitudePID,
+    QuadPIDController *InPitchAttitudePID,
+    QuadPIDController *InYawAttitudePID,
 
-    QuadPIDController* InxPIDVelocity,
-    QuadPIDController* InyPIDVelocity,
-    QuadPIDController* InzPIDVelocity,
-    QuadPIDController* InrollAttitudePIDVelocity,
-    QuadPIDController* InpitchAttitudePIDVelocity,
-    QuadPIDController* InyawAttitudePIDVelocity,
+    QuadPIDController *InxPIDVelocity,
+    QuadPIDController *InyPIDVelocity,
+    QuadPIDController *InzPIDVelocity,
+    QuadPIDController *InrollAttitudePIDVelocity,
+    QuadPIDController *InpitchAttitudePIDVelocity,
+    QuadPIDController *InyawAttitudePIDVelocity,
 
-    QuadPIDController* InxPIDJoyStick,
-    QuadPIDController* InyPIDJoyStick,
-    QuadPIDController* InzPIDJoyStick,
-    QuadPIDController* InrollAttitudePIDJoyStick,
-    QuadPIDController* InpitchAttitudePIDJoyStick,
-    QuadPIDController* InyawAttitudePIDJoyStick
-)
-    : dronePawn(InPawn)                                   // 1
-    , initialTakeoff(InInitialTakeoff)                    // 2
-    , altitudeReached(InAltitudeReached)                  // 3
-    , Debug_DrawDroneCollisionSphere(InDebug_DrawDroneCollisionSphere)  // 4
-    , Debug_DrawDroneWaypoint(InDebug_DrawDroneWaypoint)  // 5
-    , maxPIDOutput(InMaxPIDOutput)                        // 6
-    , altitudeThresh(InAltitudeThresh)                    // 7
-    , minAltitudeLocal(InMinAltitudeLocal)                // 8
-    , maxVelocity(InMaxVelocity)                          // 9
-    , maxAngle(InMaxAngle)                                // 10
-    , xPID(InXPID)                                        // 11
-    , yPID(InYPID)                                        // 12
-    , zPID(InZPID)                                        // 13
-    , rollAttitudePID(InRollAttitudePID)                  // 14
-    , pitchAttitudePID(InPitchAttitudePID)                // 15
-    , yawAttitudePID(InYawAttitudePID)                    // 16
-    , xPIDVelocity(InxPIDVelocity)                        // 17
-    , yPIDVelocity(InyPIDVelocity)                        // 18
-    , zPIDVelocity(InzPIDVelocity)                        // 19
-    , rollAttitudePIDVelocity(InrollAttitudePIDVelocity)  // 20
-    , pitchAttitudePIDVelocity(InpitchAttitudePIDVelocity)// 21
-    , yawAttitudePIDVelocity(InyawAttitudePIDVelocity)    // 22
-    , xPIDJoyStick(InxPIDJoyStick)                        // 23
-    , yPIDJoyStick(InyPIDJoyStick)                        // 24
-    , zPIDJoyStick(InzPIDJoyStick)                        // 25
-    , rollAttitudePIDJoyStick(InrollAttitudePIDJoyStick)  // 26
-    , pitchAttitudePIDJoyStick(InpitchAttitudePIDJoyStick)// 27
-    , yawAttitudePIDJoyStick(InyawAttitudePIDJoyStick)    // 28
-    , controller(InController)                            // 29
-    , desiredNewVelocity(IndesiredNewVelocity)            // 30
-    // ... initialize other protected members
-    //, TimeData(MaxBufferSize)
-    //, xPIDOutputHistory(MaxBufferSize)
-    //, yPIDOutputHistory(MaxBufferSize)
-    //, zPIDOutputHistory(MaxBufferSize)
-    //, rollPIDOutputHistory(MaxBufferSize)
-    //, pitchPIDOutputHistory(MaxBufferSize)
-    //, yawPIDOutputHistory(MaxBufferSize)
-    //, positionErrorHistory(MaxBufferSize)
-    //, velocityErrorHistory(MaxBufferSize)
+    QuadPIDController *InxPIDJoyStick,
+    QuadPIDController *InyPIDJoyStick,
+    QuadPIDController *InzPIDJoyStick,
+    QuadPIDController *InrollAttitudePIDJoyStick,
+    QuadPIDController *InpitchAttitudePIDJoyStick,
+    QuadPIDController *InyawAttitudePIDJoyStick)
+    : dronePawn(InPawn) // 1
+      ,
+      initialTakeoff(InInitialTakeoff) // 2
+      ,
+      altitudeReached(InAltitudeReached) // 3
+      ,
+      Debug_DrawDroneCollisionSphere(InDebug_DrawDroneCollisionSphere) // 4
+      ,
+      Debug_DrawDroneWaypoint(InDebug_DrawDroneWaypoint) // 5
+      ,
+      maxPIDOutput(InMaxPIDOutput) // 6
+      ,
+      altitudeThresh(InAltitudeThresh) // 7
+      ,
+      minAltitudeLocal(InMinAltitudeLocal) // 8
+      ,
+      maxVelocity(InMaxVelocity) // 9
+      ,
+      maxAngle(InMaxAngle) // 10
+      ,
+      xPID(InXPID) // 11
+      ,
+      yPID(InYPID) // 12
+      ,
+      zPID(InZPID) // 13
+      ,
+      rollAttitudePID(InRollAttitudePID) // 14
+      ,
+      pitchAttitudePID(InPitchAttitudePID) // 15
+      ,
+      yawAttitudePID(InYawAttitudePID) // 16
+      ,
+      xPIDVelocity(InxPIDVelocity) // 17
+      ,
+      yPIDVelocity(InyPIDVelocity) // 18
+      ,
+      zPIDVelocity(InzPIDVelocity) // 19
+      ,
+      rollAttitudePIDVelocity(InrollAttitudePIDVelocity) // 20
+      ,
+      pitchAttitudePIDVelocity(InpitchAttitudePIDVelocity) // 21
+      ,
+      yawAttitudePIDVelocity(InyawAttitudePIDVelocity) // 22
+      ,
+      xPIDJoyStick(InxPIDJoyStick) // 23
+      ,
+      yPIDJoyStick(InyPIDJoyStick) // 24
+      ,
+      zPIDJoyStick(InzPIDJoyStick) // 25
+      ,
+      rollAttitudePIDJoyStick(InrollAttitudePIDJoyStick) // 26
+      ,
+      pitchAttitudePIDJoyStick(InpitchAttitudePIDJoyStick) // 27
+      ,
+      yawAttitudePIDJoyStick(InyawAttitudePIDJoyStick) // 28
+      ,
+      controller(InController) // 29
+      ,
+      desiredNewVelocity(IndesiredNewVelocity) // 30
+// ... initialize other protected members
+//, TimeData(MaxBufferSize)
+//, xPIDOutputHistory(MaxBufferSize)
+//, yPIDOutputHistory(MaxBufferSize)
+//, zPIDOutputHistory(MaxBufferSize)
+//, rollPIDOutputHistory(MaxBufferSize)
+//, pitchPIDOutputHistory(MaxBufferSize)
+//, yawPIDOutputHistory(MaxBufferSize)
+//, positionErrorHistory(MaxBufferSize)
+//, velocityErrorHistory(MaxBufferSize)
 {
 }
 ImGuiUtil::~ImGuiUtil()
 {
 }
 
-
 void ImGuiUtil::AutoWaypointHud(
-    TArray<float>& ThrustsVal,
+    TArray<float> &ThrustsVal,
     float rollError, float pitchError,
-    const FRotator& currentRotation,
-    const FVector& waypoint, const FVector& currLoc,
-    const FVector& error,
-    const FVector& currentVelocity,
+    const FRotator &currentRotation,
+    const FVector &waypoint, const FVector &currLoc,
+    const FVector &error,
+    const FVector &currentVelocity,
     float xOutput, float yOutput, float zOutput, float deltaTime)
 {
     ImGui::SetNextWindowPos(ImVec2(420, 10), ImGuiCond_FirstUseEver);
@@ -164,12 +190,12 @@ void ImGuiUtil::AutoWaypointHud(
 }
 
 void ImGuiUtil::VelocityHud(
-    TArray<float>& ThrustsVal,
+    TArray<float> &ThrustsVal,
     float rollError, float pitchError,
-    const FRotator& currentRotation,
-    const FVector& waypoint, const FVector& currLoc,
-    const FVector& error,
-    const FVector& currentVelocity,
+    const FRotator &currentRotation,
+    const FVector &waypoint, const FVector &currLoc,
+    const FVector &error,
+    const FVector &currentVelocity,
     float xOutput, float yOutput, float zOutput, float deltaTime)
 {
     // Set up window
@@ -240,12 +266,12 @@ void ImGuiUtil::VelocityHud(
 }
 
 void ImGuiUtil::JoyStickHud(
-    TArray<float>& ThrustsVal,
+    TArray<float> &ThrustsVal,
     float rollError, float pitchError,
-    const FRotator& currentRotation,
-    const FVector& waypoint, const FVector& currLoc,
-    const FVector& error,
-    const FVector& currentVelocity,
+    const FRotator &currentRotation,
+    const FVector &waypoint, const FVector &currLoc,
+    const FVector &error,
+    const FVector &currentVelocity,
     float xOutput, float yOutput, float zOutput, float deltaTime)
 {
     // Set up window
@@ -312,7 +338,7 @@ void ImGuiUtil::JoyStickHud(
     ImGui::End();
 }
 
-void ImGuiUtil::RenderImPlot(const TArray<float>& ThrustsVal, float deltaTime)
+void ImGuiUtil::RenderImPlot(const TArray<float> &ThrustsVal, float deltaTime)
 {
     if (ThrustsVal.Num() < 4)
     {
@@ -324,10 +350,10 @@ void ImGuiUtil::RenderImPlot(const TArray<float>& ThrustsVal, float deltaTime)
 
     // Add current time and thrust values to the data arrays
     TimeData.Add(CumulativeTime);
-    Thrust0Data.Add(ThrustsVal[0]);  // FL
-    Thrust1Data.Add(ThrustsVal[1]);  // FR
-    Thrust2Data.Add(ThrustsVal[2]);  // BL
-    Thrust3Data.Add(ThrustsVal[3]);  // BR
+    Thrust0Data.Add(ThrustsVal[0]); // FL
+    Thrust1Data.Add(ThrustsVal[1]); // FR
+    Thrust2Data.Add(ThrustsVal[2]); // BL
+    Thrust3Data.Add(ThrustsVal[3]); // BR
 
     // Remove old data points if we're beyond MaxPlotTime
     while (TimeData.Num() > 0 && (CumulativeTime - TimeData[0] > MaxPlotTime))
@@ -369,10 +395,10 @@ void ImGuiUtil::RenderImPlot(const TArray<float>& ThrustsVal, float deltaTime)
         ImPlot::SetupAxes("Time (s)", "Thrust (N)", axisFlags, axisFlags);
 
         // Define vibrant colors for better visibility
-        const ImVec4 FL_COLOR(1.0f, 0.2f, 0.2f, 1.0f);     // Bright red
-        const ImVec4 FR_COLOR(0.2f, 1.0f, 0.2f, 1.0f);     // Bright green
-        const ImVec4 BL_COLOR(0.2f, 0.6f, 1.0f, 1.0f);     // Bright blue
-        const ImVec4 BR_COLOR(1.0f, 0.8f, 0.0f, 1.0f);     // Bright yellow
+        const ImVec4 FL_COLOR(1.0f, 0.2f, 0.2f, 1.0f); // Bright red
+        const ImVec4 FR_COLOR(0.2f, 1.0f, 0.2f, 1.0f); // Bright green
+        const ImVec4 BL_COLOR(0.2f, 0.6f, 1.0f, 1.0f); // Bright blue
+        const ImVec4 BR_COLOR(1.0f, 0.8f, 0.0f, 1.0f); // Bright yellow
 
         // Plot each thrust component
         ImPlot::SetNextLineStyle(FL_COLOR, 2.0f);
@@ -410,7 +436,7 @@ void ImGuiUtil::DisplayDebugOptions()
     ImGui::Separator();
 }
 
-void ImGuiUtil::DisplayThrusterControls(TArray<float>& ThrustsVal)
+void ImGuiUtil::DisplayThrusterControls(TArray<float> &ThrustsVal)
 {
     ImGui::Separator();
     ImGui::Text("Control All Thrusts");
@@ -477,36 +503,36 @@ void ImGuiUtil::DisplayThrusterControls(TArray<float>& ThrustsVal)
 }
 
 void ImGuiUtil::DisplayPIDSettings(
-    QuadPIDController* xPIDParam, QuadPIDController* yPIDParam, QuadPIDController* zPIDParam,
-    QuadPIDController* rollPIDParam, QuadPIDController* pitchPIDParam, QuadPIDController* yawPIDParam,
-    const char* headerLabel, bool& synchronizeXYGains, bool& synchronizeGains)
+    QuadPIDController *xPIDParam, QuadPIDController *yPIDParam, QuadPIDController *zPIDParam,
+    QuadPIDController *rollPIDParam, QuadPIDController *pitchPIDParam, QuadPIDController *yawPIDParam,
+    const char *headerLabel, bool &synchronizeXYGains, bool &synchronizeGains)
 {
     if (ImGui::CollapsingHeader(headerLabel, ImGuiTreeNodeFlags_DefaultOpen))
     {
 
-        auto DrawPIDGainControl = [](const char* label, float* value, float minValue, float maxValue)
-            {
-                float totalWidth = ImGui::GetContentRegionAvail().x;
-                float inputWidth = 80.0f;
-                float sliderWidth = totalWidth - inputWidth - 20.0f;
+        auto DrawPIDGainControl = [](const char *label, float *value, float minValue, float maxValue)
+        {
+            float totalWidth = ImGui::GetContentRegionAvail().x;
+            float inputWidth = 80.0f;
+            float sliderWidth = totalWidth - inputWidth - 20.0f;
 
-                ImGui::PushItemWidth(sliderWidth);
-                ImGui::SliderFloat(label, value, minValue, maxValue);
-                ImGui::PopItemWidth();
+            ImGui::PushItemWidth(sliderWidth);
+            ImGui::SliderFloat(label, value, minValue, maxValue);
+            ImGui::PopItemWidth();
 
-                ImGui::SameLine();
+            ImGui::SameLine();
 
-                ImGui::PushItemWidth(inputWidth);
+            ImGui::PushItemWidth(inputWidth);
 
-                ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 1));
-                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
+            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 1));
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
 
-                std::string inputLabel = std::string("##") + label;
-                ImGui::InputFloat(inputLabel.c_str(), value, 0.0f, 0.0f, "%.3f");
+            std::string inputLabel = std::string("##") + label;
+            ImGui::InputFloat(inputLabel.c_str(), value, 0.0f, 0.0f, "%.3f");
 
-                ImGui::PopStyleColor(2);
-                ImGui::PopItemWidth();
-            };
+            ImGui::PopStyleColor(2);
+            ImGui::PopItemWidth();
+        };
 
         // Position PID Gains
         ImGui::Text("Position PID Gains");
@@ -634,7 +660,7 @@ void ImGuiUtil::DisplayPIDSettings(
             // Save PID gains to file
             FString FilePath = FPaths::ProjectDir() + "PIDGains.csv";
 
-            IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+            IPlatformFile &PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 
             bool bFileExists = PlatformFile.FileExists(*FilePath);
 
@@ -664,7 +690,7 @@ void ImGuiUtil::DisplayCameraControls()
     ImGui::Separator();
     ImGui::Spacing();
 
-    //ImGui::Text("Camera Mode: %s", dronePawn->CameraFPV->IsActive() ? "First Person" : "Third Person");
+    // ImGui::Text("Camera Mode: %s", dronePawn->CameraFPV->IsActive() ? "First Person" : "Third Person");
 
     if (ImGui::Button("Switch Camera Mode", ImVec2(200, 50)))
     {
@@ -720,7 +746,7 @@ void ImGuiUtil::DisplayDesiredVelocities()
     velocityChanged |= ImGui::SliderFloat("Desired Velocity Y", &tempVy, -maxVelocity, maxVelocity);
 
     // Slider for Velocity Z
-    velocityChanged |= ImGui::SliderFloat("Desired Velocity Z", &tempVz, 0, maxVelocity);
+    velocityChanged |= ImGui::SliderFloat("Desired Velocity Z", &tempVz, -maxVelocity, maxVelocity);
 
     // If any velocity slider was changed, update desired velocity
     if (velocityChanged)
@@ -738,4 +764,3 @@ void ImGuiUtil::DisplayDesiredVelocities()
 
     ImGui::Separator();
 }
-

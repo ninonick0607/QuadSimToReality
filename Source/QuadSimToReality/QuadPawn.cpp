@@ -13,41 +13,61 @@
 
 #define EPSILON 0.0001f
 
-
 AQuadPawn::AQuadPawn()
-    : DroneBody(nullptr)                           // 1
-    , DroneCamMesh(nullptr)                        // 2
-    , SpringArm(nullptr)                           // 3
-    , Camera(nullptr)                              // 4
-    , CameraFPV(nullptr)                           // 5
-    , ThrusterFL(nullptr)                          // 6
-    , ThrusterFR(nullptr)                          // 7
-    , ThrusterBL(nullptr)                          // 8
-    , ThrusterBR(nullptr)                          // 9
-    , MotorFL(nullptr)                             // 10
-    , MotorFR(nullptr)                             // 11
-    , MotorBL(nullptr)                             // 12
-    , MotorBR(nullptr)                             // 13
-    , WaypointMode(EWaypointMode::WaitingForModeSelection)  // 14
-    , ManualWaypoints()                            // 15
-    , NewWaypoint(FVector::ZeroVector)             // 16
-    , Rotors()                                     // 17
-    , Motors()                                     // 18
-    , Thrusters()                                  // 19
-    , QuadController(nullptr)                      // 20
-    , bWaypointModeSelected(false)                 // 21
-    , Input_ToggleImguiInput(nullptr)
+    : DroneBody(nullptr) // 1
+      ,
+      DroneCamMesh(nullptr) // 2
+      ,
+      SpringArm(nullptr) // 3
+      ,
+      Camera(nullptr) // 4
+      ,
+      CameraFPV(nullptr) // 5
+      ,
+      ThrusterFL(nullptr) // 6
+      ,
+      ThrusterFR(nullptr) // 7
+      ,
+      ThrusterBL(nullptr) // 8
+      ,
+      ThrusterBR(nullptr) // 9
+      ,
+      MotorFL(nullptr) // 10
+      ,
+      MotorFR(nullptr) // 11
+      ,
+      MotorBL(nullptr) // 12
+      ,
+      MotorBR(nullptr) // 13
+      ,
+      WaypointMode(EWaypointMode::WaitingForModeSelection) // 14
+      ,
+      ManualWaypoints() // 15
+      ,
+      NewWaypoint(FVector::ZeroVector) // 16
+      ,
+      Rotors() // 17
+      ,
+      Motors() // 18
+      ,
+      Thrusters() // 19
+      ,
+      QuadController(nullptr) // 20
+      ,
+      bWaypointModeSelected(false) // 21
+      ,
+      Input_ToggleImguiInput(nullptr)
 {
     PrimaryActorTick.bCanEverTick = true;
 
     // Initialize arrays
     Motors.SetNum(4);
     Thrusters.SetNum(4);
-    
+
     const float DroneSize = 12.0f;
     const float ThrusterHeight = 16.0f;
-    const FString MotorNames[] = { TEXT("MotorFL"), TEXT("MotorFR"), TEXT("MotorBL"), TEXT("MotorBR") };
-    const FString ThrusterNames[] = { TEXT("ThrusterFL"), TEXT("ThrusterFR"), TEXT("ThrusterBL"), TEXT("ThrusterBR") };
+    const FString MotorNames[] = {TEXT("MotorFL"), TEXT("MotorFR"), TEXT("MotorBL"), TEXT("MotorBR")};
+    const FString ThrusterNames[] = {TEXT("ThrusterFL"), TEXT("ThrusterFR"), TEXT("ThrusterBL"), TEXT("ThrusterBR")};
 
     // Initialize components
     DroneBody = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("DroneBody"));
@@ -71,12 +91,11 @@ AQuadPawn::AQuadPawn()
 
     CameraFPV->SetRelativeLocation(FVector(0, 0, 10));
 
-
     const FVector MotorPositions[] = {
-        FVector(DroneSize, -DroneSize, ThrusterHeight),   // Front-Left
-        FVector(DroneSize, DroneSize, ThrusterHeight),    // Front-Right
-        FVector(-DroneSize, -DroneSize, ThrusterHeight),  // Back-Left
-        FVector(-DroneSize, DroneSize, ThrusterHeight)    // Back-Right
+        FVector(DroneSize, -DroneSize, ThrusterHeight),  // Front-Left
+        FVector(DroneSize, DroneSize, ThrusterHeight),   // Front-Right
+        FVector(-DroneSize, -DroneSize, ThrusterHeight), // Back-Left
+        FVector(-DroneSize, DroneSize, ThrusterHeight)   // Back-Right
     };
 
     // Initialize Rotors
@@ -97,7 +116,7 @@ AQuadPawn::AQuadPawn()
         Thrusters[i]->ThrustStrength = 0.0f; // Initialize thrust to zero
 
         // Initialize the Rotor struct
-        Rotors[i] = { Thrusters[i], Motors[i] };
+        Rotors[i] = {Thrusters[i], Motors[i]};
     }
 
     // SpringArm settings
@@ -109,9 +128,8 @@ AQuadPawn::AQuadPawn()
 
     // Automatically possess pawn for testing
     AutoPossessPlayer = EAutoReceiveInput::Player0;
-    
-    bWaypointModeSelected = false;
 
+    bWaypointModeSelected = false;
 }
 
 void AQuadPawn::BeginPlay()
@@ -126,21 +144,21 @@ void AQuadPawn::BeginPlay()
             QuadController->Initialize(this);
         }
     }
-    for (auto& rotor : Rotors)
+    for (auto &rotor : Rotors)
     {
         rotor.Thruster->ThrustStrength = 0.0f;
     }
-    
+
     WaypointMode = EWaypointMode::WaitingForModeSelection;
     NewWaypoint = FVector(0.0f, 0.0f, 0.0f);
     ManualWaypoints.Empty();
-   
-    for (auto& rotor : Rotors)
+
+    for (auto &rotor : Rotors)
     {
         rotor.Thruster->ThrustStrength = 0.0f;
-;
+        ;
     }
-    
+
     QuadController->ResetPID();
     Camera->SetActive(true);
     CameraFPV->SetActive(false);
@@ -171,13 +189,12 @@ void AQuadPawn::ToggleImguiInput()
 void AQuadPawn::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
-    
-    for (auto& rotor : Rotors)
+
+    for (auto &rotor : Rotors)
     {
         rotor.Animate(DeltaTime);
     }
 
-    
     // UpdateAnimation(DeltaTime);
     UpdateControl(DeltaTime);
 }
@@ -214,7 +231,7 @@ void AQuadPawn::HandleRollInput(float Value)
     }
 }
 
-void AQuadPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+void AQuadPawn::SetupPlayerInputComponent(UInputComponent *PlayerInputComponent)
 {
     Super::SetupPlayerInputComponent(PlayerInputComponent);
 
@@ -225,7 +242,6 @@ void AQuadPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
     PlayerInputComponent->BindAxis("Roll", this, &AQuadPawn::HandleRollInput);
 
     PlayerInputComponent->BindAction("ToggleImGui", IE_Pressed, this, &AQuadPawn::ToggleImguiInput);
-
 }
 
 void AQuadPawn::UpdateControl(float DeltaTime)
@@ -233,12 +249,11 @@ void AQuadPawn::UpdateControl(float DeltaTime)
     this->QuadController->Update(DeltaTime);
 }
 
-
 void AQuadPawn::InitializeRotors()
 {
-    const FString motorNames[] = { TEXT("MotorFL"), TEXT("MotorFR"), TEXT("MotorBL"), TEXT("MotorBR") };
-    const FString thrusterNames[] = { TEXT("ThrusterFL"), TEXT("ThrusterFR"), TEXT("ThrusterBL"), TEXT("ThrusterBR") };
-    const FString socketNames[] = { TEXT("MotorSocketFL"), TEXT("MotorSocketFR"), TEXT("MotorSocketBL"), TEXT("MotorSocketBR") };
+    const FString motorNames[] = {TEXT("MotorFL"), TEXT("MotorFR"), TEXT("MotorBL"), TEXT("MotorBR")};
+    const FString thrusterNames[] = {TEXT("ThrusterFL"), TEXT("ThrusterFR"), TEXT("ThrusterBL"), TEXT("ThrusterBR")};
+    const FString socketNames[] = {TEXT("MotorSocketFL"), TEXT("MotorSocketFR"), TEXT("MotorSocketBL"), TEXT("MotorSocketBR")};
 
     for (int i = 0; i < 4; ++i)
     {
@@ -252,6 +267,5 @@ void AQuadPawn::InitializeRotors()
         Thrusters[i]->AttachToComponent(Motors[i], FAttachmentTransformRules::KeepRelativeTransform);
         Thrusters[i]->SetRelativeRotation(FRotator(-90.0f, 0.0f, 0.0f));
         Thrusters[i]->bAutoActivate = true;
-        
     }
 }

@@ -30,63 +30,63 @@ public:
     AQuadPawn();
 
     // Overridden functions
-    
+
     virtual void Tick(float DeltaTime) override;
     void ToggleImguiInput();
     void SwitchCamera();
 
-    virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+    virtual void SetupPlayerInputComponent(UInputComponent *PlayerInputComponent) override;
 
     // Drone components
     UPROPERTY(EditAnywhere, Category = "Drone Components")
-    USkeletalMeshComponent* DroneBody;
+    USkeletalMeshComponent *DroneBody;
 
     UPROPERTY(EditAnywhere, Category = "Drone Components")
-    UStaticMeshComponent* DroneCamMesh;
+    UStaticMeshComponent *DroneCamMesh;
 
     // Camera components
     UPROPERTY(VisibleAnywhere, Category = "Camera")
-    USpringArmComponent* SpringArm;
+    USpringArmComponent *SpringArm;
 
     UPROPERTY(VisibleAnywhere, Category = "Camera")
-    UCameraComponent* Camera;
-    
+    UCameraComponent *Camera;
+
     UPROPERTY(VisibleAnywhere, Category = "Camera")
-     UCameraComponent* CameraFPV;
+    UCameraComponent *CameraFPV;
 
     // Thruster components
     UPROPERTY(VisibleAnywhere, Category = "Thrusters")
-    UPhysicsThrusterComponent* ThrusterFL;
+    UPhysicsThrusterComponent *ThrusterFL;
 
     UPROPERTY(VisibleAnywhere, Category = "Thrusters")
-    UPhysicsThrusterComponent* ThrusterFR;
+    UPhysicsThrusterComponent *ThrusterFR;
 
     UPROPERTY(VisibleAnywhere, Category = "Thrusters")
-    UPhysicsThrusterComponent* ThrusterBL;
+    UPhysicsThrusterComponent *ThrusterBL;
 
     UPROPERTY(VisibleAnywhere, Category = "Thrusters")
-    UPhysicsThrusterComponent* ThrusterBR;
+    UPhysicsThrusterComponent *ThrusterBR;
 
     // Rotor meshes
     UPROPERTY(EditAnywhere, Category = "Rotor Meshes")
-    UStaticMeshComponent* MotorFL;
+    UStaticMeshComponent *MotorFL;
 
     UPROPERTY(EditAnywhere, Category = "Rotor Meshes")
-    UStaticMeshComponent* MotorFR;
+    UStaticMeshComponent *MotorFR;
 
     UPROPERTY(EditAnywhere, Category = "Rotor Meshes")
-    UStaticMeshComponent* MotorBL;
+    UStaticMeshComponent *MotorBL;
 
     UPROPERTY(EditAnywhere, Category = "Rotor Meshes")
-    UStaticMeshComponent* MotorBR;
-    
+    UStaticMeshComponent *MotorBR;
+
     struct Rotor
     {
-        UPhysicsThrusterComponent* Thruster;
-        UStaticMeshComponent* Mesh;
+        UPhysicsThrusterComponent *Thruster;
+        UStaticMeshComponent *Mesh;
         float AngularVelocity = 0.0f;
 
-        Rotor(UPhysicsThrusterComponent* InThruster, UStaticMeshComponent* InMesh)
+        Rotor(UPhysicsThrusterComponent *InThruster, UStaticMeshComponent *InMesh)
             : Thruster(InThruster), Mesh(InMesh), AngularVelocity(0.0f)
         {
         }
@@ -99,10 +99,10 @@ public:
         void Animate(float DeltaTime)
         {
             // Increased multiplier for more realistic rotor speed
-            const float Multiplier = 20.f;  // Changed from 1.f to 20.f
+            const float Multiplier = 20.f; // Changed from 1.f to 20.f
 
             // Reduced inertia to allow for quicker acceleration
-            const float Inertia = 0.1f;     // Changed from 0.2f to 0.1f
+            const float Inertia = 0.1f; // Changed from 0.2f to 0.1f
 
             // Added base rotation speed to maintain minimum rotation even at low thrust
             const float BaseRotationSpeed = 1000.f;
@@ -126,24 +126,24 @@ public:
 
     //--------
     UPROPERTY(VisibleAnywhere)
-    TArray<UStaticMeshComponent*> Motors;
+    TArray<UStaticMeshComponent *> Motors;
     UPROPERTY(VisibleAnywhere)
-    TArray<UPhysicsThrusterComponent*> Thrusters;
-    
+    TArray<UPhysicsThrusterComponent *> Thrusters;
+
     // Drone controller
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Controller", meta = (AllowPrivateAccess = "true"))
-    UQuadDroneController* QuadController;
+    UQuadDroneController *QuadController;
 
     void HandleThrustInput(float Value);
     void HandleYawInput(float Value);
     void HandlePitchInput(float Value);
     void HandleRollInput(float Value);
-    
+
 protected:
     // Overridden function called when the game starts or when spawned
     virtual void BeginPlay() override;
 
-private:    
+private:
     // Helper functions
     void UpdateControl(float DeltaTime);
     void InitializeRotors();
@@ -151,8 +151,5 @@ private:
     bool bWaypointModeSelected;
     // Input components
     UPROPERTY(VisibleAnywhere)
-    UInputComponent* Input_ToggleImguiInput;
-
-
-
+    UInputComponent *Input_ToggleImguiInput;
 };
