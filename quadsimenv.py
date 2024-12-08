@@ -8,12 +8,13 @@ import struct
 
 class QuadSimEnv(gym.Env):
     def __init__(self):
+
         super(QuadSimEnv, self).__init__()
 
-        # Updated action space to have min 0 and max 250 for all axes
+
         self.action_space = gym.spaces.Box(
-            low=np.array([0, 0, 0]),
-            high=np.array([250, 250, 250]),
+            low=np.array([-1, -1, -1]), 
+            high=np.array([1, 1, 1]),
             dtype=np.float32
         )
 
@@ -155,82 +156,23 @@ class QuadSimEnv(gym.Env):
             [topic, message] = self.image_socket.recv_multipart(flags=zmq.NOBLOCK)
             drone_id = topic.decode()
             image_data = np.frombuffer(message, dtype=np.uint8)
+
             image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
+
             if image is not None:
                 return image
             else:
+                print("Failed to decode image")
                 return None
             
         except zmq.Again:
             return None
         
         except Exception as e:
+            print(f"Error receiving image: {e}")
             return None
 
-class ActionSlider(QWidget):
-    def __init__(self, update_action_callback):
-        super().__init__()
-        self.update_action_callback = update_action_callback
-        self.initUI()
-
-    def initUI(self):
-        self.setWindowTitle('Action Slider Control')
-        self.setGeometry(100, 100, 400, 250)
-
-        layout = QVBoxLayout()
-
-        self.sliders = []
-        self.labels = []
-        ranges = [(-250, 250), (-250, 250), (-250, 250)]
-        initial_values = [0, 0, 0]
-        labels = ['X', 'Y', 'Z']
-
-        for i in range(3):
-            h_layout = QHBoxLayout()
-
-            label = QLabel(f"{labels[i]}: {initial_values[i]:.2f}")
-            self.labels.append(label)
-            h_layout.addWidget(label)
-
-            slider = QSlider(Qt.Horizontal)
-            slider.setMinimum(ranges[i][0])
-            slider.setMaximum(ranges[i][1])
-            slider.setValue(initial_values[i])
-            slider.valueChanged.connect(self.slider_changed)
-            self.sliders.append(slider)
-            h_layout.addWidget(slider)
-
-            reset_button = QPushButton(f"Reset {labels[i]}")
-            reset_button.clicked.connect(lambda checked, idx=i: self.reset_single_slider(idx))
-            h_layout.addWidget(reset_button)
-
-            layout.addLayout(h_layout)
-
-        reset_all_button = QPushButton("Reset All")
-        reset_all_button.clicked.connect(self.reset_all_sliders)
-        layout.addWidget(reset_all_button)
-
-        self.setLayout(layout)
-
-    def slider_changed(self):
-        action = []
-        for i in range(3):
-            value = self.sliders[i].value()
-            self.labels[i].setText(f"{['X', 'Y', 'Z'][i]}: {value:.2f}")
-            action.append(value)
-        self.update_action_callback(action)
-
-    def reset_single_slider(self, index):
-        self.sliders[index].setValue(0)
-        self.labels[index].setText(f"{['X', 'Y', 'Z'][index]}: 0.00")
-        self.slider_changed()
-
-    def reset_all_sliders(self):
-        for i in range(3):
-            self.reset_single_slider(i)
-
 if __name__ == "__main__":
-
     env = QuadSimEnv()
     model = PPO("MlpPolicy", env, verbose=1, learning_rate=0.003, n_steps=512)
 
