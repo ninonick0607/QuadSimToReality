@@ -8,7 +8,7 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "QuadDroneController.h"
-
+#include "ZMQController.h"
 #include "QuadPawn.generated.h"
 
 #define ACCEPTABLE_DIST 200
@@ -133,6 +133,9 @@ public:
     // Drone controller
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Controller", meta = (AllowPrivateAccess = "true"))
     UQuadDroneController* QuadController;
+
+    UPROPERTY(VisibleAnywhere, Category = "ZMQ")
+    UZMQController* ZMQController;
 
     void HandleThrustInput(float Value);
     void HandleYawInput(float Value);

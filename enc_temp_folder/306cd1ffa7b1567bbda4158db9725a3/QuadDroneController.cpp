@@ -14,7 +14,9 @@
         #include "EngineUtils.h"
         #include "Math/UnrealMathUtility.h"
 
-
+        //zmq::context_t* UQuadDroneController::SharedZMQContext = nullptr;
+        //zmq::socket_t* UQuadDroneController::SharedZMQSocket = nullptr;
+        //int32 UQuadDroneController::SharedResourceRefCount = 0;
         #define ACCEPTABLE_DIST 200
             
         const FVector start = FVector(0, 0, 1000);
@@ -268,7 +270,6 @@
 
         UQuadDroneController::~UQuadDroneController()
         {
-            DroneGlobalState::Get().UnbindController();
 
         } 
         void UQuadDroneController::Initialize(AQuadPawn* InPawn)
@@ -914,72 +915,50 @@
             }
         }
 
-        void UQuadDroneController::ResetDroneHigh()
-        {
-            if (dronePawn)
-            {
-                // First, disable physics simulation temporarily
-                if (dronePawn->DroneBody)
-                {
-                    dronePawn->DroneBody->SetSimulatePhysics(false);
-                }
+ 
 
-                // Reset position and rotation
-                dronePawn->SetActorLocation(FVector(0.0f, 0.0f, 10000.0f), false, nullptr, ETeleportType::TeleportPhysics);
-                dronePawn->SetActorRotation(FRotator::ZeroRotator);
+       void UQuadDroneController::ResetDroneHigh()
+       {
+           if (dronePawn)
+           {
+               // Reset to high position (10000cm up)
+               dronePawn->SetActorLocation(FVector(0.0f, 0.0f, 10000.0f), false, nullptr, ETeleportType::TeleportPhysics);
+               dronePawn->SetActorRotation(FRotator::ZeroRotator, ETeleportType::TeleportPhysics);
 
-                if (dronePawn->DroneBody)
-                {
-                    // Re-enable physics
-                    dronePawn->DroneBody->SetSimulatePhysics(true);
+               if (dronePawn->DroneBody)
+               {
+                   dronePawn->DroneBody->SetPhysicsLinearVelocity(FVector::ZeroVector);
+                   dronePawn->DroneBody->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+                   dronePawn->DroneBody->WakeAllRigidBodies();
+               }
 
-                    // Reset velocities
-                    dronePawn->DroneBody->SetPhysicsLinearVelocity(FVector::ZeroVector);
-                    dronePawn->DroneBody->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+               // Reset controller states
+               ResetPID();
+               desiredNewVelocity = FVector::ZeroVector;
+               initialTakeoff = true;
+               altitudeReached = false;
+           }
+       }
 
-                    // Wake the physics body to ensure it responds to the new state
-                    dronePawn->DroneBody->WakeAllRigidBodies();
-                }
+       void UQuadDroneController::ResetDroneOrigin()
+       {
+           if (dronePawn)
+           {
+               // Reset to origin (10cm up)
+               dronePawn->SetActorLocation(FVector(0.0f, 0.0f, 10.0f), false, nullptr, ETeleportType::TeleportPhysics);
+               dronePawn->SetActorRotation(FRotator::ZeroRotator, ETeleportType::TeleportPhysics);
 
-                // Reset controller states
-                ResetPID();
-                desiredNewVelocity = FVector::ZeroVector;
-                initialTakeoff = true;
-                altitudeReached = false;
-            }
-        }
+               if (dronePawn->DroneBody)
+               {
+                   dronePawn->DroneBody->SetPhysicsLinearVelocity(FVector::ZeroVector);
+                   dronePawn->DroneBody->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+                   dronePawn->DroneBody->WakeAllRigidBodies();
+               }
 
-        void UQuadDroneController::ResetDroneOrigin()
-        {
-            if (dronePawn)
-            {
-                // First, disable physics simulation temporarily
-                if (dronePawn->DroneBody)
-                {
-                    dronePawn->DroneBody->SetSimulatePhysics(false);
-                }
-
-                // Reset position and rotation
-                dronePawn->SetActorLocation(FVector(0.0f, 0.0f, 10.0f), false, nullptr, ETeleportType::TeleportPhysics);
-                dronePawn->SetActorRotation(FRotator::ZeroRotator);
-
-                if (dronePawn->DroneBody)
-                {
-                    // Re-enable physics
-                    dronePawn->DroneBody->SetSimulatePhysics(true);
-
-                    // Reset velocities
-                    dronePawn->DroneBody->SetPhysicsLinearVelocity(FVector::ZeroVector);
-                    dronePawn->DroneBody->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
-
-                    // Wake the physics body to ensure it responds to the new state
-                    dronePawn->DroneBody->WakeAllRigidBodies();
-                }
-
-                // Reset controller states
-                ResetPID();
-                desiredNewVelocity = FVector::ZeroVector;
-                initialTakeoff = true;
-                altitudeReached = false;
-            }
-        }
+               // Reset controller states
+               ResetPID();
+               desiredNewVelocity = FVector::ZeroVector;
+               initialTakeoff = true;
+               altitudeReached = false;
+           }
+       }

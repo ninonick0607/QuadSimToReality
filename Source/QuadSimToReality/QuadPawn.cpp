@@ -2,6 +2,7 @@
 
 #include "QuadPawn.h"
 #include "QuadDroneController.h"
+#include "ZMQController.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Math/UnrealMathUtility.h"
@@ -112,6 +113,8 @@ AQuadPawn::AQuadPawn()
     
     bWaypointModeSelected = false;
 
+    ZMQController = CreateDefaultSubobject<UZMQController>(TEXT("ZMQController"));
+
 }
 
 void AQuadPawn::BeginPlay()
@@ -140,7 +143,10 @@ void AQuadPawn::BeginPlay()
         rotor.Thruster->ThrustStrength = 0.0f;
 ;
     }
-    
+    if (ZMQController)
+    {
+        ZMQController->Initialize(this, QuadController);
+    }
     QuadController->ResetPID();
     Camera->SetActive(true);
     CameraFPV->SetActive(false);

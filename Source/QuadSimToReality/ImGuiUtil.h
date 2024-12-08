@@ -7,8 +7,6 @@ class AQuadPawn;
 class QuadPIDController;
 class UQuadDroneController;
 
-
-
 class QUADSIMTOREALITY_API ImGuiUtil
 {
 public:
