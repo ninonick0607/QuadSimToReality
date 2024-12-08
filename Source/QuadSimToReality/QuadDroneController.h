@@ -5,31 +5,22 @@
 #include "CoreMinimal.h"
 #include "QuadPIDConroller.h"
 #include "ImGuiUtil.h"
+#include "DroneGlobalState.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "Components/SceneCaptureComponent2D.h"
 #include "QuadDroneController.generated.h"
 
 class AQuadPawn; // Forward declaration
-namespace zmq
-{
-	class context_t;
-	class socket_t;
-	class message_t;
-	class multipart_t;
-	enum class socket_type : int;
-	enum class recv_flags : int;
-	enum class send_flags : int;
-	class error_t;
-}
+
 UCLASS(Blueprintable, BlueprintType)
 class QUADSIMTOREALITY_API UQuadDroneController : public UObject
 {
 	GENERATED_BODY()
 
 public:
-	UQuadDroneController(const FObjectInitializer &ObjectInitializer);
+	UQuadDroneController(const FObjectInitializer& ObjectInitializer);
 
-	void Initialize(AQuadPawn *InPawn);
+	void Initialize(AQuadPawn* InPawn);
 
 	virtual ~UQuadDroneController();
 
@@ -43,23 +34,22 @@ public:
 		VelocityControl
 	};
 
+
 	UPROPERTY()
-	AQuadPawn *dronePawn;
+	AQuadPawn* dronePawn;
 	UPROPERTY()
 	TArray<float> Thrusts;
 
-	void BeginZMQController();
-
-	void SetDesiredVelocity(const FVector &NewVelocity);
+	void SetDesiredVelocity(const FVector& NewVelocity);
 	void SetFlightMode(FlightMode NewMode);
 	FlightMode GetFlightMode() const;
 
 	void ResetPID();
 
 	void ThrustMixer(float xOutput, float yOutput, float zOutput, float rollOutput, float pitchOutput);
-	FVector CalculateDesiredVelocity(const FVector &error, float InMaxVelocity);
-	float CalculateDesiredRoll(const FVector &normalizedError, const FVector &droneForwardVector, float maxTilt, float altitudeThreshold);
-	float CalculateDesiredPitch(const FVector &normalizedError, const FVector &droneForwardVector, float maxTilt, float altitudeThreshold);
+	FVector CalculateDesiredVelocity(const FVector& error, float InMaxVelocity);
+	float CalculateDesiredRoll(const FVector& normalizedError, const FVector& droneForwardVector, float maxTilt, float altitudeThreshold);
+	float CalculateDesiredPitch(const FVector& normalizedError, const FVector& droneForwardVector, float maxTilt, float altitudeThreshold);
 
 	void Update(double DeltaTime);
 	void AutoWaypointControl(double DeltaTime);
@@ -67,7 +57,7 @@ public:
 	void ManualThrustControl(double a_deltaTime);
 	void AddNavPlan(FString Name, TArray<FVector> Waypoints);
 	void SetNavPlan(FString Name);
-	void DrawDebugVisuals(const FVector &currentPosition, const FVector &setPoint) const;
+	void DrawDebugVisuals(const FVector& currentPosition, const FVector& setPoint)const;
 	void IncreaseAllThrusts(float Amount);
 	void HandleThrustInput(float Value);
 	void HandleYawInput(float Value);
@@ -79,12 +69,9 @@ public:
 	void ResetDroneHigh();
 	void ResetDroneOrigin();
 
-	const FVector &GetInitialPosition() const { return initialDronePosition; }
-
+	const FVector& GetInitialPosition() const { return initialDronePosition; }
 private:
-	void CaptureAndSendImage();
-	void SendImageData(const TArray<uint8> &CompressedBitmap);
-	void ReceiveVelocityCommand();
+
 
 	float desiredYaw;
 	bool bDesiredYawInitialized;
@@ -100,12 +87,12 @@ private:
 	};
 
 	TArray<NavPlan> setPointNavigation;
-	NavPlan *currentNav;
+	NavPlan* currentNav;
 	int32 curPos;
-
+     
 	TUniquePtr<ImGuiUtil> AutoWaypointHUD;
 	TUniquePtr<ImGuiUtil> VelocityHUD;
-	TUniquePtr<ImGuiUtil> JoyStickHUD;
+	TUniquePtr<ImGuiUtil>JoyStickHUD;
 	TUniquePtr<ImGuiUtil> ManualThrustHUD;
 
 	FVector desiredNewVelocity;
@@ -116,9 +103,9 @@ private:
 	bool altitudeReached;
 	bool Debug_DrawDroneCollisionSphere;
 	bool Debug_DrawDroneWaypoint;
-	static inline const float maxPIDOutput = 600.f;
-	static constexpr float altitudeThresh = 0.6f;
-	static constexpr float minAltitudeLocal = 500.f;
+	static inline const float maxPIDOutput=600.f;
+	static constexpr float altitudeThresh=0.6f;
+	static constexpr float minAltitudeLocal=500.f;
 	float thrustInput;
 	float yawInput;
 	float pitchInput;
@@ -147,23 +134,6 @@ private:
 	TUniquePtr<QuadPIDController> pitchAttitudePIDJoyStick;
 	TUniquePtr<QuadPIDController> yawAttitudePIDJoyStick;
 
-	// ZeroMQ Variables
-	static zmq::context_t *SharedZMQContext;
-	static zmq::socket_t *SharedZMQSocket;
-
-	zmq::socket_t *ZMQSocket;
-	zmq::socket_t *CommandSocket;
-
-	UPROPERTY()
-	USceneCaptureComponent2D *SceneCaptureComponent;
-
-	UPROPERTY()
-	UTextureRenderTarget2D *RenderTarget;
-
-	float UpdateInterval;
-	float TimeSinceLastUpdate;
-	static int32 SharedResourceRefCount;
-	bool bIsActive;
-	FString DroneID;
 	FVector initialDronePosition;
+
 };
