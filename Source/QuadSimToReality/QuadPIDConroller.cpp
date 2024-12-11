@@ -19,6 +19,7 @@ void QuadPIDController::ResetIntegral()
 {
     integralSum = 0.0f;
 }
+
 float QuadPIDController::Calculate(float error, float dt)
 {
     if (dt <= KINDA_SMALL_NUMBER)
@@ -36,6 +37,7 @@ float QuadPIDController::Calculate(float error, float dt)
     float maxIntegral = 100.0f;
     integralSum = FMath::Clamp(integralSum, -maxIntegral, maxIntegral);
     float i_term = IntegralGain * integralSum;
+    UE_LOG(LogTemp, Warning, TEXT("INTEGRAL SUM: %f"),integralSum);
 
     // Derivative term
     float d_term = DerivativeGain * (error - prevError) / dt;

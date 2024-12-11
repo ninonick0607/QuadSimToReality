@@ -5,9 +5,7 @@
 #include "CoreMinimal.h"
 #include "QuadPIDConroller.h"
 #include "ImGuiUtil.h"
-#include "DroneGlobalState.h"
-#include "Engine/TextureRenderTarget2D.h"
-#include "Components/SceneCaptureComponent2D.h"
+#include "DroneJSONConfig.h"
 #include "QuadDroneController.generated.h"
 
 class AQuadPawn; // Forward declaration
@@ -45,6 +43,8 @@ public:
 	FlightMode GetFlightMode() const;
 
 	void ResetPID();
+	void ResetAutoDroneIntegral();
+	void ResetVelocityDroneIntegral();
 
 	void ThrustMixer(float xOutput, float yOutput, float zOutput, float rollOutput, float pitchOutput);
 	FVector CalculateDesiredVelocity(const FVector& error, float InMaxVelocity);
@@ -99,13 +99,14 @@ private:
 
 	float maxVelocity;
 	float maxAngle;
+	float maxPIDOutput;
+	float altitudeThresh; 
+	float minAltitudeLocal;
+	float acceptableDistance;
 	bool initialTakeoff;
 	bool altitudeReached;
 	bool Debug_DrawDroneCollisionSphere;
 	bool Debug_DrawDroneWaypoint;
-	static inline const float maxPIDOutput=600.f;
-	static constexpr float altitudeThresh=0.6f;
-	static constexpr float minAltitudeLocal=500.f;
 	float thrustInput;
 	float yawInput;
 	float pitchInput;

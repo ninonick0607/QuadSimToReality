@@ -1,4 +1,6 @@
 #include "ZMQController.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "Components/SceneCaptureComponent2D.h"
 #include <zmq.hpp>
 #include <zmq_addon.hpp>
 #include "Kismet/GameplayStatics.h"
@@ -13,10 +15,10 @@ zmq::socket_t* UZMQController::SharedZMQSocket = nullptr;
 int32 UZMQController::SharedResourceRefCount = 0;
 
 UZMQController::UZMQController()
-    : UpdateInterval(DEFAULT_UPDATE_INTERVAL)
+    : DroneID(TEXT("drone1"))
+    , UpdateInterval(DEFAULT_UPDATE_INTERVAL)
     , TimeSinceLastUpdate(0.0f)
     , bIsActive(true)
-    , DroneID(TEXT("drone1"))
 {
     PrimaryComponentTick.bCanEverTick = true;
 }
@@ -260,6 +262,12 @@ void UZMQController::ReceiveVelocityCommand()
             if (command == "RESET")
             {
                 HandleResetCommand();
+            }
+            if (command == "INTEGRAL RESET")
+            {
+                UE_LOG(LogTemp, Error, TEXT("INTEGRAL RESET COMMAND RECEIVED"));
+                DroneController->ResetVelocityDroneIntegral();
+
             }
             else if (command == "VELOCITY")
             {

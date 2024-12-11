@@ -23,8 +23,9 @@ public class QuadSimToReality : ModuleRules
             "ImGui",
             "Slate",
             "SlateCore",
-            "UMG" 
-            // Add any other modules you need
+            "UMG",
+            "Json",
+            "JsonUtilities"
         });
 
         PrivateDependencyModuleNames.AddRange(new string[] { });
@@ -48,5 +49,6 @@ public class QuadSimToReality : ModuleRules
 
         // Add the DLL as a runtime dependency
         RuntimeDependencies.Add("$(BinaryOutputDir)/libzmq-v143-mt-4_3_6.dll", Path.Combine(ZeroMQLibPath, "libzmq-v143-mt-4_3_6.dll"));
-    }
+        bEnableExceptions = true;
+        CppStandard = CppStandardVersion.Cpp20;    }
 }

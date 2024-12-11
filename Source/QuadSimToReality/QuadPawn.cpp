@@ -30,11 +30,8 @@ AQuadPawn::AQuadPawn()
     , MotorBL(nullptr)                             // 12
     , MotorBR(nullptr)                             // 13
     , WaypointMode(EWaypointMode::WaitingForModeSelection)  // 14
-    , ManualWaypoints()                            // 15
     , NewWaypoint(FVector::ZeroVector)             // 16
     , Rotors()                                     // 17
-    , Motors()                                     // 18
-    , Thrusters()                                  // 19
     , QuadController(nullptr)                      // 20
     , bWaypointModeSelected(false)                 // 21
     , Input_ToggleImguiInput(nullptr)

@@ -97,6 +97,10 @@ class QuadSimEnv(gym.Env):
 
         done = self.steps >= 512 
 
+        test_command = "INTEGRAL RESET"
+        self.prev_goal_state = self.goal_state.copy()
+        self.command_socket.send_string(test_command)
+
         if done:
             observation, _ = self.reset(seed=None)
         else:
@@ -159,7 +163,7 @@ class QuadSimEnv(gym.Env):
 
             image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
 
-            if image is not None:
+            if image    is not None:
                 return image
             else:
                 print("Failed to decode image")

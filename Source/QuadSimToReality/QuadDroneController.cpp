@@ -4,19 +4,12 @@
         #include "QuadPawn.h"
         #include "DrawDebugHelpers.h"
         #include "imgui.h"
-        #include "implot.h"
-        #include "string"
         #include "DroneGlobalState.h"
-        #include <zmq.hpp>
-        #include <zmq_addon.hpp>
         #include "ImGuiUtil.h"
-        #include "ImageUtils.h"
         #include "EngineUtils.h"
+        #include "DroneJSONConfig.h"
         #include "Math/UnrealMathUtility.h"
 
-
-        #define ACCEPTABLE_DIST 200
-            
         const FVector start = FVector(0, 0, 1000);
 
         static TArray<FVector> make_test_dests()
@@ -111,20 +104,27 @@
             , JoyStickHUD(nullptr)
             , ManualThrustHUD(nullptr)
             , desiredNewVelocity(FVector::ZeroVector)
-            , maxVelocity(250.0f)
-            , maxAngle(15.f)
-            , initialTakeoff(true)
-            , altitudeReached(false)
-            , Debug_DrawDroneCollisionSphere(true)
-            , Debug_DrawDroneWaypoint(true)
-            , thrustInput(0.0f)
-            , yawInput(0.0f)
-            , pitchInput(0.0f)
-            , rollInput(0.0f)
-            , hoverThrust(0.0f)
-            , bHoverThrustInitialized(false)
         {
-
+            // Load config values
+            const auto& Config = UDroneJSONConfig::Get().Config;
+            maxVelocity = Config.FlightParams.MaxVelocity;
+            maxAngle = Config.FlightParams.MaxAngle;
+            maxPIDOutput = Config.FlightParams.MaxPIDOutput;
+            altitudeThresh = Config.FlightParams.AltitudeThreshold;
+            minAltitudeLocal = Config.FlightParams.MinAltitudeLocal;
+            acceptableDistance = Config.FlightParams.AcceptableDistance;
+            
+            // Initialize other values
+            initialTakeoff = true;
+            altitudeReached = false;
+            Debug_DrawDroneCollisionSphere = true;
+            Debug_DrawDroneWaypoint = true;
+            thrustInput = 0.0f;
+            yawInput = 0.0f;
+            pitchInput = 0.0f;
+            rollInput = 0.0f;
+            hoverThrust = 0.0f;
+            bHoverThrustInitialized = false;
             Thrusts.SetNum(4);
 
             // PID stuff
@@ -151,8 +151,7 @@
             yawAttitudePID = MakeUnique<QuadPIDController>();
             yawAttitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
             yawAttitudePID->SetGains(0.f, 0.f, 0.f);
-
-
+            
             // Move by Velocity
             xPIDVelocity = MakeUnique<QuadPIDController>();
             xPIDVelocity->SetLimits(-maxPIDOutput, maxPIDOutput);
@@ -202,9 +201,7 @@
             yawAttitudePIDJoyStick = MakeUnique<QuadPIDController>();
             yawAttitudePIDJoyStick->SetLimits(-maxPIDOutput, maxPIDOutput);
             yawAttitudePIDJoyStick->SetGains(0.f, 0.f, 0.f);
-
-
-
+            
             // Initialize ImGuiUtil instances using MakeUnique
             AutoWaypointHUD = MakeUnique<ImGuiUtil>(
                 dronePawn, this, desiredNewVelocity, initialTakeoff, altitudeReached,
@@ -353,6 +350,28 @@
             altitudeReached = false;
         }
 
+        void UQuadDroneController::ResetAutoDroneIntegral()
+        {
+            xPID->ResetIntegral();
+            yPID->ResetIntegral();
+            zPID->ResetIntegral();
+            rollAttitudePID->ResetIntegral();
+            pitchAttitudePID->ResetIntegral();
+            yawAttitudePID->ResetIntegral();
+
+        }
+
+        void UQuadDroneController::ResetVelocityDroneIntegral()
+        {
+            xPIDVelocity->ResetIntegral();
+            yPIDVelocity->ResetIntegral();
+            zPIDVelocity->ResetIntegral();
+            rollAttitudePIDVelocity->ResetIntegral();
+            pitchAttitudePIDVelocity->ResetIntegral();
+            yawAttitudePIDVelocity->ResetIntegral();
+        }
+
+
         // ---------------------- Thrust, Desired Vel, Pitch, and Roll ------------------------
 
         void UQuadDroneController::ThrustMixer(float xOutput,float yOutput,float zOutput,float rollOutput,float pitchOutput)
@@ -436,7 +455,6 @@
             AddNavPlan("TestPlan", spiralWaypoints());
             SetNavPlan("TestPlan");
 
-            //UE_LOG(LogTemp, Display, TEXT("uPDATE called: %s"), *desiredNewVelocity.ToString());
 
             ImGui::Begin("Flight Mode Selector");
 
@@ -592,7 +610,7 @@
             FVector positionError = setPoint - currentPosition;
 
             // Check if the drone has reached the setPoint, if so then reset integral sums    
-            if (positionError.Size() < ACCEPTABLE_DIST)
+            if (positionError.Size() < acceptableDistance)
             {
                 if (!altitudeReached)
                 {
@@ -602,12 +620,7 @@
                     positionError = setPoint - currentPosition;
 
                     // Reset the integral sums of PID controllers
-                    xPID->ResetIntegral();
-                    yPID->ResetIntegral();
-                    zPID->ResetIntegral();
-                    rollAttitudePID->ResetIntegral();
-                    pitchAttitudePID->ResetIntegral();
-                    yawAttitudePID->ResetIntegral();
+                    ResetAutoDroneIntegral();
                 }
                 else
                 {
@@ -628,12 +641,8 @@
                         positionError = setPoint - currentPosition;
 
                         // Reset the integral sums of PID controllers
-                        xPID->ResetIntegral();
-                        yPID->ResetIntegral();
-                        zPID->ResetIntegral();
-                        rollAttitudePID->ResetIntegral();
-                        pitchAttitudePID->ResetIntegral();
-                        yawAttitudePID->ResetIntegral();
+                        ResetAutoDroneIntegral();
+
                     }
                 }
             }
@@ -876,7 +885,7 @@
                 DrawDebugSphere(
                     dronePawn->GetWorld(),
                     setPoint,
-                    ACCEPTABLE_DIST,
+                    acceptableDistance,
                     10,
                     FColor::Red,
                     false,     // bPersistentLines
