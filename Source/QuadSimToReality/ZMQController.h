@@ -1,6 +1,5 @@
 #pragma once
 #include "CoreMinimal.h"
-#include "Engine/TextureRenderTarget2D.h" 
 #include "Components/ActorComponent.h"
 #include "ZMQController.generated.h"
 
@@ -68,7 +67,6 @@ private:
     zmq::socket_t* ControlSocket;
 
     // Component references
-    UPROPERTY()
     UQuadDroneController* DroneController;
 
     UPROPERTY()

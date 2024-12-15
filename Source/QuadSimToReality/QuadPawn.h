@@ -29,12 +29,7 @@ public:
     // Constructor
     AQuadPawn();
 
-    // Overridden functions
-
     virtual void Tick(float DeltaTime) override;
-    void ToggleImguiInput();
-    void SwitchCamera();
-
     virtual void SetupPlayerInputComponent(UInputComponent *PlayerInputComponent) override;
 
     // Drone components
@@ -130,17 +125,18 @@ public:
     UPROPERTY(VisibleAnywhere)
     TArray<UPhysicsThrusterComponent *> Thrusters;
 
-    // Drone controller
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Controller", meta = (AllowPrivateAccess = "true"))
-    UQuadDroneController *QuadController;
+    UPROPERTY(VisibleAnywhere, Category = "Controller")
+    UQuadDroneController* QuadController;
+    
+    // UPROPERTY(VisibleAnywhere, Category = "ZMQ")
+    // UZMQController* ZMQController;
 
-    UPROPERTY(VisibleAnywhere, Category = "ZMQ")
-    UZMQController* ZMQController;
-
-    void HandleThrustInput(float Value);
-    void HandleYawInput(float Value);
-    void HandlePitchInput(float Value);
-    void HandleRollInput(float Value);
+    void SwitchCamera() const;
+    void ToggleImguiInput();
+    virtual void HandleThrustInput(float Value);  
+    virtual void HandleYawInput(float Value);     
+    virtual void HandlePitchInput(float Value);   
+    virtual void HandleRollInput(float Value);  
 
 protected:
     // Overridden function called when the game starts or when spawned

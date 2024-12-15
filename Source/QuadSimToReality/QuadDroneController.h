@@ -1,12 +1,11 @@
-// QuadDroneController.h
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "QuadPIDConroller.h"
 #include "ImGuiUtil.h"
-#include "DroneJSONConfig.h"
 #include "QuadDroneController.generated.h"
+
 
 class AQuadPawn; // Forward declaration
 
@@ -26,9 +25,7 @@ public:
 	{
 		None,
 		AutoWaypoint,
-		ManualWaypoint,
-		ManualThrustControl,
-		ManualFlightControl,
+		JoyStickControl,
 		VelocityControl
 	};
 
@@ -43,29 +40,26 @@ public:
 	FlightMode GetFlightMode() const;
 
 	void ResetPID();
-	void ResetAutoDroneIntegral();
-	void ResetVelocityDroneIntegral();
+	void ResetAutoDroneIntegral() const; 
+	void ResetVelocityDroneIntegral() const;
 
 	void ThrustMixer(float xOutput, float yOutput, float zOutput, float rollOutput, float pitchOutput);
-	FVector CalculateDesiredVelocity(const FVector& error, float InMaxVelocity);
-	float CalculateDesiredRoll(const FVector& normalizedError, const FVector& droneForwardVector, float maxTilt, float altitudeThreshold);
-	float CalculateDesiredPitch(const FVector& normalizedError, const FVector& droneForwardVector, float maxTilt, float altitudeThreshold);
+	static FVector CalculateDesiredVelocity(const FVector& error, float InMaxVelocity);
+	static float CalculateDesiredRoll(const FVector& normalizedError, const FVector& droneForwardVector, float maxTilt, float altitudeThreshold);
+	static float CalculateDesiredPitch(const FVector& normalizedError, const FVector& droneForwardVector, float maxTilt, float altitudeThreshold);
 
 	void Update(double DeltaTime);
 	void AutoWaypointControl(double DeltaTime);
 	void VelocityControl(double a_deltaTime);
-	void ManualThrustControl(double a_deltaTime);
-	void AddNavPlan(FString Name, TArray<FVector> Waypoints);
-	void SetNavPlan(FString Name);
+	void AddNavPlan(const FString& name, const TArray<FVector>& waypoints);
+	void SetNavPlan(const FString& name);
 	void DrawDebugVisuals(const FVector& currentPosition, const FVector& setPoint)const;
-	void IncreaseAllThrusts(float Amount);
 	void HandleThrustInput(float Value);
 	void HandleYawInput(float Value);
 	void HandlePitchInput(float Value);
 	void HandleRollInput(float Value);
 	void ApplyControllerInput(double a_deltaTime);
 
-	void StoreInitialPosition();
 	void ResetDroneHigh();
 	void ResetDroneOrigin();
 

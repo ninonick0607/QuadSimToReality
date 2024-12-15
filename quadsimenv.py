@@ -3,7 +3,6 @@ import numpy as np
 import zmq
 import time
 import cv2  
-from stable_baselines3 import PPO
 import struct
 
 class QuadSimEnv(gym.Env):
@@ -11,24 +10,13 @@ class QuadSimEnv(gym.Env):
 
         super(QuadSimEnv, self).__init__()
 
-
         self.action_space = gym.spaces.Box(
             low=np.array([-1, -1, -1]), 
             high=np.array([1, 1, 1]),
             dtype=np.float32
         )
 
-        # self.observation_space = gym.spaces.Dict({
-        #     'image': gym.spaces.Box(
-        #         low=0, high=255, shape=(128, 128, 3), dtype=np.uint8
-        #     ),
-        #     'velocity': gym.spaces.Box(
-        #         low=np.array([-1, -1, -1]), high=np.array([1, 1, 1]), dtype=np.float32
-        #     )
-        # })
-
         self.observation_space = gym.spaces.Box(low=np.array([-1, -1, -1, -1, -1, -1]), high=np.array([1, 1, 1, 1, 1, 1]), dtype=np.float32)
-
 
         self.state = {
             'image': np.zeros((128, 128, 3), dtype=np.uint8),
@@ -49,7 +37,7 @@ class QuadSimEnv(gym.Env):
         self.command_socket = self.context.socket(zmq.PUB)
         self.command_socket.bind("tcp://*:5556")  
 
-        # Subscriper socket for recieving state
+        # Subscriber socket for receiving state
         self.control_socket = self.context.socket(zmq.SUB)
         self.control_socket.connect("tcp://localhost:5558")
         self.control_socket.setsockopt_string(zmq.SUBSCRIBE, '')
@@ -110,15 +98,10 @@ class QuadSimEnv(gym.Env):
         return observation, reward, done, False, info
 
     def send_velocity_command(self, velocity):
-        """
-        Send velocity commands to the drone in the format expected by UE4.
-        The first part must be "VELOCITY" followed by the velocity data as bytes.
-        """
         try:
-            # Send "VELOCITY" as first part, then the velocity data
             self.command_socket.send_multipart([
-                b"VELOCITY",  # Command identifier
-                np.array(velocity, dtype=np.float32).tobytes()  # Velocity values
+                b"VELOCITY",
+                np.array(velocity, dtype=np.float32).tobytes()
             ])
         except Exception as e:
             print(f"Error sending velocity command: {e}")
@@ -126,10 +109,8 @@ class QuadSimEnv(gym.Env):
             
     def send_reset_command(self):
         command_topic = "RESET"
-
         self.prev_goal_state = self.goal_state.copy()
         self.command_socket.send_string(command_topic)
-
         time.sleep(0.1)
 
     def handle_data(self):
@@ -139,7 +120,6 @@ class QuadSimEnv(gym.Env):
                 try:
                     unified_data = self.control_socket.recv_string(flags=zmq.NOBLOCK)
                     break  
-
                 except zmq.Again:
                     break
 
@@ -154,16 +134,14 @@ class QuadSimEnv(gym.Env):
         except Exception as e:
             print(f"Error parsing unified data: {e}")
 
-
     def get_data(self):
         try:
             [topic, message] = self.image_socket.recv_multipart(flags=zmq.NOBLOCK)
             drone_id = topic.decode()
             image_data = np.frombuffer(message, dtype=np.uint8)
-
             image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
 
-            if image    is not None:
+            if image is not None:
                 return image
             else:
                 print("Failed to decode image")
@@ -178,7 +156,16 @@ class QuadSimEnv(gym.Env):
 
 if __name__ == "__main__":
     env = QuadSimEnv()
-    model = PPO("MlpPolicy", env, verbose=1, learning_rate=0.003, n_steps=512)
 
-    model.learn(total_timesteps=512 * 1000)  
-    model.save("ppo_quad_sim")
+    velocities = [
+        [0, 0, 200],
+        [200, 0, 200],
+        [100, 200, 200],
+        [250, 150, 160],
+        [230, 150, 100],
+        [0, 0, 200]
+    ]
+
+    for vel in velocities:
+        env.send_velocity_command(vel)
+        time.sleep(2)

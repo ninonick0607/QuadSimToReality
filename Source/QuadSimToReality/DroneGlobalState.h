@@ -2,7 +2,6 @@
 #pragma once
 #include "CoreMinimal.h"
 
-// Forward declare the UQuadDroneController class - remove the include
 class UQuadDroneController;
 
 class QUADSIMTOREALITY_API DroneGlobalState
