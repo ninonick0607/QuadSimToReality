@@ -7,8 +7,8 @@
 #include "PhysicsEngine/PhysicsThrusterComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
-#include "QuadDroneController.h"
-#include "ZMQController.h"
+#include "Controllers/QuadDroneController.h"
+#include "Controllers/ZMQController.h"
 #include "QuadPawn.generated.h"
 
 #define ACCEPTABLE_DIST 200

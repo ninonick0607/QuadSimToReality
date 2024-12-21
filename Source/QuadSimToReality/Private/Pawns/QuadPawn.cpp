@@ -1,7 +1,7 @@
 // QuadPawn.cpp
 
-#include "QuadPawn.h"
-#include "QuadDroneController.h"
+#include "Pawns/QuadPawn.h"
+#include "Controllers/QuadDroneController.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Math/UnrealMathUtility.h"

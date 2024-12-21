@@ -1,5 +1,5 @@
-#include "DroneGlobalState.h"
-#include "QuadDroneController.h" // Include here instead of in header
+#include "Core/DroneGlobalState.h"
+#include "Controllers/QuadDroneController.h" // Include here instead of in header
 
 DroneGlobalState::DroneGlobalState()
     : DesiredVelocity(FVector::ZeroVector)

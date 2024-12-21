@@ -1,12 +1,12 @@
 // QuadDroneController.cpp
 
-#include "QuadDroneController.h"
-#include "QuadPawn.h"
+#include "Controllers/QuadDroneController.h"
+#include "Pawns/QuadPawn.h"
 #include "DrawDebugHelpers.h"
 #include "imgui.h"
-#include "DroneGlobalState.h"
-#include "ImGuiUtil.h"
-#include "DroneJSONConfig.h"
+#include "Core/DroneGlobalState.h"
+#include "UI/ImGuiUtil.h"
+#include "Core/DroneJSONConfig.h"
 #include "Math/UnrealMathUtility.h"
 
 
@@ -580,7 +580,7 @@ void UQuadDroneController::AutoWaypointControl(double a_deltaTime)
 	float roll_error = desiredRoll - currentRotation.Roll;
 	float pitch_error = desiredPitch - currentRotation.Pitch;
 
-	float roll_output = rollAttitudePID->Calculate(roll_error, `a_deltaTime);
+	float roll_output = rollAttitudePID->Calculate(roll_error,a_deltaTime);
 	float pitch_output = pitchAttitudePID->Calculate(pitch_error, a_deltaTime);
 
 	// ------------------- POSITION CONTROL ---------------------

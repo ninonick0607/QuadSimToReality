@@ -1,12 +1,12 @@
-#include "ZMQController.h"
+#include "Controllers/ZMQController.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "Components/SceneCaptureComponent2D.h"
 #include <zmq.hpp>
 #include <zmq_addon.hpp>
 #include "Kismet/GameplayStatics.h"
 #include "ImageUtils.h"
-#include "QuadPawn.h"
-#include "QuadDroneController.h"
+#include "Pawns/QuadPawn.h"
+#include "Controllers/QuadDroneController.h"
 #include "Camera/CameraComponent.h"
 
 // Static member initialization

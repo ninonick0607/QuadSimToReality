@@ -2,8 +2,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "QuadPIDConroller.h"
-#include "ImGuiUtil.h"
+#include "Utility/QuadPIDConroller.h"
+#include "UI/ImGuiUtil.h"
 #include "QuadDroneController.generated.h"
 
 
