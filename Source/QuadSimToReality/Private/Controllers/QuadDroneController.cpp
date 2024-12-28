@@ -7,6 +7,7 @@
 #include "Core/DroneGlobalState.h"
 #include "UI/ImGuiUtil.h"
 #include "Core/DroneJSONConfig.h"
+#include "Core/DroneMathUtils.h"
 #include "Math/UnrealMathUtility.h"
 
 
@@ -329,49 +330,6 @@ void UQuadDroneController::ThrustMixer(float xOutput, float yOutput, float zOutp
 	}
 }
 
-FVector UQuadDroneController::CalculateDesiredVelocity(const FVector& error, float InMaxVelocity)
-{
-	return error.GetSafeNormal() * InMaxVelocity;
-}
-
-float UQuadDroneController::CalculateDesiredRoll(const FVector& normalizedError, const FVector& droneForwardVector,
-                                                float maxTilt, float altitudeThreshold)
-{
-	FVector horizontalError = FVector(normalizedError.X, normalizedError.Y, 0.0f);
-	FVector horizontalNormalizedError = horizontalError.GetSafeNormal();
-
-	if (FMath::Abs(normalizedError.Z) > altitudeThreshold)
-	{
-		return 0.0f;
-	}
-	else
-	{
-		float calculatedRoll = FMath::Atan2(normalizedError.Y,
-		                                    FVector::DotProduct(horizontalNormalizedError, droneForwardVector)) *
-			FMath::RadiansToDegrees(1);
-		return FMath::Clamp(calculatedRoll, -maxTilt, maxTilt);
-	}
-}
-
-float UQuadDroneController::CalculateDesiredPitch(const FVector& normalizedError, const FVector& droneForwardVector,
-                                                 float maxTilt, float altitudeThreshold)
-{
-	FVector horizontalError = FVector(normalizedError.X, normalizedError.Y, 0.0f);
-	FVector horizontalNormalizedError = horizontalError.GetSafeNormal();
-
-	if (FMath::Abs(normalizedError.Z) > altitudeThreshold)
-	{
-		return 0.0f;
-	}
-	else
-	{
-		float calculatedPitch = FMath::Atan2(-normalizedError.X,
-		                                     FVector::DotProduct(horizontalNormalizedError, droneForwardVector)) *
-			FMath::RadiansToDegrees(1);
-		return FMath::Clamp(calculatedPitch, -maxTilt, maxTilt);
-	}
-}
-
 
 // ---------------------- Update ------------------------
 
@@ -547,7 +505,7 @@ void UQuadDroneController::AutoWaypointControl(double a_deltaTime)
 	// Continue with calculations using the updated positionError
 	FVector normalizedError = positionError.GetSafeNormal();
 	FVector droneForwardVector = dronePawn->GetActorForwardVector();
-	FVector desiredVelocity = CalculateDesiredVelocity(positionError, maxVelocity);
+	FVector desiredVelocity = DroneMathUtils::CalculateDesiredVelocity(positionError, maxVelocity);
 
 	DrawDebugVisuals(currentPosition, setPoint);
 
@@ -574,8 +532,8 @@ void UQuadDroneController::AutoWaypointControl(double a_deltaTime)
 
 	// ------------------- Attitude CONTROL ---------------------
 	//float yawTorque = CalculateYawTorque(setPoint, currentPosition, currentRotation, a_deltaTime);
-	float desiredRoll = CalculateDesiredRoll(normalizedError, droneForwardVector, maxAngle, altitudeThresh);
-	float desiredPitch = CalculateDesiredPitch(normalizedError, droneForwardVector, maxAngle, altitudeThresh);
+	float desiredRoll = DroneMathUtils::CalculateDesiredRoll(normalizedError, droneForwardVector, maxAngle, altitudeThresh);
+	float desiredPitch = DroneMathUtils::CalculateDesiredPitch(normalizedError, droneForwardVector, maxAngle, altitudeThresh);
 
 	float roll_error = desiredRoll - currentRotation.Roll;
 	float pitch_error = desiredPitch - currentRotation.Pitch;

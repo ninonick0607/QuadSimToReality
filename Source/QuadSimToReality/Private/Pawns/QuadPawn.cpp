@@ -8,7 +8,6 @@
 #include "EngineUtils.h"
 #include "Engine/Engine.h"
 #include "Kismet/GameplayStatics.h"
-#include "DrawDebugHelpers.h"
 
 #define EPSILON 0.0001f
 // At the top of QuadPawn.cpp
@@ -20,29 +19,12 @@ namespace {
 	static constexpr float heightStep = 500.0f;
 	static constexpr int32 pointsPerLoop = 8;
 	static constexpr float angleStep = 2.0f * PI / pointsPerLoop;
-	static constexpr float DroneSize = 12.0f;
-	static constexpr float ThrusterHeight = 16.0f;
+	static constexpr float DroneSize = 12.f;
+	static constexpr float ThrusterHeight = 16.f;
 }
 
 const FVector start = FVector(0, 0, 1000);
 
-// static TArray<FVector> make_test_dests()
-// {
-//     const int step = 1000;
-//     const int z_step = 200;
-//     TArray<FVector> xyzSetpoint;
-//     xyzSetpoint.Add(start);
-//     for (int i = 0; i < 1000; i++)
-//     {
-//         bool z = FMath::RandBool();
-//         bool x = FMath::RandBool();
-//         bool y = FMath::RandBool();
-//         FVector last = xyzSetpoint[xyzSetpoint.Num() - 1];
-//         float z_base = 1000;
-//         xyzSetpoint.Add(FVector(last.X + (x ? step : -step), last.Y + (y ? step : -step), z ? z_base + z_step : z_base - z_step));
-//     }
-//     return xyzSetpoint;
-// }
 
 static TArray<FVector> spiralWaypoints()
 {
@@ -138,13 +120,20 @@ AQuadPawn::AQuadPawn()
 	const FString ThrusterNames[] = {TEXT("ThrusterFL"), TEXT("ThrusterFR"), TEXT("ThrusterBL"), TEXT("ThrusterBR")};
 
     // Initialize components
-    DroneBody = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("DroneBody"));
-    SetRootComponent(DroneBody);
+	DroneBody = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("DroneBody"));
+	SetRootComponent(DroneBody);
+	
+	DroneBody->SetSimulatePhysics(true);
+	DroneBody->SetLinearDamping(1.0f);
+	DroneBody->SetAngularDamping(1.0f);
+	DroneBody->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics); // Enable collision for query and physics
+	DroneBody->SetCollisionObjectType(ECC_PhysicsBody); // Set object type to PhysicsBody
 
-    DroneBody->SetSimulatePhysics(true);
-    DroneBody->SetLinearDamping(1.0f);
-    DroneBody->SetAngularDamping(1.0f);
-
+	// Create a custom collision preset where everything is blocked
+	FCollisionResponseContainer CustomResponse;
+	CustomResponse.SetAllChannels(ECR_Block); // Block all collision channels
+	DroneBody->SetCollisionResponseToChannels(CustomResponse);
+	
     DroneCamMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CamMesh"));
     DroneCamMesh->AttachToComponent(DroneBody, FAttachmentTransformRules::KeepRelativeTransform);
 
@@ -154,16 +143,16 @@ AQuadPawn::AQuadPawn()
     Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
     Camera->AttachToComponent(SpringArm, FAttachmentTransformRules::KeepRelativeTransform);
     
-    CameraFPV = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraFPV"));
-    CameraFPV->AttachToComponent(DroneBody, FAttachmentTransformRules::KeepWorldTransform);
-
-	CameraFPV->SetRelativeLocation(FVector(0, 0, 10));
-
+	CameraFPV = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraFPV"));
+	CameraFPV->AttachToComponent(DroneBody, FAttachmentTransformRules::KeepWorldTransform);
+	CameraFPV->SetRelativeLocation(FVector(5.5, 0,-6));
+	CameraFPV->SetRelativeScale3D(FVector(.1));
+	
 
 	const FVector MotorPositions[] = {
 		FVector(DroneSize, -DroneSize, ThrusterHeight), // Front-Left
 		FVector(DroneSize, DroneSize, ThrusterHeight), // Front-Right
-		FVector(-DroneSize, -DroneSize, ThrusterHeight), // Back-Left
+		FVector(-DroneSize,-DroneSize, ThrusterHeight), // Back-Left
 		FVector(-DroneSize, DroneSize, ThrusterHeight) // Back-Right
 	};
 
@@ -200,38 +189,33 @@ AQuadPawn::AQuadPawn()
 
 	//ZMQController = CreateDefaultSubobject<UZMQController>(TEXT("ZMQController"));
 }
-
 void AQuadPawn::BeginPlay()
 {
-	Super::BeginPlay();
-	if (!QuadController)
-	{
-		QuadController = NewObject<UQuadDroneController>(this, TEXT("QuadDroneController"));
-		if (QuadController)
-		{
-			UE_LOG(LogTemp, Error, TEXT("Initialize called with QuadPawn"));
-			QuadController->Initialize(this);
-		}
-	}
-	this->QuadController->AddNavPlan("TestPlan", spiralWaypoints());
-	this->QuadController->SetNavPlan("TestPlan");
-	
-	for (auto& rotor : Rotors)
-	{
-		rotor.Thruster->ThrustStrength = 0.0f;
+    Super::BeginPlay();
 
-	}
-	
-	// if (ZMQController)
-	// {
-	// 	ZMQController->Initialize(this, QuadController);
-	// }
-	QuadController->ResetPID();
-	Camera->SetActive(true);
-	CameraFPV->SetActive(false);
+    // Initialize QuadController with this pawn
+    if (!QuadController)
+    {
+        QuadController = NewObject<UQuadDroneController>(this, TEXT("QuadDroneController"));
+        QuadController->Initialize(this);
+    }
+
+    // Add spiral waypoints navigation plan
+    this->QuadController->AddNavPlan("TestPlan", spiralWaypoints());
+    this->QuadController->SetNavPlan("TestPlan");
+
+    // Initialize rotors correctly
+    //InitializeRotors();
+
+    // Set mass for DroneBody
+    float DroneMass = 1.0f; // Adjust as necessary
+    // DroneBody->GetBodyInstance()->SetMassOverrideInKg(DroneMass);
+    // DroneBody->GetBodyInstance()->SetInertiaTensorScale(FVector(1,1,1));
+    DroneBody->GetBodyInstance()->UpdateMassProperties();
+
+    // Reset PID controllers
+    QuadController->ResetPID();
 }
-
-
 void AQuadPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -245,8 +229,6 @@ void AQuadPawn::Tick(float DeltaTime)
 	// UpdateAnimation(DeltaTime);
 	UpdateControl(DeltaTime);
 }
-
-
 void AQuadPawn::SwitchCamera() const 
 {
 	if (CameraFPV->IsActive())
@@ -264,12 +246,10 @@ void AQuadPawn::SwitchCamera() const
 		DroneCamMesh->SetHiddenInGame(true);
 	}
 }
-
 void AQuadPawn::ToggleImguiInput()  
 {
 	UGameplayStatics::GetPlayerController(GetWorld(), 0)->ConsoleCommand("ImGui.ToggleInput");
 }
-
 void AQuadPawn::HandleThrustInput(float Value)  
 {
 	if (QuadController)
@@ -277,7 +257,6 @@ void AQuadPawn::HandleThrustInput(float Value)
 		QuadController->HandleThrustInput(Value);
 	}
 }
-
 void AQuadPawn::HandleYawInput(float Value)  
 {
 	if (QuadController)
@@ -285,7 +264,6 @@ void AQuadPawn::HandleYawInput(float Value)
 		QuadController->HandleYawInput(Value);
 	}
 }
-
 void AQuadPawn::HandlePitchInput(float Value)  
 {
 	if (QuadController)
@@ -293,7 +271,6 @@ void AQuadPawn::HandlePitchInput(float Value)
 		QuadController->HandlePitchInput(Value);
 	}
 }
-
 void AQuadPawn::HandleRollInput(float Value)  
 {
 	if (QuadController)
@@ -301,7 +278,6 @@ void AQuadPawn::HandleRollInput(float Value)
 		QuadController->HandleRollInput(Value);
 	}
 }
-
 void AQuadPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)  
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
@@ -314,13 +290,10 @@ void AQuadPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 
 	PlayerInputComponent->BindAction("ToggleImGui", IE_Pressed, this, &AQuadPawn::ToggleImguiInput);
 }
-
 void AQuadPawn::UpdateControl(float DeltaTime)
 {
 	this->QuadController->Update(DeltaTime);
 }
-
-
 void AQuadPawn::InitializeRotors()
 {
 	const FString motorNames[] = {TEXT("MotorFL"), TEXT("MotorFR"), TEXT("MotorBL"), TEXT("MotorBR")};
@@ -343,3 +316,4 @@ void AQuadPawn::InitializeRotors()
 		Thrusters[i]->bAutoActivate = true;
 	}
 }
+

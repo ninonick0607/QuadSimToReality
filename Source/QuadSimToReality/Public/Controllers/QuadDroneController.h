@@ -44,10 +44,7 @@ public:
 	void ResetVelocityDroneIntegral() const;
 
 	void ThrustMixer(float xOutput, float yOutput, float zOutput, float rollOutput, float pitchOutput);
-	static FVector CalculateDesiredVelocity(const FVector& error, float InMaxVelocity);
-	static float CalculateDesiredRoll(const FVector& normalizedError, const FVector& droneForwardVector, float maxTilt, float altitudeThreshold);
-	static float CalculateDesiredPitch(const FVector& normalizedError, const FVector& droneForwardVector, float maxTilt, float altitudeThreshold);
-
+	
 	void Update(double DeltaTime);
 	void AutoWaypointControl(double DeltaTime);
 	void VelocityControl(double a_deltaTime);
