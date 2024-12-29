@@ -34,7 +34,7 @@ public:
 
     // Drone components
     UPROPERTY(EditAnywhere, Category = "Drone Components")
-    USkeletalMeshComponent *DroneBody;
+    UStaticMeshComponent *DroneBody;
 
     UPROPERTY(EditAnywhere, Category = "Drone Components")
     UStaticMeshComponent *DroneCamMesh;
@@ -113,7 +113,7 @@ public:
             Rotation.Yaw += AngularVelocity * DeltaTime;
             Mesh->SetRelativeRotation(Rotation);
         }
-    };
+    };                                                                          
     EWaypointMode WaypointMode;
     TArray<FVector> ManualWaypoints;
     FVector NewWaypoint;

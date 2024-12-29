@@ -19,8 +19,7 @@ namespace {
 	static constexpr float heightStep = 500.0f;
 	static constexpr int32 pointsPerLoop = 8;
 	static constexpr float angleStep = 2.0f * PI / pointsPerLoop;
-	static constexpr float DroneSize = 12.f;
-	static constexpr float ThrusterHeight = 16.f;
+
 }
 
 const FVector start = FVector(0, 0, 1000);
@@ -116,24 +115,12 @@ AQuadPawn::AQuadPawn()
 	Motors.SetNum(4);
 	Thrusters.SetNum(4);
 	
-	const FString MotorNames[] = {TEXT("MotorFL"), TEXT("MotorFR"), TEXT("MotorBL"), TEXT("MotorBR")};
-	const FString ThrusterNames[] = {TEXT("ThrusterFL"), TEXT("ThrusterFR"), TEXT("ThrusterBL"), TEXT("ThrusterBR")};
-
     // Initialize components
-	DroneBody = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("DroneBody"));
+	DroneBody = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("DroneBody"));
 	SetRootComponent(DroneBody);
 	
 	DroneBody->SetSimulatePhysics(true);
-	DroneBody->SetLinearDamping(1.0f);
-	DroneBody->SetAngularDamping(1.0f);
-	DroneBody->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics); // Enable collision for query and physics
-	DroneBody->SetCollisionObjectType(ECC_PhysicsBody); // Set object type to PhysicsBody
 
-	// Create a custom collision preset where everything is blocked
-	FCollisionResponseContainer CustomResponse;
-	CustomResponse.SetAllChannels(ECR_Block); // Block all collision channels
-	DroneBody->SetCollisionResponseToChannels(CustomResponse);
-	
     DroneCamMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CamMesh"));
     DroneCamMesh->AttachToComponent(DroneBody, FAttachmentTransformRules::KeepRelativeTransform);
 
@@ -147,34 +134,9 @@ AQuadPawn::AQuadPawn()
 	CameraFPV->AttachToComponent(DroneBody, FAttachmentTransformRules::KeepWorldTransform);
 	CameraFPV->SetRelativeLocation(FVector(5.5, 0,-6));
 	CameraFPV->SetRelativeScale3D(FVector(.1));
+
+	InitializeRotors();
 	
-
-	const FVector MotorPositions[] = {
-		FVector(DroneSize, -DroneSize, ThrusterHeight), // Front-Left
-		FVector(DroneSize, DroneSize, ThrusterHeight), // Front-Right
-		FVector(-DroneSize,-DroneSize, ThrusterHeight), // Back-Left
-		FVector(-DroneSize, DroneSize, ThrusterHeight) // Back-Right
-	};
-
-	// Initialize Rotors
-	for (int32 i = 0; i < 4; ++i)
-	{
-		// Create the motor mesh component
-		Motors[i] = CreateDefaultSubobject<UStaticMeshComponent>(*MotorNames[i]);
-		Motors[i]->SetupAttachment(DroneBody);
-		Motors[i]->SetRelativeLocation(MotorPositions[i]);
-
-		// Create the thruster component
-		Thrusters[i] = CreateDefaultSubobject<UPhysicsThrusterComponent>(*ThrusterNames[i]);
-		Thrusters[i]->SetupAttachment(Motors[i]);
-		Thrusters[i]->SetRelativeRotation(FRotator(-90.0f, 0.0f, 0.0f));
-		Thrusters[i]->bAutoActivate = true;
-		Thrusters[i]->ThrustStrength = 0.0f; // Initialize thrust to zero
-
-		// Initialize the Rotor struct
-		Rotors[i] = {Thrusters[i], Motors[i]};
-	}
-
 	// SpringArm settings
 	SpringArm->TargetArmLength = 200.0f;
 	SpringArm->SetRelativeRotation(FRotator(-20.0f, 0.0f, 0.0f));
@@ -203,16 +165,7 @@ void AQuadPawn::BeginPlay()
     // Add spiral waypoints navigation plan
     this->QuadController->AddNavPlan("TestPlan", spiralWaypoints());
     this->QuadController->SetNavPlan("TestPlan");
-
-    // Initialize rotors correctly
-    //InitializeRotors();
-
-    // Set mass for DroneBody
-    float DroneMass = 1.0f; // Adjust as necessary
-    // DroneBody->GetBodyInstance()->SetMassOverrideInKg(DroneMass);
-    // DroneBody->GetBodyInstance()->SetInertiaTensorScale(FVector(1,1,1));
-    DroneBody->GetBodyInstance()->UpdateMassProperties();
-
+	
     // Reset PID controllers
     QuadController->ResetPID();
 }
@@ -314,6 +267,10 @@ void AQuadPawn::InitializeRotors()
 		Thrusters[i]->AttachToComponent(Motors[i], FAttachmentTransformRules::KeepRelativeTransform);
 		Thrusters[i]->SetRelativeRotation(FRotator(-90.0f, 0.0f, 0.0f));
 		Thrusters[i]->bAutoActivate = true;
+
+		Rotors[i].Thruster = Thrusters[i];
+		Rotors[i].Mesh = Motors[i];
+		Rotors[i].AngularVelocity = 0.f;
 	}
 }
 
