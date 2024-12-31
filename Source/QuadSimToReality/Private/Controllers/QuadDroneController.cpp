@@ -20,7 +20,7 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	  , bDesiredYawInitialized(false)
 	  , desiredAltitude(0.0f)
 	  , bDesiredAltitudeInitialized(false)
-	  , currentFlightMode(FlightMode::None)
+      , currentFlightMode(EFlightOptions::AutoWaypoint)  // Add initial mode
 	  , currentNav(nullptr)
 	  , curPos(0)
 	  , AutoWaypointHUD(nullptr)
@@ -212,14 +212,44 @@ void UQuadDroneController::SetDesiredVelocity(const FVector& NewVelocity)
 	UE_LOG(LogTemp, Display, TEXT("SetDesiredVelocity called: %s"), *desiredNewVelocity.ToString());
 }
 
-void UQuadDroneController::SetFlightMode(FlightMode NewMode)
+void UQuadDroneController::SetFlightMode(EFlightOptions NewMode)
 {
 	currentFlightMode = NewMode;
-}
 
-UQuadDroneController::FlightMode UQuadDroneController::GetFlightMode() const
-{
-	return currentFlightMode;
+	// Log the change for debugging
+	UE_LOG(LogTemp, Display, TEXT("Flight mode set to: %s"), *UEnum::GetValueAsString(NewMode));
+
+	// Initialize HUD or control based on mode
+	switch (currentFlightMode)
+	{
+	case EFlightOptions::AutoWaypoint:
+		if (AutoWaypointHUD)
+		{
+			UE_LOG(LogTemp, Display, TEXT("Initializing AutoWaypointHUD..."));
+			// Perform initialization for AutoWaypoint mode
+		}
+		break;
+
+	case EFlightOptions::JoyStickControl:
+		if (JoyStickHUD)
+		{
+			UE_LOG(LogTemp, Display, TEXT("Initializing JoyStickHUD..."));
+			// Perform initialization for JoyStickControl mode
+		}
+		break;
+
+	case EFlightOptions::VelocityControl:
+		if (VelocityHUD)
+		{
+			UE_LOG(LogTemp, Display, TEXT("Initializing VelocityHUD..."));
+			// Perform initialization for VelocityControl mode
+		}
+		break;
+
+	default:
+		UE_LOG(LogTemp, Warning, TEXT("Unknown flight mode selected!"));
+		break;
+	}
 }
 
 
@@ -303,21 +333,19 @@ void UQuadDroneController::ThrustMixer(float xOutput, float yOutput, float zOutp
 
 	switch (currentFlightMode)
 	{
-	case FlightMode::None:
-		break;
-	case FlightMode::AutoWaypoint:
+	case EFlightOptions::AutoWaypoint:
 		Thrusts[0] = zOutput - xOutput + yOutput + rollOutput + pitchOutput;
 		Thrusts[1] = zOutput - xOutput - yOutput - rollOutput + pitchOutput;
 		Thrusts[2] = zOutput + xOutput + yOutput + rollOutput - pitchOutput;
 		Thrusts[3] = zOutput + xOutput - yOutput - rollOutput - pitchOutput;
 		break;
-	case FlightMode::VelocityControl:
+	case EFlightOptions::VelocityControl:
 		Thrusts[0] = zOutput - xOutput + yOutput + rollOutput + pitchOutput;
 		Thrusts[1] = zOutput - xOutput - yOutput - rollOutput + pitchOutput;
 		Thrusts[2] = zOutput + xOutput + yOutput + rollOutput - pitchOutput;
 		Thrusts[3] = zOutput + xOutput - yOutput - rollOutput - pitchOutput;
 		break;
-	case FlightMode::JoyStickControl:
+	case EFlightOptions::JoyStickControl:
 		Thrusts[0] = zOutput + rollOutput + pitchOutput;
 		Thrusts[1] = zOutput - rollOutput + pitchOutput;
 		Thrusts[2] = zOutput + rollOutput - pitchOutput;
@@ -332,43 +360,33 @@ void UQuadDroneController::ThrustMixer(float xOutput, float yOutput, float zOutp
 
 
 // ---------------------- Update ------------------------
-
-void UQuadDroneController::Update(double a_deltaTime)
+void UQuadDroneController::Update(double DeltaTime)
 {
-	ImGui::Begin("Flight Mode Selector");
-
-	if (ImGui::Button("Auto Waypoint", ImVec2(200, 50)))
+	if (!dronePawn)
 	{
-		currentFlightMode = FlightMode::AutoWaypoint;
-		curPos = 0; // Reset to start navigation
+		UE_LOG(LogTemp, Warning, TEXT("Update called with null dronePawn"));
+		return;
 	}
-	if (ImGui::Button("JoyStick Control", ImVec2(200, 50)))
-	{
-		currentFlightMode = FlightMode::JoyStickControl;
-	}
-
-	if (ImGui::Button("Move By Velocity", ImVec2(200, 50)))
-	{
-		currentFlightMode = FlightMode::VelocityControl;
-	}
-	ImGui::End();
 
 	switch (currentFlightMode)
 	{
-	case FlightMode::None:
-		return;
-	case FlightMode::AutoWaypoint:
-		AutoWaypointControl(a_deltaTime);
+	case EFlightOptions::AutoWaypoint:
+		AutoWaypointControl(DeltaTime);
 		break;
-	case FlightMode::JoyStickControl:
-		ApplyControllerInput(a_deltaTime);
+
+	case EFlightOptions::JoyStickControl:
+		ApplyControllerInput(DeltaTime);
 		break;
-	case FlightMode::VelocityControl:
-		VelocityControl(a_deltaTime);
+
+	case EFlightOptions::VelocityControl:
+		VelocityControl(DeltaTime);
+		break;
+
+	default:
+		UE_LOG(LogTemp, Warning, TEXT("Unknown flight mode in Update"));
 		break;
 	}
 }
-
 void UQuadDroneController::ApplyControllerInput(double a_deltaTime)
 {
 	if (!dronePawn) return;
@@ -785,4 +803,31 @@ void UQuadDroneController::HandlePitchInput(float Value)
 void UQuadDroneController::HandleRollInput(float Value)
 {
 	rollInput = Value; // Map Value to desired roll range
+}
+
+
+FVector UQuadDroneController::GetCurrentAltitude() const 
+{
+	if (dronePawn)
+	{
+		return dronePawn->GetActorLocation();
+	}
+	return FVector::ZeroVector;
+}
+
+FVector UQuadDroneController::GetCurrentVelocity() const 
+{
+	if (dronePawn)
+	{
+		return dronePawn->GetVelocity();
+	}
+	return FVector::ZeroVector;
+}
+
+void UQuadDroneController::SwitchCamera()
+{
+	if (dronePawn)
+	{
+		dronePawn->SwitchCamera();
+	}
 }

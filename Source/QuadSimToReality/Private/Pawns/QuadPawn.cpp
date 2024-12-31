@@ -110,7 +110,7 @@ AQuadPawn::AQuadPawn()
 	  , Input_ToggleImguiInput(nullptr)
 {
 	PrimaryActorTick.bCanEverTick = true;
-
+	bIsActive = false;
 	// Initialize arrays
 	Motors.SetNum(4);
 	Thrusters.SetNum(4);
@@ -154,32 +154,38 @@ AQuadPawn::AQuadPawn()
 void AQuadPawn::BeginPlay()
 {
     Super::BeginPlay();
-
-    // Initialize QuadController with this pawn
-    if (!QuadController)
-    {
-        QuadController = NewObject<UQuadDroneController>(this, TEXT("QuadDroneController"));
-        QuadController->Initialize(this);
-    }
-
-    // Add spiral waypoints navigation plan
-    this->QuadController->AddNavPlan("TestPlan", spiralWaypoints());
-    this->QuadController->SetNavPlan("TestPlan");
 	
-    // Reset PID controllers
-    QuadController->ResetPID();
+}
+
+void AQuadPawn::ActivateDrone(bool bActivate)
+{
+	bIsActive = bActivate;
+	if (bIsActive)
+	{
+		// Initialize when activated
+		if (!QuadController)
+		{
+			QuadController = NewObject<UQuadDroneController>(this, TEXT("QuadDroneController"));
+			QuadController->Initialize(this);
+		}
+		QuadController->ResetPID();
+	}
+
+	this->QuadController->AddNavPlan("TestPlan", spiralWaypoints());
+	this->QuadController->SetNavPlan("TestPlan");
 }
 void AQuadPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (!bIsActive)
+		return;
 
 	for (auto& rotor : Rotors)
 	{
 		rotor.Animate(DeltaTime);
 	}
 
-
-	// UpdateAnimation(DeltaTime);
 	UpdateControl(DeltaTime);
 }
 void AQuadPawn::SwitchCamera() const 

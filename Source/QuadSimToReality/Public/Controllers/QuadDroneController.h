@@ -4,6 +4,7 @@
 #include "CoreMinimal.h"
 #include "Utility/QuadPIDConroller.h"
 #include "UI/ImGuiUtil.h"
+#include "UI/FlightModeHUD.h" 
 #include "QuadDroneController.generated.h"
 
 
@@ -20,34 +21,26 @@ public:
 	void Initialize(AQuadPawn* InPawn);
 
 	virtual ~UQuadDroneController();
-
-	enum class FlightMode
-	{
-		None,
-		AutoWaypoint,
-		JoyStickControl,
-		VelocityControl
-	};
-
-
+	
 	UPROPERTY()
 	AQuadPawn* dronePawn;
 	UPROPERTY()
 	TArray<float> Thrusts;
 
 	void SetDesiredVelocity(const FVector& NewVelocity);
-	void SetFlightMode(FlightMode NewMode);
-	FlightMode GetFlightMode() const;
 
 	void ResetPID();
 	void ResetAutoDroneIntegral() const; 
 	void ResetVelocityDroneIntegral() const;
 
 	void ThrustMixer(float xOutput, float yOutput, float zOutput, float rollOutput, float pitchOutput);
-	
+
+	void SetFlightMode(EFlightOptions  NewMode);
 	void Update(double DeltaTime);
+	void ApplyControllerInput(double a_deltaTime);
 	void AutoWaypointControl(double DeltaTime);
 	void VelocityControl(double a_deltaTime);
+	
 	void AddNavPlan(const FString& name, const TArray<FVector>& waypoints);
 	void SetNavPlan(const FString& name);
 	void DrawDebugVisuals(const FVector& currentPosition, const FVector& setPoint)const;
@@ -55,21 +48,38 @@ public:
 	void HandleYawInput(float Value);
 	void HandlePitchInput(float Value);
 	void HandleRollInput(float Value);
-	void ApplyControllerInput(double a_deltaTime);
 
 	void ResetDroneHigh();
 	void ResetDroneOrigin();
 
 	const FVector& GetInitialPosition() const { return initialDronePosition; }
+
+	// Flight data accessors
+	UFUNCTION(BlueprintCallable, Category = "Drone|Flight Data")
+	FVector GetCurrentAltitude() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Drone|Flight Data")
+	FVector GetCurrentVelocity() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Drone|Flight Data")
+	float GetMaxVelocity() const { return maxVelocity; }
+
+	UFUNCTION(BlueprintCallable, Category = "Drone|Flight Mode")
+	EFlightOptions GetCurrentFlightMode() const { return currentFlightMode; }
+
+	UFUNCTION(BlueprintCallable, Category = "Drone|Camera")
+	void SwitchCamera();
+	
 private:
 
+	
 
 	float desiredYaw;
 	bool bDesiredYawInitialized;
 	float desiredAltitude;
 	bool bDesiredAltitudeInitialized;
 
-	FlightMode currentFlightMode;
+	EFlightOptions  currentFlightMode;
 
 	struct NavPlan
 	{
@@ -83,7 +93,7 @@ private:
      
 	TUniquePtr<ImGuiUtil> AutoWaypointHUD;
 	TUniquePtr<ImGuiUtil> VelocityHUD;
-	TUniquePtr<ImGuiUtil>JoyStickHUD;
+	TUniquePtr<ImGuiUtil> JoyStickHUD;
 	TUniquePtr<ImGuiUtil> ManualThrustHUD;
 
 	FVector desiredNewVelocity;

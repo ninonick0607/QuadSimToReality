@@ -314,7 +314,7 @@ void UZMQController::HandleVelocityCommand(zmq::multipart_t& multipart)
         FVector DesiredVelocity(velocityArray[0], velocityArray[1], velocityArray[2]);
 
         DroneController->SetDesiredVelocity(DesiredVelocity);
-        DroneController->SetFlightMode(UQuadDroneController::FlightMode::VelocityControl);
+       //DroneController->SetFlightMode(UQuadDroneController::FlightMode::VelocityControl);
     }
 }
 

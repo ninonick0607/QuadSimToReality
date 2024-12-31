@@ -775,11 +775,11 @@ void ImGuiUtil::DisplayDesiredVelocities()
         desiredNewVelocity.Y = tempVy;
         desiredNewVelocity.Z = tempVz;
 
-        if (controller)
-        {
-            controller->SetDesiredVelocity(desiredNewVelocity);
-            controller->SetFlightMode(UQuadDroneController::FlightMode::VelocityControl);
-        }
+        // if (controller)
+        // {
+        //     controller->SetDesiredVelocity(desiredNewVelocity);
+        //     controller->SetFlightMode(UQuadDroneController::FlightMode::VelocityControl);
+        // }
     }
 
     ImGui::Separator();

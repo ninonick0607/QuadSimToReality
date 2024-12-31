@@ -1,5 +1,6 @@
 // DroneGlobalState.h
 #pragma once
+#include "UI/FlightModeHUD.h" // Add this include
 #include "CoreMinimal.h"
 
 class UQuadDroneController;

@@ -136,13 +136,19 @@ public:
     virtual void HandleThrustInput(float Value);  
     virtual void HandleYawInput(float Value);     
     virtual void HandlePitchInput(float Value);   
-    virtual void HandleRollInput(float Value);  
+    virtual void HandleRollInput(float Value);
+    
+    void ActivateDrone(bool bActivate);
+    bool IsActive() const { return bIsActive; }
+
+    UQuadDroneController* GetDroneController() const { return QuadController; }
 
 protected:
     // Overridden function called when the game starts or when spawned
     virtual void BeginPlay() override;
 
 private:
+    
     // Helper functions
     void UpdateControl(float DeltaTime);
     void InitializeRotors();
@@ -151,4 +157,6 @@ private:
     // Input components
     UPROPERTY(VisibleAnywhere)
     UInputComponent *Input_ToggleImguiInput;
+    bool bIsActive;
+
 };

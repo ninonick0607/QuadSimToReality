@@ -1,4 +1,5 @@
 #include "Core/DroneGlobalState.h"
+#include "UI/FlightModeHUD.h" // Add this include
 #include "Controllers/QuadDroneController.h" // Include here instead of in header
 
 DroneGlobalState::DroneGlobalState()
@@ -11,15 +12,15 @@ DroneGlobalState::~DroneGlobalState()
 {
 }
 
-void DroneGlobalState::SetDesiredVelocity(const FVector& NewVelocity)
-{
-    DesiredVelocity = NewVelocity;
-    if (BoundController)
-    {
-        BoundController->SetDesiredVelocity(NewVelocity);
-        BoundController->SetFlightMode(UQuadDroneController::FlightMode::VelocityControl);
-    }
-}
+// void DroneGlobalState::SetDesiredVelocity(const FVector& NewVelocity)
+// {
+//     DesiredVelocity = NewVelocity;
+//     if (BoundController)
+//     {
+//         BoundController->SetDesiredVelocity(NewVelocity);
+//         BoundController->SetFlightMode(UQuadDroneController::UFlightModeHUD::VelocityControl);
+//     }
+// }
 
 void DroneGlobalState::BindController(UQuadDroneController* Controller)
 {
