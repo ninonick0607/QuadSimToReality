@@ -130,6 +130,8 @@ public:
     
     // UPROPERTY(VisibleAnywhere, Category = "ZMQ")
     // UZMQController* ZMQController;
+    void SetupFlightMode(EFlightOptions Mode);
+
 
     void SwitchCamera() const;
     void ToggleImguiInput();

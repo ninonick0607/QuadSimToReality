@@ -156,23 +156,71 @@ void AQuadPawn::BeginPlay()
     Super::BeginPlay();
 	
 }
+void AQuadPawn::SetupFlightMode(EFlightOptions Mode)
+{
+	UE_LOG(LogTemp, Warning, TEXT("SetupFlightMode called with mode: %s"), *UEnum::GetValueAsString(Mode));
+    
+	if (!QuadController)
+	{
+		UE_LOG(LogTemp, Error, TEXT("SetupFlightMode failed - QuadController is null"));
+		return;
+	}
 
+	// Set the mode first    
+	QuadController->SetFlightMode(Mode);
+	UE_LOG(LogTemp, Warning, TEXT("Flight mode set in controller"));
+
+	// Setup mode-specific requirements
+	switch (Mode)
+	{
+	case EFlightOptions::AutoWaypoint:
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Setting up AutoWaypoint mode"));
+			auto waypoints = spiralWaypoints();
+			UE_LOG(LogTemp, Warning, TEXT("Generated %d waypoints"), waypoints.Num());
+			QuadController->AddNavPlan("TestPlan", waypoints);
+			QuadController->SetNavPlan("TestPlan");
+			UE_LOG(LogTemp, Warning, TEXT("Nav plan set"));
+		}
+		break;
+        
+	case EFlightOptions::VelocityControl:
+		UE_LOG(LogTemp, Warning, TEXT("Setting up VelocityControl mode"));
+		QuadController->SetDesiredVelocity(FVector::ZeroVector);
+		break;
+        
+	case EFlightOptions::JoyStickControl:
+		UE_LOG(LogTemp, Warning, TEXT("Setting up JoyStickControl mode"));
+		break;
+	}
+}
 void AQuadPawn::ActivateDrone(bool bActivate)
 {
+	UE_LOG(LogTemp, Warning, TEXT("ActivateDrone called with bActivate: %s"), bActivate ? TEXT("true") : TEXT("false"));
+    
 	bIsActive = bActivate;
 	if (bIsActive)
 	{
 		// Initialize when activated
 		if (!QuadController)
 		{
+			UE_LOG(LogTemp, Warning, TEXT("Creating new QuadController"));
 			QuadController = NewObject<UQuadDroneController>(this, TEXT("QuadDroneController"));
 			QuadController->Initialize(this);
+			UE_LOG(LogTemp, Warning, TEXT("QuadController initialized"));
 		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Using existing QuadController"));
+		}
+        
 		QuadController->ResetPID();
+		UE_LOG(LogTemp, Warning, TEXT("PID Reset completed"));
 	}
-
-	this->QuadController->AddNavPlan("TestPlan", spiralWaypoints());
-	this->QuadController->SetNavPlan("TestPlan");
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Drone deactivated"));
+	}
 }
 void AQuadPawn::Tick(float DeltaTime)
 {

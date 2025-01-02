@@ -25,10 +25,11 @@ public class QuadSimToReality : ModuleRules
             "SlateCore",
             "UMG",
             "Json",
-            "JsonUtilities"
+            "JsonUtilities",
+            "WebBrowser",
         });
 
-        PrivateDependencyModuleNames.AddRange(new string[] { });
+        PrivateDependencyModuleNames.AddRange(new string[] { "WebBrowserWidget", "WebBrowserWidget" });
         // Third-party library paths
         string ThirdPartyPath = Path.Combine(ModuleDirectory, "../../ThirdParty/");
         string ZeroMQPath = Path.Combine(ThirdPartyPath, "ZeroMQ");

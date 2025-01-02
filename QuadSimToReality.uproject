@@ -25,6 +25,18 @@
 		{
 			"Name": "StaticMeshEditorModeling",
 			"Enabled": true
+		},
+		{
+			"Name": "WebBrowserWidget",
+			"Enabled": true
+		},
+		{
+			"Name": "WebBrowserNativeProxy",
+			"Enabled": true
+		},
+		{
+			"Name": "SVGImporter",
+			"Enabled": true
 		}
 	]
 }

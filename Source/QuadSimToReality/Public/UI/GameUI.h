@@ -1,9 +1,8 @@
-// GameHUD.h
+// GameUI.h
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
-#include "UI/FlightModeHUD.h"
 #include "GameUI.generated.h"
 
 UCLASS()
@@ -16,10 +15,17 @@ public:
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 
 protected:
-	// Progress Bars
-	UPROPERTY(meta = (BindWidget))
-	class UProgressBar* AltitudeBar;
+	// Input handling
+	UFUNCTION()
+	void ToggleInputMode();
 
+	UPROPERTY(meta = (BindWidget))
+	class UImage* AltitudeIndicator;
+
+	UPROPERTY()
+	class UMaterialInstanceDynamic* AltitudeScrollMaterial;
+
+	// Velocity indicator
 	UPROPERTY(meta = (BindWidget))
 	class UProgressBar* VelocityBar;
 
@@ -37,20 +43,14 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	class UButton* SwitchCameraButton;
 
-	// UPROPERTY(meta = (BindWidget))
-	// class UButton* ReturnToMenuButton;
-
-	// Config
+	// Configuration
 	UPROPERTY(EditDefaultsOnly, Category = "UI|Display")
-	float MaxDisplayAltitude = 10000.0f;  // Maximum altitude for progress bar (in cm)
+	float MaxDisplayAltitude = 10000.0f;
 
 private:
 	// Button handlers
 	UFUNCTION()
 	void OnSwitchCameraClicked();
-
-	// UFUNCTION()
-	// void OnReturnToMenuClicked();
 
 	// Helper functions
 	void UpdateHUDElements();

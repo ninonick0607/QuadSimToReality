@@ -104,17 +104,9 @@ void UQuadUI::OnExitClicked()
 
 void UQuadUI::OnFlightModeSelected(EFlightOptions SelectedMode)
 {
-    // Start camera transition
+    StoredFlightMode = SelectedMode;
+
     BeginCameraTransition();
-    
-    // Get the quad pawn and set its flight mode
-    if (AQuadPawn* QuadPawn = Cast<AQuadPawn>(UGameplayStatics::GetActorOfClass(GetWorld(), AQuadPawn::StaticClass())))
-    {
-        if (UQuadDroneController* DroneController = QuadPawn->GetDroneController())
-        {
-            DroneController->SetFlightMode(SelectedMode);
-        }
-    }
 }
 
 void UQuadUI::BeginCameraTransition()
@@ -179,19 +171,24 @@ void UQuadUI::CompleteGameplaySetup(AQuadPawn* QuadPawn, APlayerController* Play
     if (!QuadPawn || !PlayerController)
         return;
 
+    // Use the stored flight mode
+    QuadPawn->ActivateDrone(true); 
+    QuadPawn->SetupFlightMode(StoredFlightMode);
+    
     PlayerController->SetViewTarget(QuadPawn);
-    QuadPawn->ActivateDrone(true);
     QuadPawn->EnableInput(PlayerController);
 
-    FInputModeGameOnly InputMode;
+    FInputModeGameAndUI InputMode;
+    InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+    InputMode.SetHideCursorDuringCapture(false);
     PlayerController->SetInputMode(InputMode);
-    PlayerController->bShowMouseCursor = false;
+    PlayerController->bShowMouseCursor = true;
 
     // Create GameUI after camera transition
     UUIManager* UIManager = GetGameInstance()->GetSubsystem<UUIManager>();
     if (UIManager && GameUIClass)
     {
-        UIManager->PopContentFromLayer(EUILayer::Menu); // Remove menu
-        UIManager->PushContentToLayer(PlayerController, EUILayer::Game, GameUIClass); // Add game UI
+        UIManager->PopContentFromLayer(EUILayer::Menu);
+        UIManager->PushContentToLayer(PlayerController, EUILayer::Game, GameUIClass);
     }
 }

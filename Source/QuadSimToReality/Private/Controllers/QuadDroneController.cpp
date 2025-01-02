@@ -214,10 +214,8 @@ void UQuadDroneController::SetDesiredVelocity(const FVector& NewVelocity)
 
 void UQuadDroneController::SetFlightMode(EFlightOptions NewMode)
 {
+	UE_LOG(LogTemp, Error, TEXT("Setting flight mode to: %s"), *UEnum::GetValueAsString(NewMode));
 	currentFlightMode = NewMode;
-
-	// Log the change for debugging
-	UE_LOG(LogTemp, Display, TEXT("Flight mode set to: %s"), *UEnum::GetValueAsString(NewMode));
 
 	// Initialize HUD or control based on mode
 	switch (currentFlightMode)
@@ -225,34 +223,41 @@ void UQuadDroneController::SetFlightMode(EFlightOptions NewMode)
 	case EFlightOptions::AutoWaypoint:
 		if (AutoWaypointHUD)
 		{
-			UE_LOG(LogTemp, Display, TEXT("Initializing AutoWaypointHUD..."));
-			// Perform initialization for AutoWaypoint mode
+			UE_LOG(LogTemp, Error, TEXT(">>> Entered AutoWaypoint Mode <<<"));
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT(">>> Failed to enter AutoWaypoint Mode - HUD not initialized <<<"));
 		}
 		break;
 
 	case EFlightOptions::JoyStickControl:
 		if (JoyStickHUD)
 		{
-			UE_LOG(LogTemp, Display, TEXT("Initializing JoyStickHUD..."));
-			// Perform initialization for JoyStickControl mode
+			UE_LOG(LogTemp, Error, TEXT(">>> Entered JoyStick Mode <<<"));
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT(">>> Failed to enter JoyStick Mode - HUD not initialized <<<"));
 		}
 		break;
 
 	case EFlightOptions::VelocityControl:
 		if (VelocityHUD)
 		{
-			UE_LOG(LogTemp, Display, TEXT("Initializing VelocityHUD..."));
-			// Perform initialization for VelocityControl mode
+			UE_LOG(LogTemp, Error, TEXT(">>> Entered Velocity Mode <<<"));
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT(">>> Failed to enter Velocity Mode - HUD not initialized <<<"));
 		}
 		break;
 
 	default:
-		UE_LOG(LogTemp, Warning, TEXT("Unknown flight mode selected!"));
+		UE_LOG(LogTemp, Error, TEXT(">>> INVALID FLIGHT MODE SELECTED! <<<"));
 		break;
 	}
 }
-
-
 // ---------------------- Waypoint Nav ------------------------
 
 void UQuadDroneController::AddNavPlan(const FString& name, const TArray<FVector>& waypoints)
@@ -364,26 +369,31 @@ void UQuadDroneController::Update(double DeltaTime)
 {
 	if (!dronePawn)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Update called with null dronePawn"));
+		UE_LOG(LogTemp, Error, TEXT("Update called with null dronePawn"));
 		return;
 	}
+
+	UE_LOG(LogTemp, Error, TEXT("Updating in mode: %s"), *UEnum::GetValueAsString(currentFlightMode));
 
 	switch (currentFlightMode)
 	{
 	case EFlightOptions::AutoWaypoint:
+		UE_LOG(LogTemp, Error, TEXT(">>> Running AutoWaypoint Control <<<"));
 		AutoWaypointControl(DeltaTime);
 		break;
 
 	case EFlightOptions::JoyStickControl:
+		UE_LOG(LogTemp, Error, TEXT(">>> Running JoyStick Control <<<"));
 		ApplyControllerInput(DeltaTime);
 		break;
 
 	case EFlightOptions::VelocityControl:
+		UE_LOG(LogTemp, Error, TEXT(">>> Running Velocity Control <<<"));
 		VelocityControl(DeltaTime);
 		break;
 
 	default:
-		UE_LOG(LogTemp, Warning, TEXT("Unknown flight mode in Update"));
+		UE_LOG(LogTemp, Error, TEXT(">>> UNKNOWN FLIGHT MODE IN UPDATE! <<<"));
 		break;
 	}
 }

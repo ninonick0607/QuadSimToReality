@@ -80,7 +80,7 @@ protected:
 private:
     void BeginCameraTransition();
     void CompleteGameplaySetup(class AQuadPawn* QuadPawn, class APlayerController* PlayerController);
-
+    EFlightOptions StoredFlightMode; 
     // Camera transition properties
     FVector InitialCameraLocation;
     FRotator InitialCameraRotation;
