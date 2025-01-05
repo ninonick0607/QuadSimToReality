@@ -2,10 +2,11 @@
 #include "UI/GameUI.h"
 #include "Components/ProgressBar.h"
 #include "Components/TextBlock.h"
-#include "Components/Button.h"
 #include "Components/Image.h"
 #include "Pawns/QuadPawn.h"
 #include "Controllers/QuadDroneController.h"
+#include "UI/DroneControlPanel.h"
+#include "UI/CoreUI/UIManager.h"
 
 void UGameUI::NativeConstruct()
 {
@@ -16,7 +17,7 @@ void UGameUI::NativeConstruct()
         UMaterial* BaseMaterial = Cast<UMaterial>(StaticLoadObject(
             UMaterial::StaticClass(), 
             nullptr, 
-            TEXT("/Game/Blueprints/UI/Images/M_AltIndicator")  // Updated path
+            TEXT("/Game/Blueprints/UI/Images/M_AltIndicator")
         ));
 
         if (BaseMaterial)   
@@ -25,6 +26,7 @@ void UGameUI::NativeConstruct()
             AltitudeIndicator->SetBrushFromMaterial(AltitudeScrollMaterial);
         }
     }
+
     // Set up input mode
     if (APlayerController* PC = GetOwningPlayer())
     {
@@ -38,6 +40,7 @@ void UGameUI::NativeConstruct()
         if (UInputComponent* PlayerInputComponent = PC->InputComponent)
         {
             PlayerInputComponent->BindAction("ToggleInput", IE_Pressed, this, &UGameUI::ToggleInputMode);
+            PlayerInputComponent->BindAction("ToggleDroneControl", IE_Pressed, this, &UGameUI::ToggleDroneControlPanel);
         }
     }
 
@@ -68,10 +71,83 @@ void UGameUI::ToggleInputMode()
     }
 }
 
+void UGameUI::ToggleDroneControlPanel()
+{
+    UUIManager* UIManager = GetGameInstance()->GetSubsystem<UUIManager>();
+    if (!UIManager || !DroneControlPanelClass)
+        return;
+
+    if (ActiveDronePanel)
+    {
+        ActiveDronePanel->RemoveFromParent();
+        ActiveDronePanel = nullptr;
+        UE_LOG(LogTemp, Warning, TEXT("DroneControlPanel removed from viewport"));
+        return;
+    }
+
+    // Create and initialize DroneControlPanel
+    if (UQuadDroneController* DroneController = GetDroneController())
+    {
+        if (AQuadPawn* QuadPawn = Cast<AQuadPawn>(DroneController->dronePawn))
+        {
+            ActiveDronePanel = Cast<UDroneControlPanel>(  // Store the reference
+                UIManager->PushContentToLayer(GetOwningPlayer(), EUILayer::Modal, DroneControlPanelClass)
+            );
+            
+            if (ActiveDronePanel)
+            {
+                FPIDControllerSet AutoWaypointPIDs(
+                    DroneController->GetXPID(),
+                    DroneController->GetYPID(),
+                    DroneController->GetZPID(),
+                    DroneController->GetRollAttitudePID(),
+                    DroneController->GetPitchAttitudePID(),
+                    DroneController->GetYawAttitudePID()
+                );
+
+                FPIDControllerSet VelocityPIDs(
+                    DroneController->GetXPIDVelocity(),
+                    DroneController->GetYPIDVelocity(),
+                    DroneController->GetZPIDVelocity(),
+                    DroneController->GetRollAttitudePIDVelocity(),
+                    DroneController->GetPitchAttitudePIDVelocity(),
+                    DroneController->GetYawAttitudePIDVelocity()
+                );
+
+                FPIDControllerSet JoyStickPIDs(
+                    DroneController->GetXPIDJoyStick(),
+                    DroneController->GetYPIDJoyStick(),
+                    DroneController->GetZPIDJoyStick(),
+                    DroneController->GetRollAttitudePIDJoyStick(),
+                    DroneController->GetPitchAttitudePIDJoyStick(),
+                    DroneController->GetYawAttitudePIDJoyStick()
+                );
+
+                ActiveDronePanel->InitializeDroneControl(QuadPawn, DroneController, 
+                    AutoWaypointPIDs, VelocityPIDs, JoyStickPIDs);
+                    
+                UE_LOG(LogTemp, Warning, TEXT("DroneControlPanel created and added to viewport"));
+            }
+        }
+    }
+    
+}
+
 void UGameUI::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
     Super::NativeTick(MyGeometry, InDeltaTime);
     UpdateHUDElements();
+}
+
+FReply UGameUI::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+    if (InKeyEvent.IsControlDown() && InKeyEvent.GetKey() == EKeys::D)
+    {
+        ToggleDroneControlPanel();
+        return FReply::Handled();
+    }
+
+    return FReply::Unhandled();
 }
 
 void UGameUI::UpdateHUDElements()
@@ -79,34 +155,38 @@ void UGameUI::UpdateHUDElements()
     UQuadDroneController* DroneController = GetDroneController();
     if (!DroneController || !AltitudeScrollMaterial) return;
 
+    APawn* OwnerPawn = GetOwningPlayerPawn();
+    if (!OwnerPawn) return;
+    
     FVector CurrentLocation = DroneController->GetCurrentAltitude();
     float ScrollOffset = FMath::Fmod(CurrentLocation.Z / 500.0f, 1.0f);
-    AltitudeScrollMaterial->SetScalarParameterValue("ScrollAmount", ScrollOffset);
+    AltitudeScrollMaterial->SetScalarParameterValue("ScrollAmount", -ScrollOffset);
+    
+    FVector ForwardVector = OwnerPawn->GetActorForwardVector(); 
     FVector CurrentVelocity = DroneController->GetCurrentVelocity();
+
+    float ForwardVelocity = FVector::DotProduct(CurrentVelocity, ForwardVector);
+    float ForwardVelocityMeters = ForwardVelocity / 100.0f;
+
     float MaxVelocity = DroneController->GetMaxVelocity();
     float CurrentSpeed = CurrentVelocity.Size();
 
-    // Update velocity display
     if (VelocityBar)
     {
         float NormalizedVelocity = FMath::Clamp(CurrentSpeed / MaxVelocity, 0.0f, 1.0f);
         VelocityBar->SetPercent(NormalizedVelocity);
     }
 
-    // Update text displays
     if (AltitudeText)
     {
         AltitudeText->SetText(FText::FromString(
-            FString::Printf(TEXT("Altitude: %.1f m"), CurrentLocation.Z / 100.0f)));
+            FString::Printf(TEXT(" %.1fm"), CurrentLocation.Z / 100.0f)));
     }
 
     if (VelocityText)
     {
         VelocityText->SetText(FText::FromString(
-            FString::Printf(TEXT("Velocity:\nX: %.1f\nY: %.1f\nZ: %.1f"),
-                CurrentVelocity.X / 100.0f,
-                CurrentVelocity.Y / 100.0f,
-                CurrentVelocity.Z / 100.0f)));
+            FString::Printf(TEXT("Forward Velocity: %.1f m/s"), ForwardVelocityMeters)));
     }
 
     if (FlightModeText)
@@ -114,6 +194,11 @@ void UGameUI::UpdateHUDElements()
         FlightModeText->SetText(FText::FromString(
             FString::Printf(TEXT("Mode: %s"), 
             *UEnum::GetValueAsString(DroneController->GetCurrentFlightMode()))));
+    }
+
+    if (ActiveDronePanel)
+    {
+        ActiveDronePanel->UpdateDisplay();
     }
 }
 

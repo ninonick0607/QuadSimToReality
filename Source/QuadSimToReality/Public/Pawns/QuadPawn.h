@@ -31,7 +31,8 @@ public:
 
     virtual void Tick(float DeltaTime) override;
     virtual void SetupPlayerInputComponent(UInputComponent *PlayerInputComponent) override;
-
+    UFUNCTION(BlueprintCallable, Category = "Drone|Controller")
+    UQuadDroneController* GetQuadController() const { return QuadController; }
     // Drone components
     UPROPERTY(EditAnywhere, Category = "Drone Components")
     UStaticMeshComponent *DroneBody;
@@ -128,9 +129,8 @@ public:
     UPROPERTY(VisibleAnywhere, Category = "Controller")
     UQuadDroneController* QuadController;
     
-    // UPROPERTY(VisibleAnywhere, Category = "ZMQ")
-    // UZMQController* ZMQController;
-    void SetupFlightMode(EFlightOptions Mode);
+    UPROPERTY(VisibleAnywhere, Category = "ZMQ")
+    UZMQController* ZMQController;
 
 
     void SwitchCamera() const;
@@ -139,8 +139,6 @@ public:
     virtual void HandleYawInput(float Value);     
     virtual void HandlePitchInput(float Value);   
     virtual void HandleRollInput(float Value);
-    
-    void ActivateDrone(bool bActivate);
     bool IsActive() const { return bIsActive; }
 
     UQuadDroneController* GetDroneController() const { return QuadController; }

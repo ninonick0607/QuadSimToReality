@@ -9,12 +9,13 @@
 UENUM(BlueprintType)
 enum class EUILayer : uint8
 {
-	None,
-	Background,   // Static backgrounds, landscape
-	Game,         // Main game UI elements
-	Menu,         // Menu screens
-	Popup,        // Popups and notifications
-	Modal        // Modal dialogs that block interaction
+	None        UMETA(DisplayName = "None"),
+	Background  UMETA(DisplayName = "Background"),
+	Game        UMETA(DisplayName = "Game"),
+	Menu        UMETA(DisplayName = "Menu"),
+	Overlay     UMETA(DisplayName = "Overlay"),
+	Modal       UMETA(DisplayName = "Modal"),
+	Debug       UMETA(DisplayName = "Debug")
 };
 
 UCLASS()
@@ -48,6 +49,7 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "UI")
 	bool IsLayerEmpty(EUILayer Layer) const;
+	
 
 private:
 	// Store widgets for each layer

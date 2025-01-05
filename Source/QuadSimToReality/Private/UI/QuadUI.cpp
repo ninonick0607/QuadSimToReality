@@ -8,7 +8,6 @@
 #include "UI/GameUI.h"
 #include "Pawns/QuadPawn.h"
 #include "GameFramework/SpringArmComponent.h"
-#include "Camera/CameraComponent.h"
 
 void UQuadUI::NativeConstruct()
 {
@@ -109,6 +108,7 @@ void UQuadUI::OnFlightModeSelected(EFlightOptions SelectedMode)
     BeginCameraTransition();
 }
 
+// In QuadUI.cpp, update BeginCameraTransition():
 void UQuadUI::BeginCameraTransition()
 {
     APlayerController* PlayerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
@@ -138,6 +138,12 @@ void UQuadUI::BeginCameraTransition()
     float BlendTime = 2.0f;
     float UpdateInterval = 0.016f;
     CurrentTransitionTime = 0.0f;
+
+    // Ensure the drone doesn't start flying yet
+    if (UQuadDroneController* DroneController = QuadPawn->GetQuadController())
+    {
+        DroneController->SetFlightMode(EFlightOptions::None);
+    }
 
     GetWorld()->GetTimerManager().SetTimer(
         TransitionTimerHandle,
@@ -171,13 +177,22 @@ void UQuadUI::CompleteGameplaySetup(AQuadPawn* QuadPawn, APlayerController* Play
     if (!QuadPawn || !PlayerController)
         return;
 
-    // Use the stored flight mode
-    QuadPawn->ActivateDrone(true); 
-    QuadPawn->SetupFlightMode(StoredFlightMode);
+    // Get the drone controller
+    UQuadDroneController* DroneController = QuadPawn->GetQuadController();
+    if (!DroneController)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Failed to get QuadDroneController in CompleteGameplaySetup"));
+        return;
+    }
+
+    // Initialize the flight mode directly through the controller
+    DroneController->InitializeFlightMode(StoredFlightMode);
     
+    // Set up player control
     PlayerController->SetViewTarget(QuadPawn);
     QuadPawn->EnableInput(PlayerController);
 
+    // Configure input mode
     FInputModeGameAndUI InputMode;
     InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
     InputMode.SetHideCursorDuringCapture(false);

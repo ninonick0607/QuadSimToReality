@@ -1,19 +1,20 @@
+// FlightModeHUD.h
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
-#include "Components/Button.h"
 #include "FlightModeHUD.generated.h"
 
 UENUM(BlueprintType)
 enum class EFlightOptions : uint8
 {
-	AutoWaypoint,
-	JoyStickControl,
-	VelocityControl
+	None             UMETA(DisplayName = "None"),
+	AutoWaypoint     UMETA(DisplayName = "Auto Waypoint"),
+	JoyStickControl  UMETA(DisplayName = "JoyStick Control"),
+	VelocityControl  UMETA(DisplayName = "Velocity Control")
 };
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnFlightModeSelectedSignature, EFlightOptions, SelectedMode);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnFlightModeSelected, EFlightOptions, SelectedMode);
 
 UCLASS()
 class QUADSIMTOREALITY_API UFlightModeHUD : public UUserWidget
@@ -21,32 +22,29 @@ class QUADSIMTOREALITY_API UFlightModeHUD : public UUserWidget
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(BlueprintAssignable, Category = "Events")
-	FOnFlightModeSelectedSignature OnFlightModeSelected;
-
-protected:
 	virtual void NativeConstruct() override;
 
-	// UI Elements
-	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))
+	UPROPERTY(BlueprintAssignable, Category = "Events")
+	FOnFlightModeSelected OnFlightModeSelected;
+	
+	UFUNCTION(BlueprintCallable, Category = "Flight Mode")
+	void NotifyModeSelection(EFlightOptions SelectedMode);
+
+protected:
+	// Buttons
+	UPROPERTY(meta = (BindWidget))
 	class UButton* AutoWaypointButton;
 
-	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))
+	UPROPERTY(meta = (BindWidget))
 	class UButton* JoyStickControlButton;
 
-	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))
+	UPROPERTY(meta = (BindWidget))
 	class UButton* VelocityControlButton;
 
-	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))
+	UPROPERTY(meta = (BindWidget))
 	class UButton* BackButton;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "UI")
-	TSubclassOf<class UQuadUI> MainMenuClass;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "UI")
-	TSubclassOf<class UGameUI> GameUIClass;
-
-private:
+	// Button handlers
 	UFUNCTION()
 	void OnAutoWaypointSelected();
 
@@ -59,5 +57,11 @@ private:
 	UFUNCTION()
 	void OnBackSelected();
 
-	void NotifyModeSelection(EFlightOptions SelectedMode);
+\
+	// Class references
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<class UUserWidget> MainMenuClass;
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<class UUserWidget> GameUIClass;
 };

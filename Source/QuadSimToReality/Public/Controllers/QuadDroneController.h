@@ -4,7 +4,8 @@
 #include "CoreMinimal.h"
 #include "Utility/QuadPIDConroller.h"
 #include "UI/ImGuiUtil.h"
-#include "UI/FlightModeHUD.h" 
+#include "UI/FlightModeHUD.h"
+#include "GameFramework/Pawn.h"
 #include "QuadDroneController.generated.h"
 
 
@@ -63,13 +64,46 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Drone|Flight Data")
 	float GetMaxVelocity() const { return maxVelocity; }
-
+	
+	UFUNCTION(BlueprintCallable, Category = "Drone|Flight Data")
+	const TArray<float>& GetThrusts() const {return Thrusts;}
+	
 	UFUNCTION(BlueprintCallable, Category = "Drone|Flight Mode")
 	EFlightOptions GetCurrentFlightMode() const { return currentFlightMode; }
 
 	UFUNCTION(BlueprintCallable, Category = "Drone|Camera")
 	void SwitchCamera();
+
+	float GetMaxAngle() const { return maxAngle; }
+	APawn* GetPawn() const { return Cast<APawn>(dronePawn); }
+	QuadPIDController* GetXPID() const { return xPID.Get(); }
+	QuadPIDController* GetYPID() const { return yPID.Get(); }
+	QuadPIDController* GetZPID() const { return zPID.Get(); }
+	QuadPIDController* GetRollAttitudePID() const { return rollAttitudePID.Get(); }
+	QuadPIDController* GetPitchAttitudePID() const { return pitchAttitudePID.Get(); }
+	QuadPIDController* GetYawAttitudePID() const { return yawAttitudePID.Get(); }
+
+	QuadPIDController* GetXPIDVelocity() const { return xPIDVelocity.Get(); }
+	QuadPIDController* GetYPIDVelocity() const { return yPIDVelocity.Get(); }
+	QuadPIDController* GetZPIDVelocity() const { return zPIDVelocity.Get(); }
+	QuadPIDController* GetRollAttitudePIDVelocity() const { return rollAttitudePIDVelocity.Get(); }
+	QuadPIDController* GetPitchAttitudePIDVelocity() const { return pitchAttitudePIDVelocity.Get(); }
+	QuadPIDController* GetYawAttitudePIDVelocity() const { return yawAttitudePIDVelocity.Get(); }
+
+	QuadPIDController* GetXPIDJoyStick() const { return xPIDJoyStick.Get(); }
+	QuadPIDController* GetYPIDJoyStick() const { return yPIDJoyStick.Get(); }
+	QuadPIDController* GetZPIDJoyStick() const { return zPIDJoyStick.Get(); }
+	QuadPIDController* GetRollAttitudePIDJoyStick() const { return rollAttitudePIDJoyStick.Get(); }
+	QuadPIDController* GetPitchAttitudePIDJoyStick() const { return pitchAttitudePIDJoyStick.Get(); }
+	QuadPIDController* GetYawAttitudePIDJoyStick() const { return yawAttitudePIDJoyStick.Get(); }
 	
+	// Setters
+	void SetMaxAngle(float NewAngle) { maxAngle = NewAngle; }
+	void SetMaxVelocity(float NewVelocity) { maxVelocity = NewVelocity; }
+	void SetDebugDrawCollisionSphere(bool bEnabled) { Debug_DrawDroneCollisionSphere = bEnabled; }
+	void SetDebugDrawWaypoint(bool bEnabled) { Debug_DrawDroneWaypoint = bEnabled; }
+	TArray<FVector> GenerateSpiralWaypoints() const;
+	void InitializeFlightMode(EFlightOptions Mode);
 private:
 
 	
@@ -79,8 +113,7 @@ private:
 	float desiredAltitude;
 	bool bDesiredAltitudeInitialized;
 
-	EFlightOptions  currentFlightMode;
-
+	EFlightOptions currentFlightMode;
 	struct NavPlan
 	{
 		TArray<FVector> waypoints;

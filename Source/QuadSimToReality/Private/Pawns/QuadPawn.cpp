@@ -5,121 +5,43 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Math/UnrealMathUtility.h"
-#include "EngineUtils.h"
 #include "Engine/Engine.h"
 #include "Kismet/GameplayStatics.h"
 
 #define EPSILON 0.0001f
-// At the top of QuadPawn.cpp
-
-namespace {
-	static constexpr float startHeight = 1000.0f;
-	static constexpr float maxHeight = 10000.0f;
-	static constexpr float radius = 3000.0f;
-	static constexpr float heightStep = 500.0f;
-	static constexpr int32 pointsPerLoop = 8;
-	static constexpr float angleStep = 2.0f * PI / pointsPerLoop;
-
-}
-
-const FVector start = FVector(0, 0, 1000);
-
-
-static TArray<FVector> spiralWaypoints()
-{
-    TArray<FVector> xyzSetpoint;
-
-    // Get current position
-    AQuadPawn* drone = nullptr;
-    FVector currentPos = FVector::ZeroVector;
-
-    // Find the drone in the world
-    for (TActorIterator<AQuadPawn> ActorItr(GWorld); ActorItr; ++ActorItr)
-    {
-        drone = *ActorItr;
-        if (drone)
-        {
-            currentPos = drone->GetActorLocation();
-            break;
-        }
-    }
-
-    // First point at starting height above current position
-    xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + startHeight));
-
-    // Calculate number of loops needed
-    int numLoops = FMath::CeilToInt((maxHeight - startHeight) / heightStep);
-
-    // Generate upward spiral
-    for (int loop = 0; loop < numLoops; loop++)
-    {
-        float height = currentPos.Z + startHeight + (loop * heightStep);
-
-        for (int point = 0; point < pointsPerLoop; point++)
-        {
-            float angle = point * angleStep;
-            float x = currentPos.X + radius * FMath::Cos(angle);
-            float y = currentPos.Y + radius * FMath::Sin(angle);
-            xyzSetpoint.Add(FVector(x, y, height));
-        }
-    }
-
-    // Add point at max height above current position
-    xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + maxHeight));
-
-    // Generate downward spiral (in reverse order)
-    for (int loop = numLoops - 1; loop >= 0; loop--)
-    {
-        float height = currentPos.Z + startHeight + (loop * heightStep);
-
-        for (int point = pointsPerLoop - 1; point >= 0; point--)
-        {
-            float angle = point * angleStep;
-            float x = currentPos.X + radius * FMath::Cos(angle);
-            float y = currentPos.Y + radius * FMath::Sin(angle);
-            xyzSetpoint.Add(FVector(x, y, height));
-        }
-    }
-
-    // Final point back at starting height above current position
-    xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + startHeight));
-
-    return xyzSetpoint;
-}
-
 
 AQuadPawn::AQuadPawn()
-	: DroneBody(nullptr) // 1
-	  , DroneCamMesh(nullptr) // 2
-	  , SpringArm(nullptr) // 3
-	  , Camera(nullptr) // 4
-	  , CameraFPV(nullptr) // 5
-	  , ThrusterFL(nullptr) // 6
-	  , ThrusterFR(nullptr) // 7
-	  , ThrusterBL(nullptr) // 8
-	  , ThrusterBR(nullptr) // 9
-	  , MotorFL(nullptr) // 10
-	  , MotorFR(nullptr) // 11
-	  , MotorBL(nullptr) // 12
-	  , MotorBR(nullptr) // 13
-	  , WaypointMode(EWaypointMode::WaitingForModeSelection) // 14
-	  , NewWaypoint(FVector::ZeroVector) // 16
-	  , Rotors() // 17
-	  , QuadController(nullptr) // 20
-	  , bWaypointModeSelected(false) // 21
-	  , Input_ToggleImguiInput(nullptr)
+    : DroneBody(nullptr)
+    , DroneCamMesh(nullptr)
+    , SpringArm(nullptr)
+    , Camera(nullptr)
+    , CameraFPV(nullptr)
+    , ThrusterFL(nullptr)
+    , ThrusterFR(nullptr)
+    , ThrusterBL(nullptr)
+    , ThrusterBR(nullptr)
+    , MotorFL(nullptr)
+    , MotorFR(nullptr)
+    , MotorBL(nullptr)
+    , MotorBR(nullptr)
+    , WaypointMode(EWaypointMode::WaitingForModeSelection)
+    , NewWaypoint(FVector::ZeroVector)
+    , Rotors()
+    , QuadController(nullptr)
+    , bWaypointModeSelected(false)
+    , Input_ToggleImguiInput(nullptr)
 {
-	PrimaryActorTick.bCanEverTick = true;
-	bIsActive = false;
-	// Initialize arrays
-	Motors.SetNum(4);
-	Thrusters.SetNum(4);
-	
+    PrimaryActorTick.bCanEverTick = true;
+    bIsActive = false;
+
+    // Initialize arrays
+    Motors.SetNum(4);
+    Thrusters.SetNum(4);
+    
     // Initialize components
-	DroneBody = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("DroneBody"));
-	SetRootComponent(DroneBody);
-	
-	DroneBody->SetSimulatePhysics(true);
+    DroneBody = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("DroneBody"));
+    SetRootComponent(DroneBody);
+    DroneBody->SetSimulatePhysics(true);
 
     DroneCamMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CamMesh"));
     DroneCamMesh->AttachToComponent(DroneBody, FAttachmentTransformRules::KeepRelativeTransform);
@@ -130,201 +52,154 @@ AQuadPawn::AQuadPawn()
     Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
     Camera->AttachToComponent(SpringArm, FAttachmentTransformRules::KeepRelativeTransform);
     
-	CameraFPV = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraFPV"));
-	CameraFPV->AttachToComponent(DroneBody, FAttachmentTransformRules::KeepWorldTransform);
-	CameraFPV->SetRelativeLocation(FVector(5.5, 0,-6));
-	CameraFPV->SetRelativeScale3D(FVector(.1));
+    CameraFPV = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraFPV"));
+    CameraFPV->AttachToComponent(DroneBody, FAttachmentTransformRules::KeepWorldTransform);
+    CameraFPV->SetRelativeLocation(FVector(5.5, 0,-6));
+    CameraFPV->SetRelativeScale3D(FVector(.1));
 
-	InitializeRotors();
-	
-	// SpringArm settings
-	SpringArm->TargetArmLength = 200.0f;
-	SpringArm->SetRelativeRotation(FRotator(-20.0f, 0.0f, 0.0f));
-	SpringArm->bDoCollisionTest = false;
-	SpringArm->bInheritPitch = false;
-	SpringArm->bInheritRoll = false;
+    InitializeRotors();
+    
+    // SpringArm settings
+    SpringArm->TargetArmLength = 200.0f;
+    SpringArm->SetRelativeRotation(FRotator(-20.0f, 0.0f, 0.0f));
+    SpringArm->bDoCollisionTest = false;
+    SpringArm->bInheritPitch = false;
+    SpringArm->bInheritRoll = false;
 
-	// Automatically possess pawn for testing
-	AutoPossessPlayer = EAutoReceiveInput::Player0;
-
-	bWaypointModeSelected = false;
-
-	//ZMQController = CreateDefaultSubobject<UZMQController>(TEXT("ZMQController"));
+    // Automatically possess pawn for testing
+    AutoPossessPlayer = EAutoReceiveInput::Player0;
 }
+
 void AQuadPawn::BeginPlay()
 {
     Super::BeginPlay();
-	
-}
-void AQuadPawn::SetupFlightMode(EFlightOptions Mode)
-{
-	UE_LOG(LogTemp, Warning, TEXT("SetupFlightMode called with mode: %s"), *UEnum::GetValueAsString(Mode));
-    
-	if (!QuadController)
-	{
-		UE_LOG(LogTemp, Error, TEXT("SetupFlightMode failed - QuadController is null"));
-		return;
-	}
 
-	// Set the mode first    
-	QuadController->SetFlightMode(Mode);
-	UE_LOG(LogTemp, Warning, TEXT("Flight mode set in controller"));
+    // Initialize the drone controller
+    if (!QuadController)
+    {
+        QuadController = NewObject<UQuadDroneController>(this, TEXT("QuadDroneController"));
+        if (QuadController)
+        {
+            QuadController->Initialize(this);
+            bIsActive = true;  // Activate the drone once controller is initialized
+        }
+    }
+}
 
-	// Setup mode-specific requirements
-	switch (Mode)
-	{
-	case EFlightOptions::AutoWaypoint:
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Setting up AutoWaypoint mode"));
-			auto waypoints = spiralWaypoints();
-			UE_LOG(LogTemp, Warning, TEXT("Generated %d waypoints"), waypoints.Num());
-			QuadController->AddNavPlan("TestPlan", waypoints);
-			QuadController->SetNavPlan("TestPlan");
-			UE_LOG(LogTemp, Warning, TEXT("Nav plan set"));
-		}
-		break;
-        
-	case EFlightOptions::VelocityControl:
-		UE_LOG(LogTemp, Warning, TEXT("Setting up VelocityControl mode"));
-		QuadController->SetDesiredVelocity(FVector::ZeroVector);
-		break;
-        
-	case EFlightOptions::JoyStickControl:
-		UE_LOG(LogTemp, Warning, TEXT("Setting up JoyStickControl mode"));
-		break;
-	}
-}
-void AQuadPawn::ActivateDrone(bool bActivate)
-{
-	UE_LOG(LogTemp, Warning, TEXT("ActivateDrone called with bActivate: %s"), bActivate ? TEXT("true") : TEXT("false"));
-    
-	bIsActive = bActivate;
-	if (bIsActive)
-	{
-		// Initialize when activated
-		if (!QuadController)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Creating new QuadController"));
-			QuadController = NewObject<UQuadDroneController>(this, TEXT("QuadDroneController"));
-			QuadController->Initialize(this);
-			UE_LOG(LogTemp, Warning, TEXT("QuadController initialized"));
-		}
-		else
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Using existing QuadController"));
-		}
-        
-		QuadController->ResetPID();
-		UE_LOG(LogTemp, Warning, TEXT("PID Reset completed"));
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Drone deactivated"));
-	}
-}
 void AQuadPawn::Tick(float DeltaTime)
 {
-	Super::Tick(DeltaTime);
+    Super::Tick(DeltaTime);
 
-	if (!bIsActive)
-		return;
+    if (!bIsActive)
+        return;
 
-	for (auto& rotor : Rotors)
-	{
-		rotor.Animate(DeltaTime);
-	}
+    for (auto& rotor : Rotors)
+    {
+        rotor.Animate(DeltaTime);
+    }
 
-	UpdateControl(DeltaTime);
+    UpdateControl(DeltaTime);
 }
+
 void AQuadPawn::SwitchCamera() const 
 {
-	if (CameraFPV->IsActive())
-	{
-		// enable 3rd person
-		CameraFPV->SetActive(false);
-		Camera->SetActive(true);
-		DroneCamMesh->SetHiddenInGame(false);
-	}
-	else
-	{
-		// enable 1st person
-		CameraFPV->SetActive(true);
-		Camera->SetActive(false);
-		DroneCamMesh->SetHiddenInGame(true);
-	}
+    if (CameraFPV->IsActive())
+    {
+        // enable 3rd person
+        CameraFPV->SetActive(false);
+        Camera->SetActive(true);
+        DroneCamMesh->SetHiddenInGame(false);
+    }
+    else
+    {
+        // enable 1st person
+        CameraFPV->SetActive(true);
+        Camera->SetActive(false);
+        DroneCamMesh->SetHiddenInGame(true);
+    }
 }
+
 void AQuadPawn::ToggleImguiInput()  
 {
-	UGameplayStatics::GetPlayerController(GetWorld(), 0)->ConsoleCommand("ImGui.ToggleInput");
+    UGameplayStatics::GetPlayerController(GetWorld(), 0)->ConsoleCommand("ImGui.ToggleInput");
 }
+
 void AQuadPawn::HandleThrustInput(float Value)  
 {
-	if (QuadController)
-	{
-		QuadController->HandleThrustInput(Value);
-	}
+    if (QuadController)
+    {
+        QuadController->HandleThrustInput(Value);
+    }
 }
+
 void AQuadPawn::HandleYawInput(float Value)  
 {
-	if (QuadController)
-	{
-		QuadController->HandleYawInput(Value);
-	}
+    if (QuadController)
+    {
+        QuadController->HandleYawInput(Value);
+    }
 }
+
 void AQuadPawn::HandlePitchInput(float Value)  
 {
-	if (QuadController)
-	{
-		QuadController->HandlePitchInput(Value);
-	}
+    if (QuadController)
+    {
+        QuadController->HandlePitchInput(Value);
+    }
 }
+
 void AQuadPawn::HandleRollInput(float Value)  
 {
-	if (QuadController)
-	{
-		QuadController->HandleRollInput(Value);
-	}
+    if (QuadController)
+    {
+        QuadController->HandleRollInput(Value);
+    }
 }
+
 void AQuadPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)  
 {
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
+    Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-	// Bind axis mappings for controller input to wrapper functions
-	PlayerInputComponent->BindAxis("Thrust", this, &AQuadPawn::HandleThrustInput);
-	PlayerInputComponent->BindAxis("Yaw", this, &AQuadPawn::HandleYawInput);
-	PlayerInputComponent->BindAxis("Pitch", this, &AQuadPawn::HandlePitchInput);
-	PlayerInputComponent->BindAxis("Roll", this, &AQuadPawn::HandleRollInput);
+    // Bind axis mappings for controller input to wrapper functions
+    PlayerInputComponent->BindAxis("Thrust", this, &AQuadPawn::HandleThrustInput);
+    PlayerInputComponent->BindAxis("Yaw", this, &AQuadPawn::HandleYawInput);
+    PlayerInputComponent->BindAxis("Pitch", this, &AQuadPawn::HandlePitchInput);
+    PlayerInputComponent->BindAxis("Roll", this, &AQuadPawn::HandleRollInput);
 
-	PlayerInputComponent->BindAction("ToggleImGui", IE_Pressed, this, &AQuadPawn::ToggleImguiInput);
+    PlayerInputComponent->BindAction("ToggleImGui", IE_Pressed, this, &AQuadPawn::ToggleImguiInput);
 }
+
 void AQuadPawn::UpdateControl(float DeltaTime)
 {
-	this->QuadController->Update(DeltaTime);
+    if (QuadController)
+    {
+        QuadController->Update(DeltaTime);
+    }
 }
+
 void AQuadPawn::InitializeRotors()
 {
-	const FString motorNames[] = {TEXT("MotorFL"), TEXT("MotorFR"), TEXT("MotorBL"), TEXT("MotorBR")};
-	const FString thrusterNames[] = {TEXT("ThrusterFL"), TEXT("ThrusterFR"), TEXT("ThrusterBL"), TEXT("ThrusterBR")};
-	const FString socketNames[] = {
-		TEXT("MotorSocketFL"), TEXT("MotorSocketFR"), TEXT("MotorSocketBL"), TEXT("MotorSocketBR")
-	};
+    const FString motorNames[] = {TEXT("MotorFL"), TEXT("MotorFR"), TEXT("MotorBL"), TEXT("MotorBR")};
+    const FString thrusterNames[] = {TEXT("ThrusterFL"), TEXT("ThrusterFR"), TEXT("ThrusterBL"), TEXT("ThrusterBR")};
+    const FString socketNames[] = {
+        TEXT("MotorSocketFL"), TEXT("MotorSocketFR"), TEXT("MotorSocketBL"), TEXT("MotorSocketBR")
+    };
 
-	for (int i = 0; i < 4; ++i)
-	{
-		// Create and attach motor components
-		Motors[i] = CreateDefaultSubobject<UStaticMeshComponent>(*motorNames[i]);
-		Motors[i]->AttachToComponent(DroneBody, FAttachmentTransformRules::KeepRelativeTransform);
-		Motors[i]->SetupAttachment(DroneBody, *socketNames[i]);
+    for (int i = 0; i < 4; ++i)
+    {
+        // Create and attach motor components
+        Motors[i] = CreateDefaultSubobject<UStaticMeshComponent>(*motorNames[i]);
+        Motors[i]->AttachToComponent(DroneBody, FAttachmentTransformRules::KeepRelativeTransform);
+        Motors[i]->SetupAttachment(DroneBody, *socketNames[i]);
 
-		// Create and attach thruster components under the motor
-		Thrusters[i] = CreateDefaultSubobject<UPhysicsThrusterComponent>(*thrusterNames[i]);
-		Thrusters[i]->AttachToComponent(Motors[i], FAttachmentTransformRules::KeepRelativeTransform);
-		Thrusters[i]->SetRelativeRotation(FRotator(-90.0f, 0.0f, 0.0f));
-		Thrusters[i]->bAutoActivate = true;
+        // Create and attach thruster components under the motor
+        Thrusters[i] = CreateDefaultSubobject<UPhysicsThrusterComponent>(*thrusterNames[i]);
+        Thrusters[i]->AttachToComponent(Motors[i], FAttachmentTransformRules::KeepRelativeTransform);
+        Thrusters[i]->SetRelativeRotation(FRotator(-90.0f, 0.0f, 0.0f));
+        Thrusters[i]->bAutoActivate = true;
 
-		Rotors[i].Thruster = Thrusters[i];
-		Rotors[i].Mesh = Motors[i];
-		Rotors[i].AngularVelocity = 0.f;
-	}
+        Rotors[i].Thruster = Thrusters[i];
+        Rotors[i].Mesh = Motors[i];
+        Rotors[i].AngularVelocity = 0.f;
+    }
 }
-

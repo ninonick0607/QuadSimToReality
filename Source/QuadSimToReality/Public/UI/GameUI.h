@@ -2,6 +2,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "DroneControlPanel.h"
 #include "Blueprint/UserWidget.h"
 #include "GameUI.generated.h"
 
@@ -13,6 +14,7 @@ class QUADSIMTOREALITY_API UGameUI : public UUserWidget
 public:
 	virtual void NativeConstruct() override;
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
+	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
 
 protected:
 	// Input handling
@@ -46,6 +48,15 @@ protected:
 	// Configuration
 	UPROPERTY(EditDefaultsOnly, Category = "UI|Display")
 	float MaxDisplayAltitude = 10000.0f;
+	
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UDroneControlPanel> DroneControlPanelClass;
+
+	UPROPERTY()
+	UDroneControlPanel* ActiveDronePanel = nullptr;
+	
+	UFUNCTION()
+	void ToggleDroneControlPanel();
 
 private:
 	// Button handlers
@@ -55,4 +66,5 @@ private:
 	// Helper functions
 	void UpdateHUDElements();
 	class UQuadDroneController* GetDroneController() const;
+	
 };

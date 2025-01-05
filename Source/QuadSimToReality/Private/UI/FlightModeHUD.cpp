@@ -1,7 +1,6 @@
 // FlightModeHUD.cpp
 #include "UI/FlightModeHUD.h"
 #include "UI/QuadUI.h"
-#include "UI/GameUI.h"
 #include "Pawns/QuadPawn.h"
 #include "Components/Button.h"
 #include "Kismet/GameplayStatics.h"
@@ -58,22 +57,17 @@ void UFlightModeHUD::OnBackSelected()
 	UIManager->PushContentToLayer(GetOwningPlayer(), EUILayer::Menu, MainMenuClass);
 }
 
+
 void UFlightModeHUD::NotifyModeSelection(EFlightOptions SelectedMode)
 {
-	// First broadcast the selection to handle camera transition in QuadUI
+	// Only broadcast the selection - don't initialize flight mode yet
 	OnFlightModeSelected.Broadcast(SelectedMode);
     
-	// Create the game HUD using UIManager after delay
+	// Handle UI transition
 	UUIManager* UIManager = GetGameInstance()->GetSubsystem<UUIManager>();
-	if (UIManager && GameUIClass)
-	{
-		UIManager->PopContentFromLayer(EUILayer::Game);
-        
-		// Wait for camera transition to complete
-		FTimerHandle TimerHandle;
-		GetWorld()->GetTimerManager().SetTimer(TimerHandle, [this, UIManager]()
-		{
-			UIManager->PushContentToLayer(GetOwningPlayer(), EUILayer::Game, GameUIClass);
-		}, 2.0f, false);
-	}
+	if (!UIManager) return;
+    
+	UIManager->PopContentFromLayer(EUILayer::Game);
+    
+	// GameUI will be created after camera transition completes in QuadUI
 }

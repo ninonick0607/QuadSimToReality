@@ -3,13 +3,112 @@
 #include "Controllers/QuadDroneController.h"
 #include "Pawns/QuadPawn.h"
 #include "DrawDebugHelpers.h"
-#include "imgui.h"
 #include "Core/DroneGlobalState.h"
 #include "UI/ImGuiUtil.h"
 #include "Core/DroneJSONConfig.h"
 #include "Core/DroneMathUtils.h"
 #include "Math/UnrealMathUtility.h"
 
+namespace {
+    static constexpr float startHeight = 1000.0f;
+    static constexpr float maxHeight = 10000.0f;
+    static constexpr float radius = 3000.0f;
+    static constexpr float heightStep = 500.0f;
+    static constexpr int32 pointsPerLoop = 8;
+    static constexpr float angleStep = 2.0f * PI / pointsPerLoop;
+}
+
+TArray<FVector> UQuadDroneController::GenerateSpiralWaypoints() const
+{
+    TArray<FVector> waypoints;
+    if (!dronePawn) return waypoints;
+
+    FVector currentPos = dronePawn->GetActorLocation();
+    
+    // First point at starting height above current position
+    waypoints.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + startHeight));
+    
+    // Calculate number of loops based on desired height
+    int32 numLoops = FMath::CeilToInt((maxHeight - startHeight) / heightStep);
+    
+    // Pre-allocate array capacity to avoid reallocations
+    waypoints.Reserve((numLoops * 2 + 1) * pointsPerLoop + 3);
+    
+    // Generate upward spiral
+    float height = currentPos.Z + startHeight;
+    for (int32 loop = 0; loop < numLoops; ++loop)
+    {
+        for (int32 point = 0; point < pointsPerLoop; ++point)
+        {
+            float angle = point * angleStep;
+            waypoints.Add(FVector(
+                currentPos.X + radius * FMath::Cos(angle),
+                currentPos.Y + radius * FMath::Sin(angle),
+                height
+            ));
+        }
+        height += heightStep;
+    }
+    
+    // Add apex point
+    waypoints.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + maxHeight));
+    
+    // Generate downward spiral (reverse direction)
+    height -= heightStep;
+    for (int32 loop = numLoops - 1; loop >= 0; --loop)
+    {
+        for (int32 point = pointsPerLoop - 1; point >= 0; --point)
+        {
+            float angle = point * angleStep;
+            waypoints.Add(FVector(
+                currentPos.X + radius * FMath::Cos(angle),
+                currentPos.Y + radius * FMath::Sin(angle),
+                height
+            ));
+        }
+        height -= heightStep;
+    }
+    
+    // Final point back at starting height
+    waypoints.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + startHeight));
+    
+    return waypoints;
+}
+
+void UQuadDroneController::InitializeFlightMode(EFlightOptions Mode)
+{
+    UE_LOG(LogTemp, Display, TEXT("Initializing flight mode: %s"), *UEnum::GetValueAsString(Mode));
+    
+    currentFlightMode = Mode;
+    ResetPID();
+    
+    switch (Mode)
+    {
+    case EFlightOptions::AutoWaypoint:
+        {
+            TArray<FVector> waypoints = GenerateSpiralWaypoints();
+            AddNavPlan("TestPlan", waypoints);
+            SetNavPlan("TestPlan");
+        }
+        break;
+        
+    case EFlightOptions::VelocityControl:
+        SetDesiredVelocity(FVector::ZeroVector);
+        break;
+        
+    case EFlightOptions::JoyStickControl:
+        // Reset controller inputs
+        thrustInput = 0.0f;
+        yawInput = 0.0f;
+        pitchInput = 0.0f;
+        rollInput = 0.0f;
+        break;
+        
+    default:
+        UE_LOG(LogTemp, Warning, TEXT("Unknown flight mode: %s"), *UEnum::GetValueAsString(Mode));
+        break;
+    }
+}
 
 // ---------------------- Constructor ------------------------
 
@@ -20,7 +119,7 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	  , bDesiredYawInitialized(false)
 	  , desiredAltitude(0.0f)
 	  , bDesiredAltitudeInitialized(false)
-      , currentFlightMode(EFlightOptions::AutoWaypoint)  // Add initial mode
+      , currentFlightMode(EFlightOptions::None) 
 	  , currentNav(nullptr)
 	  , curPos(0)
 	  , AutoWaypointHUD(nullptr)
@@ -216,47 +315,6 @@ void UQuadDroneController::SetFlightMode(EFlightOptions NewMode)
 {
 	UE_LOG(LogTemp, Error, TEXT("Setting flight mode to: %s"), *UEnum::GetValueAsString(NewMode));
 	currentFlightMode = NewMode;
-
-	// Initialize HUD or control based on mode
-	switch (currentFlightMode)
-	{
-	case EFlightOptions::AutoWaypoint:
-		if (AutoWaypointHUD)
-		{
-			UE_LOG(LogTemp, Error, TEXT(">>> Entered AutoWaypoint Mode <<<"));
-		}
-		else
-		{
-			UE_LOG(LogTemp, Error, TEXT(">>> Failed to enter AutoWaypoint Mode - HUD not initialized <<<"));
-		}
-		break;
-
-	case EFlightOptions::JoyStickControl:
-		if (JoyStickHUD)
-		{
-			UE_LOG(LogTemp, Error, TEXT(">>> Entered JoyStick Mode <<<"));
-		}
-		else
-		{
-			UE_LOG(LogTemp, Error, TEXT(">>> Failed to enter JoyStick Mode - HUD not initialized <<<"));
-		}
-		break;
-
-	case EFlightOptions::VelocityControl:
-		if (VelocityHUD)
-		{
-			UE_LOG(LogTemp, Error, TEXT(">>> Entered Velocity Mode <<<"));
-		}
-		else
-		{
-			UE_LOG(LogTemp, Error, TEXT(">>> Failed to enter Velocity Mode - HUD not initialized <<<"));
-		}
-		break;
-
-	default:
-		UE_LOG(LogTemp, Error, TEXT(">>> INVALID FLIGHT MODE SELECTED! <<<"));
-		break;
-	}
 }
 // ---------------------- Waypoint Nav ------------------------
 
@@ -356,6 +414,8 @@ void UQuadDroneController::ThrustMixer(float xOutput, float yOutput, float zOutp
 		Thrusts[2] = zOutput + rollOutput - pitchOutput;
 		Thrusts[3] = zOutput - rollOutput - pitchOutput;
 		break;
+	default:
+		break;
 	}
 	for (int i = 0; i < Thrusts.Num(); ++i)
 	{
@@ -373,27 +433,21 @@ void UQuadDroneController::Update(double DeltaTime)
 		return;
 	}
 
-	UE_LOG(LogTemp, Error, TEXT("Updating in mode: %s"), *UEnum::GetValueAsString(currentFlightMode));
-
 	switch (currentFlightMode)
 	{
 	case EFlightOptions::AutoWaypoint:
-		UE_LOG(LogTemp, Error, TEXT(">>> Running AutoWaypoint Control <<<"));
 		AutoWaypointControl(DeltaTime);
 		break;
 
 	case EFlightOptions::JoyStickControl:
-		UE_LOG(LogTemp, Error, TEXT(">>> Running JoyStick Control <<<"));
 		ApplyControllerInput(DeltaTime);
 		break;
 
 	case EFlightOptions::VelocityControl:
-		UE_LOG(LogTemp, Error, TEXT(">>> Running Velocity Control <<<"));
 		VelocityControl(DeltaTime);
 		break;
 
 	default:
-		UE_LOG(LogTemp, Error, TEXT(">>> UNKNOWN FLIGHT MODE IN UPDATE! <<<"));
 		break;
 	}
 }

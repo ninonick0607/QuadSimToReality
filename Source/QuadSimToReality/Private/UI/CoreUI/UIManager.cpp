@@ -11,15 +11,25 @@ void UUIManager::Initialize(FSubsystemCollectionBase& Collection)
 
 void UUIManager::Deinitialize()
 {
-    // Clear all layers when shutting down
-    for (auto& Pair : LayerWidgets)
+    // Make a copy of the keys to avoid modification during iteration
+    TArray<EUILayer> LayersToClean;
+    LayerWidgets.GenerateKeyArray(LayersToClean);
+
+    // Clear each layer safely
+    for (const EUILayer& Layer : LayersToClean)
     {
-        ClearLayer(Pair.Key);
+        if (LayerWidgets.Contains(Layer))
+        {
+            ClearLayer(Layer);
+        }
     }
+
+    // Clear the map itself
     LayerWidgets.Empty();
 
     Super::Deinitialize();
 }
+
 
 UUserWidget* UUIManager::PushContentToLayer(APlayerController* OwningPlayer, 
                                           EUILayer Layer,
@@ -67,14 +77,21 @@ void UUIManager::ClearLayer(EUILayer Layer)
     if (!LayerWidgets.Contains(Layer))
         return;
 
-    for (UUserWidget* Widget : LayerWidgets[Layer])
+    TArray<UUserWidget*>& Widgets = LayerWidgets[Layer];
+    
+    // Create a copy of the array to avoid issues during removal
+    TArray<UUserWidget*> WidgetsToRemove = Widgets;
+    
+    for (UUserWidget* Widget : WidgetsToRemove)
     {
-        if (Widget)
+        if (IsValid(Widget))
         {
             Widget->RemoveFromParent();
         }
     }
-    LayerWidgets[Layer].Empty();
+    
+    // Clear the array in the map
+    Widgets.Empty();
 }
 
 UUserWidget* UUIManager::GetTopWidgetFromLayer(EUILayer Layer) const
@@ -85,9 +102,10 @@ UUserWidget* UUIManager::GetTopWidgetFromLayer(EUILayer Layer) const
     return LayerWidgets[Layer].Last();
 }
 
+
 void UUIManager::RemoveWidget(UUserWidget* Widget)
 {
-    if (!Widget)
+    if (!IsValid(Widget))
         return;
 
     // Find and remove the widget from its layer
@@ -95,7 +113,10 @@ void UUIManager::RemoveWidget(UUserWidget* Widget)
     {
         if (Pair.Value.Remove(Widget) > 0)
         {
-            Widget->RemoveFromParent();
+            if (IsValid(Widget))
+            {
+                Widget->RemoveFromParent();
+            }
             break;
         }
     }
@@ -111,3 +132,4 @@ int32 UUIManager::GetBaseZOrderForLayer(EUILayer Layer) const
     // Each layer gets a range of 1000 Z-order values
     return static_cast<int32>(Layer) * 1000;
 }
+
