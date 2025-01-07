@@ -5,11 +5,35 @@
 #include "Utility/QuadPIDConroller.h"
 #include "UI/ImGuiUtil.h"
 #include "UI/FlightModeHUD.h"
+#include "Pawns/QuadPawn.h"
 #include "GameFramework/Pawn.h"
 #include "QuadDroneController.generated.h"
 
 
-class AQuadPawn; // Forward declaration
+class AQuadPawn; 
+
+USTRUCT()
+struct FFullPIDSet
+{
+	GENERATED_BODY()
+
+	// Raw pointers
+	QuadPIDController* XPID;
+	QuadPIDController* YPID;
+	QuadPIDController* ZPID;
+	QuadPIDController* RollPID;
+	QuadPIDController* PitchPID;
+	QuadPIDController* YawPID;
+
+	FFullPIDSet()
+		: XPID(nullptr)
+		, YPID(nullptr)
+		, ZPID(nullptr)
+		, RollPID(nullptr)
+		, PitchPID(nullptr)
+		, YawPID(nullptr)
+	{}
+};
 
 UCLASS(Blueprintable, BlueprintType)
 class QUADSIMTOREALITY_API UQuadDroneController : public UObject
@@ -31,8 +55,7 @@ public:
 	void SetDesiredVelocity(const FVector& NewVelocity);
 
 	void ResetPID();
-	void ResetAutoDroneIntegral() const; 
-	void ResetVelocityDroneIntegral() const;
+	void ResetDroneIntegral() const; 
 
 	void ThrustMixer(float xOutput, float yOutput, float zOutput, float rollOutput, float pitchOutput);
 
@@ -56,8 +79,12 @@ public:
 	const FVector& GetInitialPosition() const { return initialDronePosition; }
 
 	// Flight data accessors
+	FFullPIDSet* GetPIDSet(EFlightOptions Mode)
+	{
+		return PIDMap.Find(Mode); 
+	}
 	UFUNCTION(BlueprintCallable, Category = "Drone|Flight Data")
-	FVector GetCurrentAltitude() const;
+	FVector GetCurrentPosition() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Drone|Flight Data")
 	FVector GetCurrentVelocity() const;
@@ -74,29 +101,25 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Drone|Camera")
 	void SwitchCamera();
 
+	UFUNCTION(BlueprintCallable, Category="Drone|Flight Data")
+	FVector GetDesiredRollPitchYaw() const;
+
+	UFUNCTION(BlueprintCallable, Category="Drone|Flight Data")
+	FVector GetDesiredPosition() const;
+
+	UFUNCTION(BlueprintCallable, Category="Drone|Flight Data")
+	FVector GetDesiredVelocity() const;
+
+	UFUNCTION(BlueprintCallable, Category="Drone|Flight Data")
+	FVector GetPositionError() const;
+
+	UFUNCTION(BlueprintCallable, Category="Drone|Flight Data")
+	FVector GetVelocityError() const;
+
+	
 	float GetMaxAngle() const { return maxAngle; }
 	APawn* GetPawn() const { return Cast<APawn>(dronePawn); }
-	QuadPIDController* GetXPID() const { return xPID.Get(); }
-	QuadPIDController* GetYPID() const { return yPID.Get(); }
-	QuadPIDController* GetZPID() const { return zPID.Get(); }
-	QuadPIDController* GetRollAttitudePID() const { return rollAttitudePID.Get(); }
-	QuadPIDController* GetPitchAttitudePID() const { return pitchAttitudePID.Get(); }
-	QuadPIDController* GetYawAttitudePID() const { return yawAttitudePID.Get(); }
 
-	QuadPIDController* GetXPIDVelocity() const { return xPIDVelocity.Get(); }
-	QuadPIDController* GetYPIDVelocity() const { return yPIDVelocity.Get(); }
-	QuadPIDController* GetZPIDVelocity() const { return zPIDVelocity.Get(); }
-	QuadPIDController* GetRollAttitudePIDVelocity() const { return rollAttitudePIDVelocity.Get(); }
-	QuadPIDController* GetPitchAttitudePIDVelocity() const { return pitchAttitudePIDVelocity.Get(); }
-	QuadPIDController* GetYawAttitudePIDVelocity() const { return yawAttitudePIDVelocity.Get(); }
-
-	QuadPIDController* GetXPIDJoyStick() const { return xPIDJoyStick.Get(); }
-	QuadPIDController* GetYPIDJoyStick() const { return yPIDJoyStick.Get(); }
-	QuadPIDController* GetZPIDJoyStick() const { return zPIDJoyStick.Get(); }
-	QuadPIDController* GetRollAttitudePIDJoyStick() const { return rollAttitudePIDJoyStick.Get(); }
-	QuadPIDController* GetPitchAttitudePIDJoyStick() const { return pitchAttitudePIDJoyStick.Get(); }
-	QuadPIDController* GetYawAttitudePIDJoyStick() const { return yawAttitudePIDJoyStick.Get(); }
-	
 	// Setters
 	void SetMaxAngle(float NewAngle) { maxAngle = NewAngle; }
 	void SetMaxVelocity(float NewVelocity) { maxVelocity = NewVelocity; }
@@ -105,9 +128,9 @@ public:
 	TArray<FVector> GenerateSpiralWaypoints() const;
 	void InitializeFlightMode(EFlightOptions Mode);
 private:
-
+	UPROPERTY()
+	TMap<EFlightOptions, FFullPIDSet> PIDMap;
 	
-
 	float desiredYaw;
 	bool bDesiredYawInitialized;
 	float desiredAltitude;
@@ -147,28 +170,13 @@ private:
 	float rollInput;
 	float hoverThrust;
 	bool bHoverThrustInitialized;
-
-	TUniquePtr<QuadPIDController> xPID;
-	TUniquePtr<QuadPIDController> yPID;
-	TUniquePtr<QuadPIDController> zPID;
-	TUniquePtr<QuadPIDController> rollAttitudePID;
-	TUniquePtr<QuadPIDController> pitchAttitudePID;
-	TUniquePtr<QuadPIDController> yawAttitudePID;
-
-	TUniquePtr<QuadPIDController> xPIDVelocity;
-	TUniquePtr<QuadPIDController> yPIDVelocity;
-	TUniquePtr<QuadPIDController> zPIDVelocity;
-	TUniquePtr<QuadPIDController> rollAttitudePIDVelocity;
-	TUniquePtr<QuadPIDController> pitchAttitudePIDVelocity;
-	TUniquePtr<QuadPIDController> yawAttitudePIDVelocity;
-
-	TUniquePtr<QuadPIDController> xPIDJoyStick;
-	TUniquePtr<QuadPIDController> yPIDJoyStick;
-	TUniquePtr<QuadPIDController> zPIDJoyStick;
-	TUniquePtr<QuadPIDController> rollAttitudePIDJoyStick;
-	TUniquePtr<QuadPIDController> pitchAttitudePIDJoyStick;
-	TUniquePtr<QuadPIDController> yawAttitudePIDJoyStick;
-
+	
+	FVector DesiredRollPitchYaw;  // (X=Roll, Y=Pitch, Z=Yaw)
+	FVector DesiredPosition;
+	FVector DesiredVelocity;
+	FVector PositionError;
+	FVector VelocityError;
+	
 	FVector initialDronePosition;
 
 };

@@ -120,6 +120,34 @@ protected:
     UPROPERTY(meta = (BindWidget))
     class UTextBlock* ThrustBRText;
 
+    // State Info
+    UPROPERTY(meta = (BindWidget))
+    class UTextBlock* DesiredRoll;
+
+    UPROPERTY(meta = (BindWidget))
+    class UTextBlock* DesiredPitch;
+
+    UPROPERTY(meta = (BindWidget))
+    class UTextBlock* DesiredYaw;
+    
+    UPROPERTY(meta = (BindWidget))
+    class UTextBlock* DesiredPosition;
+
+    UPROPERTY(meta = (BindWidget))
+    class UTextBlock* DesiredVelocity;
+
+    UPROPERTY(meta = (BindWidget))
+    class UTextBlock* CurrentPosition;
+
+    UPROPERTY(meta = (BindWidget))
+    class UTextBlock* CurrentVelocity;
+
+    UPROPERTY(meta = (BindWidget))
+    class UTextBlock* PositionError;
+
+    UPROPERTY(meta = (BindWidget))
+    class UTextBlock* VelocityError;
+    
     // Event Handlers
     UFUNCTION()
     void OnMaxVelocityChanged(float Value);
@@ -148,7 +176,7 @@ private:
     void UpdatePIDValues();
     void CreatePIDGroup(UVerticalBox* Container, const FString& Label, QuadPIDController* Controller);
     void UpdateActivePIDSet(EFlightOptions FlightMode);
-
+    void DroneStateInfo();
     UPROPERTY()
     AQuadPawn* DronePawn;
 

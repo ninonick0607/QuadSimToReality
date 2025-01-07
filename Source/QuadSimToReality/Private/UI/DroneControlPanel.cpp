@@ -121,15 +121,42 @@ void UDroneControlPanel::InitializeDroneControl(
     VelocityPIDSet = VelocityPIDs;
     JoyStickPIDSet = JoyStickPIDs;
 
+    if (MaxVelocitySlider)
+    {
+        MaxVelocitySlider->SetMaxValue(600.f);
+        MaxVelocitySlider->SetMinValue(0.f);
+        MaxVelocitySlider->SetStepSize(0.5f);
+
+        // Initialize slider value from the DroneController
+        if (DroneController)
+        {
+            MaxVelocitySlider->SetValue(DroneController->GetMaxVelocity());
+        }
+
+        // Bind callback
+        MaxVelocitySlider->OnValueChanged.AddDynamic(this, &UDroneControlPanel::OnMaxVelocityChanged);
+    }
+    
+    if (MaxTiltAngleSlider)
+    {
+        MaxTiltAngleSlider->SetMaxValue(45.f);
+        MaxTiltAngleSlider->SetMinValue(0.f);
+        MaxTiltAngleSlider->SetStepSize(0.5f);
+
+        // Initialize slider value from the DroneController
+        if (DroneController)
+        {
+            MaxTiltAngleSlider->SetValue(DroneController->GetMaxVelocity());
+        }
+
+        // Bind callback
+        MaxTiltAngleSlider->OnValueChanged.AddDynamic(this, &UDroneControlPanel::OnMaxVelocityChanged);
+    }
+    
+
     // Set initial values based on current controller state
     if (DroneController)
     {
-        if (MaxVelocitySlider)
-            MaxVelocitySlider->SetValue(DroneController->GetMaxVelocity());
-        if (MaxTiltAngleSlider)
-            MaxTiltAngleSlider->SetValue(DroneController->GetMaxAngle());
-        
-        // Set up initial PID set based on current flight mode
         UpdateActivePIDSet(DroneController->GetCurrentFlightMode());
     }
 
@@ -188,7 +215,7 @@ void UDroneControlPanel::UpdateDisplay()
     {
         ThrustBRText->SetText(FText::FromString(FString::Printf(TEXT("BR: %.1f"), CurrentThrustBR)));
     }
-
+    DroneStateInfo();
     UpdatePIDValues();
 }
 
@@ -239,6 +266,57 @@ void UDroneControlPanel::CreatePIDGroup(UVerticalBox* Container, const FString& 
     // Implementation details would depend on your specific UMG widget blueprint
 }
 
+void UDroneControlPanel::DroneStateInfo()
+{
+
+    FVector DronePosition = DroneController->GetCurrentPosition();
+    FVector DroneVelocity = DroneController->GetCurrentVelocity();
+    FVector DesiredDronePosition = DroneController->GetDesiredPosition();
+    FVector DesiredDroneVelocity = DroneController->GetDesiredVelocity();
+    FVector DesiredAttitude = DroneController->GetDesiredRollPitchYaw();
+    FVector PosError = DroneController->GetPositionError();
+    FVector VelError = DroneController->GetVelocityError();
+
+    if (CurrentPosition)
+    {
+        CurrentPosition->SetText(FText::FromString(FString::Printf(TEXT("%.1f %.1f %.1f"), DronePosition.X,DronePosition.Y,DronePosition.Z )));
+    }
+    if (CurrentVelocity)
+    {
+        CurrentVelocity->SetText(FText::FromString(FString::Printf(TEXT("%.1f %.1f %.1f"),DroneVelocity.X,DroneVelocity.Y,DroneVelocity.Z)));
+    }
+    if (DesiredPosition)
+    {
+        DesiredPosition->SetText(FText::FromString(FString::Printf(TEXT("%.1f %.1f %.1f"),DesiredDronePosition.X,DesiredDronePosition.Y,DesiredDronePosition.Z)));
+    }
+    if (DesiredVelocity)
+    {
+        DesiredVelocity->SetText(FText::FromString(FString::Printf(TEXT("%.1f %.1f %.1f"),DesiredDroneVelocity.X,DesiredDroneVelocity.Y,DesiredDroneVelocity.Z)));
+    }
+    if (DesiredPitch)
+    {
+        DesiredPitch->SetText(FText::FromString(FString::Printf(TEXT("%.1f"),DesiredAttitude.Y)));
+    }
+    if (DesiredRoll)
+    {
+        DesiredRoll->SetText(FText::FromString(FString::Printf(TEXT("%.1f"),DesiredAttitude.X)));
+    }
+    if (DesiredYaw)
+    {
+        DesiredYaw->SetText(FText::FromString(FString::Printf(TEXT("%.1f"),DesiredAttitude.Z)));
+    }
+    if (PositionError)
+    {
+        PositionError->SetText(FText::FromString(FString::Printf(TEXT("%.1f %.1f %.1f"), PosError.X,PosError.Y,PosError.Z)));
+    }
+    if (VelocityError)
+    {
+        VelocityError->SetText(FText::FromString(FString::Printf(TEXT("%.1f %.1f %.1f"), VelError.X,VelError.Y,VelError.Z)));
+    }
+    
+}
+
+
 void UDroneControlPanel::OnMaxVelocityChanged(float Value)
 {
     if (DroneController)
@@ -283,8 +361,9 @@ void UDroneControlPanel::OnResetOriginClicked()
 
 void UDroneControlPanel::UpdatePIDValues()
 {
-    // Update displayed PID values based on current controllers
-    // Implementation would update the UI elements created in SetupPIDControls
+
+    
+
 }
 
 

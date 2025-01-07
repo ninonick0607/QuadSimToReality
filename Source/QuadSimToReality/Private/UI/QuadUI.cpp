@@ -7,6 +7,7 @@
 #include "Camera/CameraActor.h"
 #include "UI/GameUI.h"
 #include "Pawns/QuadPawn.h"
+#include "Controllers/QuadDroneController.h"
 #include "GameFramework/SpringArmComponent.h"
 
 void UQuadUI::NativeConstruct()

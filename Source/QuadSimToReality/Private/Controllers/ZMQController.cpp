@@ -266,7 +266,7 @@ void UZMQController::ReceiveVelocityCommand()
             if (command == "INTEGRAL RESET")
             {
                 UE_LOG(LogTemp, Error, TEXT("INTEGRAL RESET COMMAND RECEIVED"));
-                DroneController->ResetVelocityDroneIntegral();
+                DroneController->ResetDroneIntegral();
 
             }
             else if (command == "VELOCITY")

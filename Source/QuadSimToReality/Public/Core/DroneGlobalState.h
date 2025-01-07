@@ -19,7 +19,7 @@ public:
     const FVector& GetDesiredVelocity() const { return DesiredVelocity; }
 
     // Declare these functions here, define them in the cpp file
-    void SetDesiredVelocity(const FVector& NewVelocity);
+    //void SetDesiredVelocity(const FVector& NewVelocity);
     void BindController(UQuadDroneController* Controller);
     void UnbindController();
 

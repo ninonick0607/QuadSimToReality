@@ -6,7 +6,7 @@
 #include "Pawns/QuadPawn.h"
 #include "Controllers/QuadDroneController.h"
 #include "UI/DroneControlPanel.h"
-#include "UI/CoreUI/UIManager.h"
+#include "UI/CoreUI/UIManager.h"    
 
 void UGameUI::NativeConstruct()
 {
@@ -79,6 +79,7 @@ void UGameUI::ToggleDroneControlPanel()
 
     if (ActiveDronePanel)
     {
+        // If panel is already open, remove it
         ActiveDronePanel->RemoveFromParent();
         ActiveDronePanel = nullptr;
         UE_LOG(LogTemp, Warning, TEXT("DroneControlPanel removed from viewport"));
@@ -90,48 +91,57 @@ void UGameUI::ToggleDroneControlPanel()
     {
         if (AQuadPawn* QuadPawn = Cast<AQuadPawn>(DroneController->dronePawn))
         {
-            ActiveDronePanel = Cast<UDroneControlPanel>(  // Store the reference
+            ActiveDronePanel = Cast<UDroneControlPanel>(
                 UIManager->PushContentToLayer(GetOwningPlayer(), EUILayer::Modal, DroneControlPanelClass)
             );
             
             if (ActiveDronePanel)
             {
+                FFullPIDSet* AutoSet = DroneController->GetPIDSet(EFlightOptions::AutoWaypoint);
+                FFullPIDSet* VelSet  = DroneController->GetPIDSet(EFlightOptions::VelocityControl);
+                FFullPIDSet* JoySet  = DroneController->GetPIDSet(EFlightOptions::JoyStickControl);
+                
                 FPIDControllerSet AutoWaypointPIDs(
-                    DroneController->GetXPID(),
-                    DroneController->GetYPID(),
-                    DroneController->GetZPID(),
-                    DroneController->GetRollAttitudePID(),
-                    DroneController->GetPitchAttitudePID(),
-                    DroneController->GetYawAttitudePID()
+                    AutoSet ? AutoSet->XPID : nullptr,
+                    AutoSet ? AutoSet->YPID : nullptr,
+                    AutoSet ? AutoSet->ZPID : nullptr,
+                    AutoSet ? AutoSet->RollPID : nullptr,
+                    AutoSet ? AutoSet->PitchPID : nullptr,
+                    AutoSet ? AutoSet->YawPID : nullptr
                 );
 
                 FPIDControllerSet VelocityPIDs(
-                    DroneController->GetXPIDVelocity(),
-                    DroneController->GetYPIDVelocity(),
-                    DroneController->GetZPIDVelocity(),
-                    DroneController->GetRollAttitudePIDVelocity(),
-                    DroneController->GetPitchAttitudePIDVelocity(),
-                    DroneController->GetYawAttitudePIDVelocity()
+                    VelSet ? VelSet->XPID : nullptr,
+                    VelSet ? VelSet->YPID : nullptr,
+                    VelSet ? VelSet->ZPID : nullptr,
+                    VelSet ? VelSet->RollPID : nullptr,
+                    VelSet ? VelSet->PitchPID : nullptr,
+                    VelSet ? VelSet->YawPID : nullptr
                 );
 
                 FPIDControllerSet JoyStickPIDs(
-                    DroneController->GetXPIDJoyStick(),
-                    DroneController->GetYPIDJoyStick(),
-                    DroneController->GetZPIDJoyStick(),
-                    DroneController->GetRollAttitudePIDJoyStick(),
-                    DroneController->GetPitchAttitudePIDJoyStick(),
-                    DroneController->GetYawAttitudePIDJoyStick()
+                    JoySet ? JoySet->XPID : nullptr,
+                    JoySet ? JoySet->YPID : nullptr,
+                    JoySet ? JoySet->ZPID : nullptr,
+                    JoySet ? JoySet->RollPID : nullptr,
+                    JoySet ? JoySet->PitchPID : nullptr,
+                    JoySet ? JoySet->YawPID : nullptr
                 );
-
-                ActiveDronePanel->InitializeDroneControl(QuadPawn, DroneController, 
-                    AutoWaypointPIDs, VelocityPIDs, JoyStickPIDs);
-                    
+                // Now pass them into DroneControlPanel
+                ActiveDronePanel->InitializeDroneControl(
+                    QuadPawn,
+                    DroneController,
+                    AutoWaypointPIDs,
+                    VelocityPIDs,
+                    JoyStickPIDs
+                );
+                
                 UE_LOG(LogTemp, Warning, TEXT("DroneControlPanel created and added to viewport"));
             }
         }
     }
-    
 }
+
 
 void UGameUI::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
@@ -158,7 +168,7 @@ void UGameUI::UpdateHUDElements()
     APawn* OwnerPawn = GetOwningPlayerPawn();
     if (!OwnerPawn) return;
     
-    FVector CurrentLocation = DroneController->GetCurrentAltitude();
+    FVector CurrentLocation = DroneController->GetCurrentPosition();
     float ScrollOffset = FMath::Fmod(CurrentLocation.Z / 500.0f, 1.0f);
     AltitudeScrollMaterial->SetScalarParameterValue("ScrollAmount", -ScrollOffset);
     
