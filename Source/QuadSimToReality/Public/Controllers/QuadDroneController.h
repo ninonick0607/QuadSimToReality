@@ -3,11 +3,44 @@
 
 #include "CoreMinimal.h"
 #include "Utility/QuadPIDConroller.h"
-#include "UI/ImGuiUtil.h"
 #include "QuadDroneController.generated.h"
 
+class AQuadPawn; 
+class ImGuiUtil;
 
-class AQuadPawn; // Forward declaration
+UENUM(BlueprintType)
+enum class EFlightMode : uint8
+{
+	None UMETA(DisplayName = "None"),
+	AutoWaypoint UMETA(DisplayName = "AutoWaypoint"),
+	JoyStickControl UMETA(DisplayName = "JoyStickControl"),
+	VelocityControl UMETA(DisplayName = "VelocityControl")
+};
+
+USTRUCT()
+struct FFullPIDSet
+{
+	GENERATED_BODY()
+
+	// Use TUniquePtr for automatic cleanup
+	TUniquePtr<QuadPIDController> XPID;
+	TUniquePtr<QuadPIDController> YPID;
+	TUniquePtr<QuadPIDController> ZPID;
+	TUniquePtr<QuadPIDController> RollPID;
+	TUniquePtr<QuadPIDController> PitchPID;
+	TUniquePtr<QuadPIDController> YawPID;
+	
+	FFullPIDSet()
+		: XPID(MakeUnique<QuadPIDController>())
+		, YPID(MakeUnique<QuadPIDController>())
+		, ZPID(MakeUnique<QuadPIDController>())
+		, RollPID(MakeUnique<QuadPIDController>())
+		, PitchPID(MakeUnique<QuadPIDController>())
+		, YawPID(MakeUnique<QuadPIDController>())
+	{
+	}
+};
+
 
 UCLASS(Blueprintable, BlueprintType)
 class QUADSIMTOREALITY_API UQuadDroneController : public UObject
@@ -21,33 +54,24 @@ public:
 
 	virtual ~UQuadDroneController();
 
-	enum class FlightMode
-	{
-		None,
-		AutoWaypoint,
-		JoyStickControl,
-		VelocityControl
-	};
-
-
+	
 	UPROPERTY()
 	AQuadPawn* dronePawn;
 	UPROPERTY()
 	TArray<float> Thrusts;
 
-	void SetDesiredVelocity(const FVector& NewVelocity);
-	void SetFlightMode(FlightMode NewMode);
-	FlightMode GetFlightMode() const;
 
+	
 	void ResetPID();
-	void ResetAutoDroneIntegral() const; 
-	void ResetVelocityDroneIntegral() const;
+	void ResetDroneIntegral();
 
 	void ThrustMixer(float xOutput, float yOutput, float zOutput, float rollOutput, float pitchOutput);
 	
 	void Update(double DeltaTime);
+	void ApplyControllerInput(double a_deltaTime);
 	void AutoWaypointControl(double DeltaTime);
 	void VelocityControl(double a_deltaTime);
+	
 	void AddNavPlan(const FString& name, const TArray<FVector>& waypoints);
 	void SetNavPlan(const FString& name);
 	void DrawDebugVisuals(const FVector& currentPosition, const FVector& setPoint)const;
@@ -55,21 +79,31 @@ public:
 	void HandleYawInput(float Value);
 	void HandlePitchInput(float Value);
 	void HandleRollInput(float Value);
-	void ApplyControllerInput(double a_deltaTime);
 
 	void ResetDroneHigh();
 	void ResetDroneOrigin();
 
 	const FVector& GetInitialPosition() const { return initialDronePosition; }
-private:
 
+	void SetDesiredVelocity(const FVector& NewVelocity);
+	void SetFlightMode(EFlightMode NewMode);
+	EFlightMode GetFlightMode() const;
+	FFullPIDSet* GetPIDSet(EFlightMode Mode)
+	{
+		return PIDMap.Find(Mode); 
+	}
+
+private:
 
 	float desiredYaw;
 	bool bDesiredYawInitialized;
 	float desiredAltitude;
 	bool bDesiredAltitudeInitialized;
 
-	FlightMode currentFlightMode;
+	EFlightMode currentFlightMode;
+	
+	UPROPERTY()
+	TMap<EFlightMode, FFullPIDSet> PIDMap;
 
 	struct NavPlan
 	{
@@ -105,26 +139,7 @@ private:
 	float hoverThrust;
 	bool bHoverThrustInitialized;
 
-	TUniquePtr<QuadPIDController> xPID;
-	TUniquePtr<QuadPIDController> yPID;
-	TUniquePtr<QuadPIDController> zPID;
-	TUniquePtr<QuadPIDController> rollAttitudePID;
-	TUniquePtr<QuadPIDController> pitchAttitudePID;
-	TUniquePtr<QuadPIDController> yawAttitudePID;
 
-	TUniquePtr<QuadPIDController> xPIDVelocity;
-	TUniquePtr<QuadPIDController> yPIDVelocity;
-	TUniquePtr<QuadPIDController> zPIDVelocity;
-	TUniquePtr<QuadPIDController> rollAttitudePIDVelocity;
-	TUniquePtr<QuadPIDController> pitchAttitudePIDVelocity;
-	TUniquePtr<QuadPIDController> yawAttitudePIDVelocity;
-
-	TUniquePtr<QuadPIDController> xPIDJoyStick;
-	TUniquePtr<QuadPIDController> yPIDJoyStick;
-	TUniquePtr<QuadPIDController> zPIDJoyStick;
-	TUniquePtr<QuadPIDController> rollAttitudePIDJoyStick;
-	TUniquePtr<QuadPIDController> pitchAttitudePIDJoyStick;
-	TUniquePtr<QuadPIDController> yawAttitudePIDJoyStick;
 
 	FVector initialDronePosition;
 

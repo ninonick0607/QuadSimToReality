@@ -10,107 +10,9 @@
 #include "Misc/DateTime.h"
 
 ImGuiUtil::ImGuiUtil(
-    AQuadPawn *InPawn,
-    UQuadDroneController *InController,
-    FVector &IndesiredNewVelocity,
-    bool &InInitialTakeoff,
-    bool &InAltitudeReached,
-    bool &InDebug_DrawDroneCollisionSphere,
-    bool &InDebug_DrawDroneWaypoint,
-    float InMaxPIDOutput,
-    float InAltitudeThresh,
-    float InMinAltitudeLocal,
-    float &InMaxVelocity,
-    float &InMaxAngle,
-    QuadPIDController *InXPID,
-    QuadPIDController *InYPID,
-    QuadPIDController *InZPID,
-    QuadPIDController *InRollAttitudePID,
-    QuadPIDController *InPitchAttitudePID,
-    QuadPIDController *InYawAttitudePID,
+    AQuadPawn* InPawn, UQuadDroneController* InController, FVector& IndesiredNewVelocity, bool& InDebug_DrawDroneCollisionSphere, bool& InDebug_DrawDroneWaypoint, float InMaxPIDOutput,float& InMaxVelocity,float& InMaxAngle)
+    : dronePawn(InPawn),Debug_DrawDroneCollisionSphere(InDebug_DrawDroneCollisionSphere) , Debug_DrawDroneWaypoint(InDebug_DrawDroneWaypoint),maxPIDOutput(InMaxPIDOutput) ,maxVelocity(InMaxVelocity), maxAngle(InMaxAngle), controller(InController), desiredNewVelocity(IndesiredNewVelocity)
 
-    QuadPIDController *InxPIDVelocity,
-    QuadPIDController *InyPIDVelocity,
-    QuadPIDController *InzPIDVelocity,
-    QuadPIDController *InrollAttitudePIDVelocity,
-    QuadPIDController *InpitchAttitudePIDVelocity,
-    QuadPIDController *InyawAttitudePIDVelocity,
-
-    QuadPIDController *InxPIDJoyStick,
-    QuadPIDController *InyPIDJoyStick,
-    QuadPIDController *InzPIDJoyStick,
-    QuadPIDController *InrollAttitudePIDJoyStick,
-    QuadPIDController *InpitchAttitudePIDJoyStick,
-    QuadPIDController *InyawAttitudePIDJoyStick)
-    : dronePawn(InPawn) // 1
-      ,
-      initialTakeoff(InInitialTakeoff) // 2
-      ,
-      altitudeReached(InAltitudeReached) // 3
-      ,
-      Debug_DrawDroneCollisionSphere(InDebug_DrawDroneCollisionSphere) // 4
-      ,
-      Debug_DrawDroneWaypoint(InDebug_DrawDroneWaypoint) // 5
-      ,
-      maxPIDOutput(InMaxPIDOutput) // 6
-      ,
-      altitudeThresh(InAltitudeThresh) // 7
-      ,
-      minAltitudeLocal(InMinAltitudeLocal) // 8
-      ,
-      maxVelocity(InMaxVelocity) // 9
-      ,
-      maxAngle(InMaxAngle) // 10
-      ,
-      xPID(InXPID) // 11
-      ,
-      yPID(InYPID) // 12
-      ,
-      zPID(InZPID) // 13
-      ,
-      rollAttitudePID(InRollAttitudePID) // 14
-      ,
-      pitchAttitudePID(InPitchAttitudePID) // 15
-      ,
-      yawAttitudePID(InYawAttitudePID) // 16
-      ,
-      xPIDVelocity(InxPIDVelocity) // 17
-      ,
-      yPIDVelocity(InyPIDVelocity) // 18
-      ,
-      zPIDVelocity(InzPIDVelocity) // 19
-      ,
-      rollAttitudePIDVelocity(InrollAttitudePIDVelocity) // 20
-      ,
-      pitchAttitudePIDVelocity(InpitchAttitudePIDVelocity) // 21
-      ,
-      yawAttitudePIDVelocity(InyawAttitudePIDVelocity) // 22
-      ,
-      xPIDJoyStick(InxPIDJoyStick) // 23
-      ,
-      yPIDJoyStick(InyPIDJoyStick) // 24
-      ,
-      zPIDJoyStick(InzPIDJoyStick) // 25
-      ,
-      rollAttitudePIDJoyStick(InrollAttitudePIDJoyStick) // 26
-      ,
-      pitchAttitudePIDJoyStick(InpitchAttitudePIDJoyStick) // 27
-      ,
-      yawAttitudePIDJoyStick(InyawAttitudePIDJoyStick) // 28
-      ,
-      controller(InController) // 29
-      ,
-      desiredNewVelocity(IndesiredNewVelocity) // 30
-// ... initialize other protected members
-//, TimeData(MaxBufferSize)
-//, xPIDOutputHistory(MaxBufferSize)
-//, yPIDOutputHistory(MaxBufferSize)
-//, zPIDOutputHistory(MaxBufferSize)
-//, rollPIDOutputHistory(MaxBufferSize)
-//, pitchPIDOutputHistory(MaxBufferSize)
-//, yawPIDOutputHistory(MaxBufferSize)
-//, positionErrorHistory(MaxBufferSize)
-//, velocityErrorHistory(MaxBufferSize)
 {
 }
 ImGuiUtil::~ImGuiUtil()
@@ -168,10 +70,11 @@ void ImGuiUtil::AutoWaypointHud(
     static bool synchronizeXYGains = false;
     static bool synchronizeGains = false;
     DisplayPIDSettings(
-        xPID, yPID, zPID,
-        rollAttitudePID, pitchAttitudePID, yawAttitudePID,
-        "PID Settings", synchronizeXYGains, synchronizeGains);
-
+        EFlightMode::AutoWaypoint,
+        "PID Settings",
+        synchronizeXYGains,
+        synchronizeGains
+    );
     // Display Position PID Outputs
     ImGui::Separator();
     ImGui::Text("Position PID Outputs");
@@ -190,12 +93,12 @@ void ImGuiUtil::AutoWaypointHud(
 }
 
 void ImGuiUtil::VelocityHud(
-    TArray<float> &ThrustsVal,
+    TArray<float>& ThrustsVal,
     float rollError, float pitchError,
-    const FRotator &currentRotation,
-    const FVector &waypoint, const FVector &currLoc,
-    const FVector &error,
-    const FVector &currentVelocity,
+    const FRotator& currentRotation,
+    const FVector& waypoint, const FVector& currLoc,
+    const FVector& error,
+    const FVector& currentVelocity,
     float xOutput, float yOutput, float zOutput, float deltaTime)
 {
     // Set up window
@@ -241,13 +144,15 @@ void ImGuiUtil::VelocityHud(
     ImGui::Spacing();
 
     // PID Settings
-    static bool synchronizeXYGains = false;
-    static bool synchronizeGains = false;
+    static bool syncXY = false;
+    static bool syncRP = false;
     DisplayPIDSettings(
-        xPIDVelocity, yPIDVelocity, zPIDVelocity,
-        rollAttitudePIDVelocity, pitchAttitudePIDVelocity, yawAttitudePIDVelocity,
-        "PID Settings", synchronizeXYGains, synchronizeGains);
-
+        EFlightMode::VelocityControl,
+        "PID Settings",
+        syncXY,
+        syncRP
+    );
+    
     // Display Position PID Outputs
     ImGui::Separator();
     ImGui::Text("Position PID Outputs");
@@ -317,10 +222,11 @@ void ImGuiUtil::JoyStickHud(
     static bool synchronizeXYGains = false;
     static bool synchronizeGains = false;
     DisplayPIDSettings(
-        xPIDJoyStick, yPIDJoyStick, zPIDJoyStick,
-        rollAttitudePIDJoyStick, pitchAttitudePIDJoyStick, yawAttitudePIDJoyStick,
-        "PID Settings", synchronizeXYGains, synchronizeGains);
-
+        EFlightMode::JoyStickControl,
+        "PID Settings",
+        synchronizeXYGains,
+        synchronizeGains
+    );
     // Display Position PID Outputs
     ImGui::Separator();
     ImGui::Text("Position PID Outputs");
@@ -522,14 +428,23 @@ void ImGuiUtil::DisplayThrusterControls(TArray<float>& ThrustsVal)
     }
 }
 
+
 void ImGuiUtil::DisplayPIDSettings(
-    QuadPIDController *xPIDParam, QuadPIDController *yPIDParam, QuadPIDController *zPIDParam,
-    QuadPIDController *rollPIDParam, QuadPIDController *pitchPIDParam, QuadPIDController *yawPIDParam,
-    const char *headerLabel, bool &synchronizeXYGains, bool &synchronizeGains)
+    EFlightMode Mode,
+    const char *headerLabel,
+    bool &synchronizeXYGains,
+    bool &synchronizeGains)
 {
+    // Fetch the PID set for the specified flight mode
+    FFullPIDSet* PIDSet = controller->GetPIDSet(Mode);
+    if (!PIDSet)
+    {
+        ImGui::Text("No PID Set found for this mode.");
+        return;
+    }
     if (ImGui::CollapsingHeader(headerLabel, ImGuiTreeNodeFlags_DefaultOpen))
     {
-
+        // Lambda to draw individual PID gain controls
         auto DrawPIDGainControl = [](const char *label, float *value, float minValue, float maxValue)
         {
             float totalWidth = ImGui::GetContentRegionAvail().x;
@@ -562,22 +477,22 @@ void ImGuiUtil::DisplayPIDSettings(
         ImGui::Indent();
         ImGui::Text("X Axis");
 
-        if (synchronizeXYGains)
+        if (synchronizeXYGains && PIDSet->XPID && PIDSet->YPID)
         {
-            DrawPIDGainControl("X P", &xPIDParam->ProportionalGain, 0.0f, 10.0f);
-            yPIDParam->ProportionalGain = xPIDParam->ProportionalGain;
+            DrawPIDGainControl("X P", &PIDSet->XPID->ProportionalGain, 0.0f, 10.0f);
+            PIDSet->YPID->ProportionalGain = PIDSet->XPID->ProportionalGain;
 
-            DrawPIDGainControl("X I", &xPIDParam->IntegralGain, 0.0f, 10.0f);
-            yPIDParam->IntegralGain = xPIDParam->IntegralGain;
+            DrawPIDGainControl("X I", &PIDSet->XPID->IntegralGain, 0.0f, 10.0f);
+            PIDSet->YPID->IntegralGain = PIDSet->XPID->IntegralGain;
 
-            DrawPIDGainControl("X D", &xPIDParam->DerivativeGain, 0.0f, 10.0f);
-            yPIDParam->DerivativeGain = xPIDParam->DerivativeGain;
+            DrawPIDGainControl("X D", &PIDSet->XPID->DerivativeGain, 0.0f, 10.0f);
+            PIDSet->YPID->DerivativeGain = PIDSet->XPID->DerivativeGain;
         }
-        else
+        else if (PIDSet->XPID)
         {
-            DrawPIDGainControl("X P", &xPIDParam->ProportionalGain, 0.0f, 10.0f);
-            DrawPIDGainControl("X I", &xPIDParam->IntegralGain, 0.0f, 10.0f);
-            DrawPIDGainControl("X D", &xPIDParam->DerivativeGain, 0.0f, 10.0f);
+            DrawPIDGainControl("X P", &PIDSet->XPID->ProportionalGain, 0.0f, 10.0f);
+            DrawPIDGainControl("X I", &PIDSet->XPID->IntegralGain, 0.0f, 10.0f);
+            DrawPIDGainControl("X D", &PIDSet->XPID->DerivativeGain, 0.0f, 10.0f);
         }
         ImGui::Unindent();
 
@@ -585,32 +500,34 @@ void ImGuiUtil::DisplayPIDSettings(
         ImGui::Indent();
         ImGui::Text("Y Axis");
 
-        if (synchronizeXYGains)
+        if (synchronizeXYGains && PIDSet->YPID && PIDSet->XPID)
         {
-            // Note: Synchronize Y gains with X gains
-            DrawPIDGainControl("Y P", &yPIDParam->ProportionalGain, 0.0f, 10.0f);
-            xPIDParam->ProportionalGain = yPIDParam->ProportionalGain;
+            DrawPIDGainControl("Y P", &PIDSet->YPID->ProportionalGain, 0.0f, 10.0f);
+            PIDSet->XPID->ProportionalGain = PIDSet->YPID->ProportionalGain;
 
-            DrawPIDGainControl("Y I", &yPIDParam->IntegralGain, 0.0f, 10.0f);
-            xPIDParam->IntegralGain = yPIDParam->IntegralGain;
+            DrawPIDGainControl("Y I", &PIDSet->YPID->IntegralGain, 0.0f, 10.0f);
+            PIDSet->XPID->IntegralGain = PIDSet->YPID->IntegralGain;
 
-            DrawPIDGainControl("Y D", &yPIDParam->DerivativeGain, 0.0f, 10.0f);
-            xPIDParam->DerivativeGain = yPIDParam->DerivativeGain;
+            DrawPIDGainControl("Y D", &PIDSet->YPID->DerivativeGain, 0.0f, 10.0f);
+            PIDSet->XPID->DerivativeGain = PIDSet->YPID->DerivativeGain;
         }
-        else
+        else if (PIDSet->YPID)
         {
-            DrawPIDGainControl("Y P", &yPIDParam->ProportionalGain, 0.0f, 10.0f);
-            DrawPIDGainControl("Y I", &yPIDParam->IntegralGain, 0.0f, 10.0f);
-            DrawPIDGainControl("Y D", &yPIDParam->DerivativeGain, 0.0f, 10.0f);
+            DrawPIDGainControl("Y P", &PIDSet->YPID->ProportionalGain, 0.0f, 10.0f);
+            DrawPIDGainControl("Y I", &PIDSet->YPID->IntegralGain, 0.0f, 10.0f);
+            DrawPIDGainControl("Y D", &PIDSet->YPID->DerivativeGain, 0.0f, 10.0f);
         }
         ImGui::Unindent();
 
         // Z Axis
         ImGui::Indent();
         ImGui::Text("Z Axis");
-        DrawPIDGainControl("Z P", &zPIDParam->ProportionalGain, 0.0f, 10.0f);
-        DrawPIDGainControl("Z I", &zPIDParam->IntegralGain, 0.0f, 10.0f);
-        DrawPIDGainControl("Z D", &zPIDParam->DerivativeGain, 0.0f, 10.0f);
+        if (PIDSet->ZPID)
+        {
+            DrawPIDGainControl("Z P", &PIDSet->ZPID->ProportionalGain, 0.0f, 10.0f);
+            DrawPIDGainControl("Z I", &PIDSet->ZPID->IntegralGain, 0.0f, 10.0f);
+            DrawPIDGainControl("Z D", &PIDSet->ZPID->DerivativeGain, 0.0f, 10.0f);
+        }
         ImGui::Unindent();
 
         ImGui::Separator();
@@ -623,22 +540,22 @@ void ImGuiUtil::DisplayPIDSettings(
         ImGui::Indent();
         ImGui::Text("Roll");
 
-        if (synchronizeGains)
+        if (synchronizeGains && PIDSet->RollPID && PIDSet->PitchPID)
         {
-            DrawPIDGainControl("Roll P", &rollPIDParam->ProportionalGain, 0.0f, 20.0f);
-            pitchPIDParam->ProportionalGain = rollPIDParam->ProportionalGain;
+            DrawPIDGainControl("Roll P", &PIDSet->RollPID->ProportionalGain, 0.0f, 20.0f);
+            PIDSet->PitchPID->ProportionalGain = PIDSet->RollPID->ProportionalGain;
 
-            DrawPIDGainControl("Roll I", &rollPIDParam->IntegralGain, 0.0f, 20.0f);
-            pitchPIDParam->IntegralGain = rollPIDParam->IntegralGain;
+            DrawPIDGainControl("Roll I", &PIDSet->RollPID->IntegralGain, 0.0f, 20.0f);
+            PIDSet->PitchPID->IntegralGain = PIDSet->RollPID->IntegralGain;
 
-            DrawPIDGainControl("Roll D", &rollPIDParam->DerivativeGain, 0.0f, 20.0f);
-            pitchPIDParam->DerivativeGain = rollPIDParam->DerivativeGain;
+            DrawPIDGainControl("Roll D", &PIDSet->RollPID->DerivativeGain, 0.0f, 20.0f);
+            PIDSet->PitchPID->DerivativeGain = PIDSet->RollPID->DerivativeGain;
         }
-        else
+        else if (PIDSet->RollPID)
         {
-            DrawPIDGainControl("Roll P", &rollPIDParam->ProportionalGain, 0.0f, 20.0f);
-            DrawPIDGainControl("Roll I", &rollPIDParam->IntegralGain, 0.0f, 20.0f);
-            DrawPIDGainControl("Roll D", &rollPIDParam->DerivativeGain, 0.0f, 20.0f);
+            DrawPIDGainControl("Roll P", &PIDSet->RollPID->ProportionalGain, 0.0f, 20.0f);
+            DrawPIDGainControl("Roll I", &PIDSet->RollPID->IntegralGain, 0.0f, 20.0f);
+            DrawPIDGainControl("Roll D", &PIDSet->RollPID->DerivativeGain, 0.0f, 20.0f);
         }
         ImGui::Unindent();
 
@@ -646,31 +563,34 @@ void ImGuiUtil::DisplayPIDSettings(
         ImGui::Indent();
         ImGui::Text("Pitch");
 
-        if (synchronizeGains)
+        if (synchronizeGains && PIDSet->PitchPID && PIDSet->RollPID)
         {
-            DrawPIDGainControl("Pitch P", &pitchPIDParam->ProportionalGain, 0.0f, 20.0f);
-            rollPIDParam->ProportionalGain = pitchPIDParam->ProportionalGain;
+            DrawPIDGainControl("Pitch P", &PIDSet->PitchPID->ProportionalGain, 0.0f, 20.0f);
+            PIDSet->RollPID->ProportionalGain = PIDSet->PitchPID->ProportionalGain;
 
-            DrawPIDGainControl("Pitch I", &pitchPIDParam->IntegralGain, 0.0f, 20.0f);
-            rollPIDParam->IntegralGain = pitchPIDParam->IntegralGain;
+            DrawPIDGainControl("Pitch I", &PIDSet->PitchPID->IntegralGain, 0.0f, 20.0f);
+            PIDSet->RollPID->IntegralGain = PIDSet->PitchPID->IntegralGain;
 
-            DrawPIDGainControl("Pitch D", &pitchPIDParam->DerivativeGain, 0.0f, 20.0f);
-            rollPIDParam->DerivativeGain = pitchPIDParam->DerivativeGain;
+            DrawPIDGainControl("Pitch D", &PIDSet->PitchPID->DerivativeGain, 0.0f, 20.0f);
+            PIDSet->RollPID->DerivativeGain = PIDSet->PitchPID->DerivativeGain;
         }
-        else
+        else if (PIDSet->PitchPID)
         {
-            DrawPIDGainControl("Pitch P", &pitchPIDParam->ProportionalGain, 0.0f, 20.0f);
-            DrawPIDGainControl("Pitch I", &pitchPIDParam->IntegralGain, 0.0f, 20.0f);
-            DrawPIDGainControl("Pitch D", &pitchPIDParam->DerivativeGain, 0.0f, 20.0f);
+            DrawPIDGainControl("Pitch P", &PIDSet->PitchPID->ProportionalGain, 0.0f, 20.0f);
+            DrawPIDGainControl("Pitch I", &PIDSet->PitchPID->IntegralGain, 0.0f, 20.0f);
+            DrawPIDGainControl("Pitch D", &PIDSet->PitchPID->DerivativeGain, 0.0f, 20.0f);
         }
         ImGui::Unindent();
 
         // Yaw
         ImGui::Indent();
         ImGui::Text("Yaw");
-        DrawPIDGainControl("Yaw P", &yawPIDParam->ProportionalGain, 0.0f, 2.0f);
-        DrawPIDGainControl("Yaw I", &yawPIDParam->IntegralGain, 0.0f, 2.0f);
-        DrawPIDGainControl("Yaw D", &yawPIDParam->DerivativeGain, 0.0f, 2.0f);
+        if (PIDSet->YawPID)
+        {
+            DrawPIDGainControl("Yaw P", &PIDSet->YawPID->ProportionalGain, 0.0f, 2.0f);
+            DrawPIDGainControl("Yaw I", &PIDSet->YawPID->IntegralGain, 0.0f, 2.0f);
+            DrawPIDGainControl("Yaw D", &PIDSet->YawPID->DerivativeGain, 0.0f, 2.0f);
+        }
         ImGui::Unindent();
 
         ImGui::Separator();
@@ -680,7 +600,7 @@ void ImGuiUtil::DisplayPIDSettings(
             // Save PID gains to file
             FString FilePath = FPaths::ProjectDir() + "PIDGains.csv";
 
-            IPlatformFile &PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+            IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 
             bool bFileExists = PlatformFile.FileExists(*FilePath);
 
@@ -693,18 +613,37 @@ void ImGuiUtil::DisplayPIDSettings(
 
             FString GainData;
             GainData = FDateTime::Now().ToString() + TEXT(","); // Add timestamp
-            GainData += FString::Printf(TEXT("%.3f,%.3f,%.3f,"), xPIDParam->ProportionalGain, xPIDParam->IntegralGain, xPIDParam->DerivativeGain);
-            GainData += FString::Printf(TEXT("%.3f,%.3f,%.3f,"), yPIDParam->ProportionalGain, yPIDParam->IntegralGain, yPIDParam->DerivativeGain);
-            GainData += FString::Printf(TEXT("%.3f,%.3f,%.3f,"), zPIDParam->ProportionalGain, zPIDParam->IntegralGain, zPIDParam->DerivativeGain);
-            GainData += FString::Printf(TEXT("%.3f,%.3f,%.3f,"), rollPIDParam->ProportionalGain, rollPIDParam->IntegralGain, rollPIDParam->DerivativeGain);
-            GainData += FString::Printf(TEXT("%.3f,%.3f,%.3f,"), pitchPIDParam->ProportionalGain, pitchPIDParam->IntegralGain, pitchPIDParam->DerivativeGain);
-            GainData += FString::Printf(TEXT("%.3f,%.3f,%.3f"), yawPIDParam->ProportionalGain, yawPIDParam->IntegralGain, yawPIDParam->DerivativeGain);
+
+            if (PIDSet->XPID)
+            {
+                GainData += FString::Printf(TEXT("%.3f,%.3f,%.3f,"), PIDSet->XPID->ProportionalGain, PIDSet->XPID->IntegralGain, PIDSet->XPID->DerivativeGain);
+            }
+            if (PIDSet->YPID)
+            {
+                GainData += FString::Printf(TEXT("%.3f,%.3f,%.3f,"), PIDSet->YPID->ProportionalGain, PIDSet->YPID->IntegralGain, PIDSet->YPID->DerivativeGain);
+            }
+            if (PIDSet->ZPID)
+            {
+                GainData += FString::Printf(TEXT("%.3f,%.3f,%.3f,"), PIDSet->ZPID->ProportionalGain, PIDSet->ZPID->IntegralGain, PIDSet->ZPID->DerivativeGain);
+            }
+            if (PIDSet->RollPID)
+            {
+                GainData += FString::Printf(TEXT("%.3f,%.3f,%.3f,"), PIDSet->RollPID->ProportionalGain, PIDSet->RollPID->IntegralGain, PIDSet->RollPID->DerivativeGain);
+            }
+            if (PIDSet->PitchPID)
+            {
+                GainData += FString::Printf(TEXT("%.3f,%.3f,%.3f,"), PIDSet->PitchPID->ProportionalGain, PIDSet->PitchPID->IntegralGain, PIDSet->PitchPID->DerivativeGain);
+            }
+            if (PIDSet->YawPID)
+            {
+                GainData += FString::Printf(TEXT("%.3f,%.3f,%.3f"), PIDSet->YawPID->ProportionalGain, PIDSet->YawPID->IntegralGain, PIDSet->YawPID->DerivativeGain);
+            }
 
             FFileHelper::SaveStringToFile(GainData + TEXT("\n"), *FilePath, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), EFileWrite::FILEWRITE_Append);
         }
     }
 }
-
+    
 void ImGuiUtil::DisplayCameraControls()
 {
     ImGui::Separator();
@@ -778,7 +717,6 @@ void ImGuiUtil::DisplayDesiredVelocities()
         if (controller)
         {
             controller->SetDesiredVelocity(desiredNewVelocity);
-            controller->SetFlightMode(UQuadDroneController::FlightMode::VelocityControl);
         }
     }
 

@@ -1,137 +1,80 @@
+// ImGuiUtil.h
 #pragma once
-
+#include "Controllers/QuadDroneController.h"
 #include "CoreMinimal.h"
 
 // Forward declarations
 class AQuadPawn;
 class QuadPIDController;
 class UQuadDroneController;
+enum class EFlightMode : uint8;  // Forward declare the enum
 
 class QUADSIMTOREALITY_API ImGuiUtil
 {
 public:
     ImGuiUtil(
-        AQuadPawn *InPawn,
-        UQuadDroneController *InController,
-        FVector &IndesiredNewVelocity,
-        bool &InInitialTakeoff,
-        bool &InAltitudeReached,
-        bool &InDebug_DrawDroneCollisionSphere,
-        bool &InDebug_DrawDroneWaypoint,
+        AQuadPawn* InPawn,
+        UQuadDroneController* InController,
+        FVector& IndesiredNewVelocity,
+        bool& InDebug_DrawDroneCollisionSphere,
+        bool& InDebug_DrawDroneWaypoint,
         float InMaxPIDOutput,
-        float InAltitudeThresh,
-        float InMinAltitudeLocal,
-        float &InMaxVelocity,
-        float &InMaxAngle,
-        QuadPIDController *InXPID,
-        QuadPIDController *InYPID,
-        QuadPIDController *InZPID,
-        QuadPIDController *InRollAttitudePID,
-        QuadPIDController *InPitchAttitudePID,
-        QuadPIDController *InYawAttitudePID,
-        QuadPIDController *InxPIDVelocity,
-        QuadPIDController *InyPIDVelocity,
-        QuadPIDController *InzPIDVelocity,
-        QuadPIDController *InrollAttitudePIDVelocity,
-        QuadPIDController *InpitchAttitudePIDVelocity,
-        QuadPIDController *InyawAttitudePIDVelocity,
-        QuadPIDController *InxPIDJoyStick,
-        QuadPIDController *InyPIDJoyStick,
-        QuadPIDController *InzPIDJoyStick,
-        QuadPIDController *InrollAttitudePIDJoyStick,
-        QuadPIDController *InpitchAttitudePIDJoyStick,
-        QuadPIDController *InyawAttitudePIDJoyStick);
+        float& InMaxVelocity,
+        float& InMaxAngle);
     ~ImGuiUtil();
+
     void AutoWaypointHud(
-        TArray<float> &ThrustsVal,
-        float rollError,
-        float pitchError,
-        const FRotator &currentRotation,
-        const FVector &waypoint,
-        const FVector &currLoc,
-        const FVector &error,
-        const FVector &currentVelocity,
-        float xOutput,
-        float yOutput,
-        float zOutput,
-        float deltaTime);
+        TArray<float>& ThrustsVal,
+        float rollError, float pitchError,
+        const FRotator& currentRotation,
+        const FVector& waypoint, const FVector& currLoc,
+        const FVector& error,
+        const FVector& currentVelocity,
+        float xOutput, float yOutput, float zOutput, float deltaTime);
 
     void VelocityHud(
-        TArray<float> &ThrustsVal,
-        float rollError,
-        float pitchError,
-        const FRotator &currentRotation,
-        const FVector &waypoint,
-        const FVector &currLoc,
-        const FVector &error,
-        const FVector &currentVelocity,
-        float xOutput,
-        float yOutput,
-        float zOutput,
-        float deltaTime);
+        TArray<float>& ThrustsVal,
+        float rollError, float pitchError,
+        const FRotator& currentRotation,
+        const FVector& waypoint, const FVector& currLoc,
+        const FVector& error,
+        const FVector& currentVelocity,
+        float xOutput, float yOutput, float zOutput, float deltaTime);
 
     void JoyStickHud(
-        TArray<float> &ThrustsVal,
-        float rollError,
-        float pitchError,
-        const FRotator &currentRotation,
-        const FVector &waypoint,
-        const FVector &currLoc,
-        const FVector &error,
-        const FVector &currentVelocity,
-        float xOutput,
-        float yOutput,
-        float zOutput,
-        float deltaTime);
-    void RenderImPlot(
-        const TArray<float> &ThrustsVal,
-        float deltaTime);
+        TArray<float>& ThrustsVal,
+        float rollError, float pitchError,
+        const FRotator& currentRotation,
+        const FVector& waypoint, const FVector& currLoc,
+        const FVector& error,
+        const FVector& currentVelocity,
+        float xOutput, float yOutput, float zOutput, float deltaTime);
+
+    void RenderImPlot(const TArray<float>& ThrustsVal, float deltaTime);
 
 private:
     void DisplayDroneInfo();
     void DisplayDebugOptions();
-    void DisplayThrusterControls(TArray<float> &ThrustsVal);
+    void DisplayThrusterControls(TArray<float>& ThrustsVal);
     void DisplayPIDSettings(
-        QuadPIDController *xPIDParam, QuadPIDController *yPIDParam, QuadPIDController *zPIDParam,
-        QuadPIDController *rollPIDParam, QuadPIDController *pitchPIDParam, QuadPIDController *yawPIDParam,
-        const char *headerLabel, bool &synchronizeXYGains, bool &synchronizeGains);
+        EFlightMode Mode,
+        const char* headerLabel,
+        bool& synchronizeXYGains,
+        bool& synchronizeGains);
     void DisplayCameraControls();
     void DisplayResetDroneButtons();
     void DisplayDesiredVelocities();
 
     // Member variables
-    AQuadPawn *dronePawn;
-    bool &initialTakeoff;
-    bool &altitudeReached;
-    bool &Debug_DrawDroneCollisionSphere;
-    bool &Debug_DrawDroneWaypoint;
+    AQuadPawn* dronePawn;
+    bool& Debug_DrawDroneCollisionSphere;
+    bool& Debug_DrawDroneWaypoint;
     float maxPIDOutput;
-    float altitudeThresh;
-    float minAltitudeLocal;
-    float &maxVelocity;
-    float &maxAngle;
-    QuadPIDController *xPID;
-    QuadPIDController *yPID;
-    QuadPIDController *zPID;
-    QuadPIDController *rollAttitudePID;
-    QuadPIDController *pitchAttitudePID;
-    QuadPIDController *yawAttitudePID;
-    QuadPIDController *xPIDVelocity;
-    QuadPIDController *yPIDVelocity;
-    QuadPIDController *zPIDVelocity;
-    QuadPIDController *rollAttitudePIDVelocity;
-    QuadPIDController *pitchAttitudePIDVelocity;
-    QuadPIDController *yawAttitudePIDVelocity;
+    float& maxVelocity;
+    float& maxAngle;
+    UQuadDroneController* controller;
+    FVector& desiredNewVelocity;
 
-    QuadPIDController *xPIDJoyStick;
-    QuadPIDController *yPIDJoyStick;
-    QuadPIDController *zPIDJoyStick;
-    QuadPIDController *rollAttitudePIDJoyStick;
-    QuadPIDController *pitchAttitudePIDJoyStick;
-    QuadPIDController *yawAttitudePIDJoyStick;
-
-    UQuadDroneController *controller;
-    FVector &desiredNewVelocity;
     // Member variables for thrust plotting
     TArray<float> TimeData;
     TArray<float> Thrust0Data;

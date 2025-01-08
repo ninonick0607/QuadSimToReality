@@ -9,6 +9,7 @@ class UQuadDroneController;
 class USceneCaptureComponent2D;
 class UTextureRenderTarget2D;
 class AActor;
+enum class EFlightMode : uint8;
 
 namespace zmq {
     class context_t;

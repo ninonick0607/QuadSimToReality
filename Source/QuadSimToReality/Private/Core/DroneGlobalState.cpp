@@ -17,7 +17,7 @@ void DroneGlobalState::SetDesiredVelocity(const FVector& NewVelocity)
     if (BoundController)
     {
         BoundController->SetDesiredVelocity(NewVelocity);
-        BoundController->SetFlightMode(UQuadDroneController::FlightMode::VelocityControl);
+        BoundController->SetFlightMode(EFlightMode::VelocityControl);
     }
 }
 

@@ -19,6 +19,16 @@ UZMQController::UZMQController()
     , UpdateInterval(DEFAULT_UPDATE_INTERVAL)
     , TimeSinceLastUpdate(0.0f)
     , bIsActive(true)
+    , ZMQSocket(nullptr)
+    , CommandSocket(nullptr)
+    , ControlSocket(nullptr)
+    , DroneController(nullptr)
+    , DronePawn(nullptr)
+    , SceneCaptureComponent(nullptr)
+    , RenderTarget(nullptr)
+    , SM_PillarFrameActor(nullptr)
+    , InitialPosition(FVector::ZeroVector)
+    , GoalPosition(FVector::ZeroVector)
 {
     PrimaryComponentTick.bCanEverTick = true;
 }
@@ -94,7 +104,7 @@ void UZMQController::InitializeZMQ()
         }
         catch (const zmq::error_t& e)
         {
-            UE_LOG(LogTemp, Error, TEXT("ZMQ PUB socket setup error: %s"), UTF8_TO_TCHAR(e.what()));
+            UE_LOG(LogTemp, Error, TEXT("ZMQ Error: %s"), *FString(UTF8_TO_TCHAR(e.what())));
         }
     }
     ZMQSocket = SharedZMQSocket;
@@ -104,11 +114,11 @@ void UZMQController::InitializeZMQ()
     {
         CommandSocket = new zmq::socket_t(*SharedZMQContext, zmq::socket_type::sub);
         CommandSocket->connect("tcp://localhost:5556");
-        CommandSocket->setsockopt(ZMQ_SUBSCRIBE, "", 0);
+        CommandSocket->set(zmq::sockopt::subscribe, "");
     }
     catch (const zmq::error_t& e)
     {
-        UE_LOG(LogTemp, Error, TEXT("ZMQ SUB socket setup error: %s"), UTF8_TO_TCHAR(e.what()));
+        UE_LOG(LogTemp, Error, TEXT("ZMQ SUB socket setup error: %s"),  *FString(UTF8_TO_TCHAR(e.what())));
     }
 
     // Initialize control socket
@@ -119,7 +129,7 @@ void UZMQController::InitializeZMQ()
     }
     catch (const zmq::error_t& e)
     {
-        UE_LOG(LogTemp, Error, TEXT("ZMQ Control socket setup error: %s"), UTF8_TO_TCHAR(e.what()));
+        UE_LOG(LogTemp, Error, TEXT("ZMQ Control socket setup error: %s"),  *FString(UTF8_TO_TCHAR(e.what())));
     }
 }
 
@@ -242,7 +252,7 @@ void UZMQController::SendData()
     }
     catch (const zmq::error_t& e)
     {
-        UE_LOG(LogTemp, Error, TEXT("ZMQ Error sending unified data: %s"), UTF8_TO_TCHAR(e.what()));
+        UE_LOG(LogTemp, Error, TEXT("ZMQ Error sending unified data: %s"),  *FString(UTF8_TO_TCHAR(e.what())));
     }
 }
 
@@ -266,7 +276,7 @@ void UZMQController::ReceiveVelocityCommand()
             if (command == "INTEGRAL RESET")
             {
                 UE_LOG(LogTemp, Error, TEXT("INTEGRAL RESET COMMAND RECEIVED"));
-                DroneController->ResetVelocityDroneIntegral();
+                DroneController->ResetDroneIntegral();
 
             }
             else if (command == "VELOCITY")
@@ -277,7 +287,7 @@ void UZMQController::ReceiveVelocityCommand()
     }
     catch (const zmq::error_t& e)
     {
-        UE_LOG(LogTemp, Error, TEXT("ZMQ Error receiving command: %s"), UTF8_TO_TCHAR(e.what()));
+        UE_LOG(LogTemp, Error, TEXT("ZMQ Error receiving command: %s"),  *FString(UTF8_TO_TCHAR(e.what())));
     }
 }
 
@@ -314,7 +324,7 @@ void UZMQController::HandleVelocityCommand(zmq::multipart_t& multipart)
         FVector DesiredVelocity(velocityArray[0], velocityArray[1], velocityArray[2]);
 
         DroneController->SetDesiredVelocity(DesiredVelocity);
-        DroneController->SetFlightMode(UQuadDroneController::FlightMode::VelocityControl);
+        DroneController->SetFlightMode(EFlightMode::VelocityControl);
     }
 }
 
@@ -353,6 +363,6 @@ void UZMQController::SendImageData(const TArray<uint8>& CompressedBitmap)
     }
     catch (const zmq::error_t& e)
     {
-        UE_LOG(LogTemp, Error, TEXT("ZMQ Error sending image: %s"), UTF8_TO_TCHAR(e.what()));
+        UE_LOG(LogTemp, Error, TEXT("ZMQ Error sending image: %s"), *FString(UTF8_TO_TCHAR(e.what())));
     }
 }
