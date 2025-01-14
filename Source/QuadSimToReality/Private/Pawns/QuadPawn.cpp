@@ -87,70 +87,93 @@ static TArray<FVector> spiralWaypoints()
     return xyzSetpoint;
 }
 
-
-AQuadPawn::AQuadPawn()
-	: DroneBody(nullptr) // 1
-	  , DroneCamMesh(nullptr) // 2
-	  , SpringArm(nullptr) // 3
-	  , Camera(nullptr) // 4
-	  , CameraFPV(nullptr) // 5
-	  , ThrusterFL(nullptr) // 6
-	  , ThrusterFR(nullptr) // 7
-	  , ThrusterBL(nullptr) // 8
-	  , ThrusterBR(nullptr) // 9
-	  , MotorFL(nullptr) // 10
-	  , MotorFR(nullptr) // 11
-	  , MotorBL(nullptr) // 12
-	  , MotorBR(nullptr) // 13
-	  , WaypointMode(EWaypointMode::WaitingForModeSelection) // 14
-	  , NewWaypoint(FVector::ZeroVector) // 16
-	  , Rotors() // 17
-	  , QuadController(nullptr) // 20
-	  , bWaypointModeSelected(false) // 21
-	  , Input_ToggleImguiInput(nullptr)
+void AQuadPawn::InitializeMotors()
 {
-	PrimaryActorTick.bCanEverTick = true;
+	const FString motorNames[] = {TEXT("MotorMeshFL"), TEXT("MotorMeshFR"), TEXT("MotorMeshBL"), TEXT("MotorMeshBR")};
+	const FString thrusterNames[] = {TEXT("ThrusterFL"), TEXT("ThrusterFR"), TEXT("ThrusterBL"), TEXT("ThrusterBR")};
+	const FString socketNames[] = {
+		TEXT("MotorSocketFL"), TEXT("MotorSocketFR"), TEXT("MotorSocketBL"), TEXT("MotorSocketBR")
+	};
 
 	// Initialize arrays
-	Motors.SetNum(4);
 	Thrusters.SetNum(4);
-	
-    // Initialize components
+	MotorMeshes.SetNum(4);
+
+	// Create motor meshes first (they attach to sockets)
+	MotorMeshFL = CreateDefaultSubobject<UStaticMeshComponent>(FName(*motorNames[0]));
+	MotorMeshFR = CreateDefaultSubobject<UStaticMeshComponent>(FName(*motorNames[1]));
+	MotorMeshBL = CreateDefaultSubobject<UStaticMeshComponent>(FName(*motorNames[2]));
+	MotorMeshBR = CreateDefaultSubobject<UStaticMeshComponent>(FName(*motorNames[3]));
+
+	MotorMeshes = { MotorMeshFL, MotorMeshFR, MotorMeshBL, MotorMeshBR };
+
+	// Create thrusters (they attach to meshes)
+	ThrusterFL = CreateDefaultSubobject<UDroneMotorComponent>(FName(*thrusterNames[0]));
+	ThrusterFR = CreateDefaultSubobject<UDroneMotorComponent>(FName(*thrusterNames[1]));
+	ThrusterBL = CreateDefaultSubobject<UDroneMotorComponent>(FName(*thrusterNames[2]));
+	ThrusterBR = CreateDefaultSubobject<UDroneMotorComponent>(FName(*thrusterNames[3]));
+
+	Thrusters = { ThrusterFL, ThrusterFR, ThrusterBL, ThrusterBR };
+
+	// Setup components
+	for (int32 i = 0; i < 4; ++i)
+	{
+		// Setup mesh on socket
+		MotorMeshes[i]->SetupAttachment(DroneBody, *socketNames[i]);
+		MotorMeshes[i]->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+		// Setup thruster as child of mesh
+		Thrusters[i]->SetupAttachment(MotorMeshes[i]);
+		Thrusters[i]->SetAssociatedMesh(MotorMeshes[i]);
+	}
+}
+AQuadPawn::AQuadPawn()
+	: DroneBody(nullptr)
+	, DroneCamMesh(nullptr)
+	, SpringArm(nullptr)
+	, Camera(nullptr)
+	, CameraFPV(nullptr)
+	, WaypointMode(EWaypointMode::WaitingForModeSelection)
+	, NewWaypoint(FVector::ZeroVector)
+	, QuadController(nullptr)
+	, bWaypointModeSelected(false)
+	, Input_ToggleImguiInput(nullptr)
+{
+	PrimaryActorTick.bCanEverTick = true;
+    
+	// Create root component
 	DroneBody = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("DroneBody"));
 	SetRootComponent(DroneBody);
-	
 	DroneBody->SetSimulatePhysics(true);
 
-    DroneCamMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CamMesh"));
-    DroneCamMesh->AttachToComponent(DroneBody, FAttachmentTransformRules::KeepRelativeTransform);
+	// Create camera components
+	DroneCamMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CamMesh"));
+	DroneCamMesh->SetupAttachment(DroneBody);
 
-    SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
-    SpringArm->AttachToComponent(DroneBody, FAttachmentTransformRules::KeepRelativeTransform);
-
-    Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
-    Camera->AttachToComponent(SpringArm, FAttachmentTransformRules::KeepRelativeTransform);
+	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
+	SpringArm->SetupAttachment(DroneBody);
+    
+	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
+	Camera->SetupAttachment(SpringArm);
     
 	CameraFPV = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraFPV"));
-	CameraFPV->AttachToComponent(DroneBody, FAttachmentTransformRules::KeepWorldTransform);
-	CameraFPV->SetRelativeLocation(FVector(5.5, 0,-6));
-	CameraFPV->SetRelativeScale3D(FVector(.1));
+	CameraFPV->SetupAttachment(DroneBody);
+	CameraFPV->SetRelativeLocation(FVector(5.5f, 0.0f, -6.0f));
+	CameraFPV->SetRelativeScale3D(FVector(0.1f));
 
-	InitializeRotors();
-	
-	// SpringArm settings
+	// Initialize motors and thrusters
+	InitializeMotors();
+    
+	// Configure SpringArm
 	SpringArm->TargetArmLength = 200.0f;
 	SpringArm->SetRelativeRotation(FRotator(-20.0f, 0.0f, 0.0f));
 	SpringArm->bDoCollisionTest = false;
 	SpringArm->bInheritPitch = false;
 	SpringArm->bInheritRoll = false;
 
-	// Automatically possess pawn for testing
 	AutoPossessPlayer = EAutoReceiveInput::Player0;
-
-	bWaypointModeSelected = false;
-
-	//ZMQController = CreateDefaultSubobject<UZMQController>(TEXT("ZMQController"));
 }
+
 void AQuadPawn::BeginPlay()
 {
     Super::BeginPlay();
@@ -172,14 +195,6 @@ void AQuadPawn::BeginPlay()
 void AQuadPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
-	for (auto& rotor : Rotors)
-	{
-		rotor.Animate(DeltaTime);
-	}
-
-
-	// UpdateAnimation(DeltaTime);
 	UpdateControl(DeltaTime);
 }
 void AQuadPawn::SwitchCamera() const 
@@ -247,30 +262,52 @@ void AQuadPawn::UpdateControl(float DeltaTime)
 {
 	this->QuadController->Update(DeltaTime);
 }
-void AQuadPawn::InitializeRotors()
+
+void AQuadPawn::LockToOnlyPitch()
 {
-	const FString motorNames[] = {TEXT("MotorFL"), TEXT("MotorFR"), TEXT("MotorBL"), TEXT("MotorBR")};
-	const FString thrusterNames[] = {TEXT("ThrusterFL"), TEXT("ThrusterFR"), TEXT("ThrusterBL"), TEXT("ThrusterBR")};
-	const FString socketNames[] = {
-		TEXT("MotorSocketFL"), TEXT("MotorSocketFR"), TEXT("MotorSocketBL"), TEXT("MotorSocketBR")
-	};
-
-	for (int i = 0; i < 4; ++i)
+	if (DroneBody)
 	{
-		// Create and attach motor components
-		Motors[i] = CreateDefaultSubobject<UStaticMeshComponent>(*motorNames[i]);
-		Motors[i]->AttachToComponent(DroneBody, FAttachmentTransformRules::KeepRelativeTransform);
-		Motors[i]->SetupAttachment(DroneBody, *socketNames[i]);
+		// Get body instance
+		FBodyInstance* BodyInstance = DroneBody->GetBodyInstance();
+		if (!BodyInstance) return;
 
-		// Create and attach thruster components under the motor
-		Thrusters[i] = CreateDefaultSubobject<UPhysicsThrusterComponent>(*thrusterNames[i]);
-		Thrusters[i]->AttachToComponent(Motors[i], FAttachmentTransformRules::KeepRelativeTransform);
-		Thrusters[i]->SetRelativeRotation(FRotator(-90.0f, 0.0f, 0.0f));
-		Thrusters[i]->bAutoActivate = true;
+		// Lock all degrees of freedom first
+		BodyInstance->bLockXTranslation = true;
+		BodyInstance->bLockYTranslation = true;
+		BodyInstance->bLockZTranslation = true;
+        
+		// Lock specific rotations, leaving pitch (Y) unlocked
+		BodyInstance->bLockXRotation = true;  // Lock Roll
+		BodyInstance->bLockYRotation = false; // Keep Pitch unlocked
+		BodyInstance->bLockZRotation = true;  // Lock Yaw
 
-		Rotors[i].Thruster = Thrusters[i];
-		Rotors[i].Mesh = Motors[i];
-		Rotors[i].AngularVelocity = 0.f;
+		// Update the constraints
+		DroneBody->SetSimulatePhysics(true);
+		DroneBody->UpdateComponentToWorld();
+	}
+}
+
+void AQuadPawn::UnlockAllMovement()
+{
+	if (DroneBody)
+	{
+		// Get body instance
+		FBodyInstance* BodyInstance = DroneBody->GetBodyInstance();
+		if (!BodyInstance) return;
+
+		// Unlock all translations
+		BodyInstance->bLockXTranslation = false;
+		BodyInstance->bLockYTranslation = false;
+		BodyInstance->bLockZTranslation = false;
+        
+		// Unlock all rotations
+		BodyInstance->bLockXRotation = false;
+		BodyInstance->bLockYRotation = false;
+		BodyInstance->bLockZRotation = false;
+
+		// Update the constraints
+		DroneBody->SetSimulatePhysics(true);
+		DroneBody->UpdateComponentToWorld();
 	}
 }
 

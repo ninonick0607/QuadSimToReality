@@ -1,146 +1,146 @@
-
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Utility/QuadPIDConroller.h"
+#include "UI/ImGuiUtil.h"
 #include "QuadDroneController.generated.h"
 
 class AQuadPawn; 
-class ImGuiUtil;
 
 UENUM(BlueprintType)
 enum class EFlightMode : uint8
 {
-	None UMETA(DisplayName = "None"),
-	AutoWaypoint UMETA(DisplayName = "AutoWaypoint"),
-	JoyStickControl UMETA(DisplayName = "JoyStickControl"),
-	VelocityControl UMETA(DisplayName = "VelocityControl")
+    None UMETA(DisplayName = "None"),
+    AutoWaypoint UMETA(DisplayName = "AutoWaypoint"),
+    JoyStickControl UMETA(DisplayName = "JoyStickControl"),
+    VelocityControl UMETA(DisplayName = "VelocityControl")
 };
 
 USTRUCT()
 struct FFullPIDSet
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
-	// Use TUniquePtr for automatic cleanup
-	TUniquePtr<QuadPIDController> XPID;
-	TUniquePtr<QuadPIDController> YPID;
-	TUniquePtr<QuadPIDController> ZPID;
-	TUniquePtr<QuadPIDController> RollPID;
-	TUniquePtr<QuadPIDController> PitchPID;
-	TUniquePtr<QuadPIDController> YawPID;
-	
-	FFullPIDSet()
-		: XPID(MakeUnique<QuadPIDController>())
-		, YPID(MakeUnique<QuadPIDController>())
-		, ZPID(MakeUnique<QuadPIDController>())
-		, RollPID(MakeUnique<QuadPIDController>())
-		, PitchPID(MakeUnique<QuadPIDController>())
-		, YawPID(MakeUnique<QuadPIDController>())
-	{
-	}
+    // Raw pointers
+    QuadPIDController* XPID;
+    QuadPIDController* YPID;
+    QuadPIDController* ZPID;
+    QuadPIDController* RollPID;
+    QuadPIDController* PitchPID;
+    QuadPIDController* YawPID;
+
+    FFullPIDSet()
+       : XPID(nullptr)
+       , YPID(nullptr)
+       , ZPID(nullptr)
+       , RollPID(nullptr)
+       , PitchPID(nullptr)
+       , YawPID(nullptr)
+    {}
 };
 
 
 UCLASS(Blueprintable, BlueprintType)
 class QUADSIMTOREALITY_API UQuadDroneController : public UObject
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
 public:
-	UQuadDroneController(const FObjectInitializer& ObjectInitializer);
+    UQuadDroneController(const FObjectInitializer& ObjectInitializer);
 
-	void Initialize(AQuadPawn* InPawn);
+    void Initialize(AQuadPawn* InPawn);
 
-	virtual ~UQuadDroneController();
+    virtual ~UQuadDroneController();
 
-	
-	UPROPERTY()
-	AQuadPawn* dronePawn;
-	UPROPERTY()
-	TArray<float> Thrusts;
+    
+    UPROPERTY()
+    AQuadPawn* dronePawn;
+    UPROPERTY()
+    TArray<float> Thrusts;
 
 
-	
-	void ResetPID();
-	void ResetDroneIntegral();
+    
+    void ResetPID();
+    void ResetDroneIntegral();
 
-	void ThrustMixer(float xOutput, float yOutput, float zOutput, float rollOutput, float pitchOutput);
-	
-	void Update(double DeltaTime);
-	void ApplyControllerInput(double a_deltaTime);
-	void AutoWaypointControl(double DeltaTime);
-	void VelocityControl(double a_deltaTime);
-	
-	void AddNavPlan(const FString& name, const TArray<FVector>& waypoints);
-	void SetNavPlan(const FString& name);
-	void DrawDebugVisuals(const FVector& currentPosition, const FVector& setPoint)const;
-	void HandleThrustInput(float Value);
-	void HandleYawInput(float Value);
-	void HandlePitchInput(float Value);
-	void HandleRollInput(float Value);
+    void ThrustMixer(float xOutput, float yOutput, float zOutput, float rollOutput, float pitchOutput,float yawOutput);
+    
+    void Update(double DeltaTime);
+    void ApplyControllerInput(double a_deltaTime);
+    void AutoWaypointControl(double DeltaTime);
+    void VelocityControl(double a_deltaTime);
+    
+    void AddNavPlan(const FString& name, const TArray<FVector>& waypoints);
+    void SetNavPlan(const FString& name);
+    void DrawDebugVisuals(const FVector& currentPosition, const FVector& setPoint)const;
+    void HandleThrustInput(float Value);
+    void HandleYawInput(float Value);
+    void HandlePitchInput(float Value);
+    void HandleRollInput(float Value);
 
-	void ResetDroneHigh();
-	void ResetDroneOrigin();
+    void ResetDroneHigh();
+    void ResetDroneOrigin();
 
-	const FVector& GetInitialPosition() const { return initialDronePosition; }
+    const FVector& GetInitialPosition() const { return initialDronePosition; }
 
-	void SetDesiredVelocity(const FVector& NewVelocity);
-	void SetFlightMode(EFlightMode NewMode);
-	EFlightMode GetFlightMode() const;
-	FFullPIDSet* GetPIDSet(EFlightMode Mode)
-	{
-		return PIDMap.Find(Mode); 
-	}
+    void SetDesiredVelocity(const FVector& NewVelocity);
+    void SetFlightMode(EFlightMode NewMode);
+    EFlightMode GetFlightMode() const;
+    FFullPIDSet* GetPIDSet(EFlightMode Mode)
+    {
+       return PIDMap.Find(Mode); 
+    }
+    void SetPitchTestMode(bool bEnable);
 
 private:
+    
+    UPROPERTY()
+    TMap<EFlightMode, FFullPIDSet> PIDMap;
 
-	float desiredYaw;
-	bool bDesiredYawInitialized;
-	float desiredAltitude;
-	bool bDesiredAltitudeInitialized;
+    float desiredYaw;
+    bool bDesiredYawInitialized;
+    float desiredAltitude;
+    bool bDesiredAltitudeInitialized;
 
-	EFlightMode currentFlightMode;
-	
-	UPROPERTY()
-	TMap<EFlightMode, FFullPIDSet> PIDMap;
+    EFlightMode currentFlightMode;
+    
 
-	struct NavPlan
-	{
-		TArray<FVector> waypoints;
-		FString name;
-	};
+    struct NavPlan
+    {
+       TArray<FVector> waypoints;
+       FString name;
+    };
 
-	TArray<NavPlan> setPointNavigation;
-	NavPlan* currentNav;
-	int32 curPos;
+    TArray<NavPlan> setPointNavigation;
+    NavPlan* currentNav;
+    int32 curPos;
      
-	TUniquePtr<ImGuiUtil> AutoWaypointHUD;
-	TUniquePtr<ImGuiUtil> VelocityHUD;
-	TUniquePtr<ImGuiUtil>JoyStickHUD;
-	TUniquePtr<ImGuiUtil> ManualThrustHUD;
+    TUniquePtr<ImGuiUtil> AutoWaypointHUD;
+    TUniquePtr<ImGuiUtil> VelocityHUD;
+    TUniquePtr<ImGuiUtil>JoyStickHUD;
+    TUniquePtr<ImGuiUtil> ManualThrustHUD;
 
-	FVector desiredNewVelocity;
+    FVector desiredNewVelocity;
 
-	float maxVelocity;
-	float maxAngle;
-	float maxPIDOutput;
-	float altitudeThresh; 
-	float minAltitudeLocal;
-	float acceptableDistance;
-	bool initialTakeoff;
-	bool altitudeReached;
-	bool Debug_DrawDroneCollisionSphere;
-	bool Debug_DrawDroneWaypoint;
-	float thrustInput;
-	float yawInput;
-	float pitchInput;
-	float rollInput;
-	float hoverThrust;
-	bool bHoverThrustInitialized;
+    float maxVelocity;
+    float maxAngle;
+    float maxPIDOutput;
+    float altitudeThresh; 
+    float minAltitudeLocal;
+    float acceptableDistance;
+    bool initialTakeoff;
+    bool altitudeReached;
+    bool Debug_DrawDroneCollisionSphere;
+    bool Debug_DrawDroneWaypoint;
+    float thrustInput;
+    float yawInput;
+    float pitchInput;
+    float rollInput;
+    float hoverThrust;
+    bool bHoverThrustInitialized;
 
 
 
-	FVector initialDronePosition;
+    FVector initialDronePosition;
 
 };

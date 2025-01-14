@@ -342,7 +342,7 @@ void ImGuiUtil::DisplayDebugOptions()
     ImGui::Separator();
 }
 
-// Add this helper method to ImGuiUtil class
+// In ImGuiUtil:
 void ImGuiUtil::DisplayThrusterControls(TArray<float>& ThrustsVal)
 {
     if (!dronePawn) return;
@@ -354,11 +354,10 @@ void ImGuiUtil::DisplayThrusterControls(TArray<float>& ThrustsVal)
 
     if (ImGui::SliderFloat("All Thrusts", &AllThrustValue, 0, maxPIDOutput))
     {
-        // Apply to all thrusters
-        if (dronePawn->ThrusterFL) dronePawn->ThrusterFL->ThrustStrength = AllThrustValue;
-        if (dronePawn->ThrusterFR) dronePawn->ThrusterFR->ThrustStrength = AllThrustValue;
-        if (dronePawn->ThrusterBL) dronePawn->ThrusterBL->ThrustStrength = AllThrustValue;
-        if (dronePawn->ThrusterBR) dronePawn->ThrusterBR->ThrustStrength = AllThrustValue;
+        for(auto* Thruster : dronePawn->Thrusters)
+        {
+            Thruster->SetThrustStrength(AllThrustValue);
+        }
     }
 
     ImGui::Separator();
@@ -382,8 +381,8 @@ void ImGuiUtil::DisplayThrusterControls(TArray<float>& ThrustsVal)
             if (ImGui::SliderFloat("FL & BR Thrust", &ThrustsVal[0], 0, maxPIDOutput))
             {
                 ThrustsVal[3] = ThrustsVal[0];
-                if (dronePawn->ThrusterFL) dronePawn->ThrusterFL->ThrustStrength = ThrustsVal[0];
-                if (dronePawn->ThrusterBR) dronePawn->ThrusterBR->ThrustStrength = ThrustsVal[0];
+                dronePawn->Thrusters[0]->SetThrustStrength(ThrustsVal[0]);
+                dronePawn->Thrusters[3]->SetThrustStrength(ThrustsVal[0]);
             }
             ImGui::Text("Back Right (Synchronized): %.2f", ThrustsVal[3]);
         }
@@ -391,11 +390,11 @@ void ImGuiUtil::DisplayThrusterControls(TArray<float>& ThrustsVal)
         {
             if (ImGui::SliderFloat("Front Left", &ThrustsVal[0], 0, maxPIDOutput))
             {
-                if (dronePawn->ThrusterFL) dronePawn->ThrusterFL->ThrustStrength = ThrustsVal[0];
+                dronePawn->Thrusters[0]->SetThrustStrength(ThrustsVal[0]);
             }
             if (ImGui::SliderFloat("Back Right", &ThrustsVal[3], 0, maxPIDOutput))
             {
-                if (dronePawn->ThrusterBR) dronePawn->ThrusterBR->ThrustStrength = ThrustsVal[3];
+                dronePawn->Thrusters[3]->SetThrustStrength(ThrustsVal[3]);
             }
         }
         ImGui::Unindent();
@@ -408,8 +407,8 @@ void ImGuiUtil::DisplayThrusterControls(TArray<float>& ThrustsVal)
             if (ImGui::SliderFloat("FR & BL Thrust", &ThrustsVal[1], 0, maxPIDOutput))
             {
                 ThrustsVal[2] = ThrustsVal[1];
-                if (dronePawn->ThrusterFR) dronePawn->ThrusterFR->ThrustStrength = ThrustsVal[1];
-                if (dronePawn->ThrusterBL) dronePawn->ThrusterBL->ThrustStrength = ThrustsVal[1];
+                dronePawn->Thrusters[1]->SetThrustStrength(ThrustsVal[1]);
+                dronePawn->Thrusters[2]->SetThrustStrength(ThrustsVal[1]);
             }
             ImGui::Text("Back Left (Synchronized): %.2f", ThrustsVal[2]);
         }
@@ -417,11 +416,11 @@ void ImGuiUtil::DisplayThrusterControls(TArray<float>& ThrustsVal)
         {
             if (ImGui::SliderFloat("Front Right", &ThrustsVal[1], 0, maxPIDOutput))
             {
-                if (dronePawn->ThrusterFR) dronePawn->ThrusterFR->ThrustStrength = ThrustsVal[1];
+                dronePawn->Thrusters[1]->SetThrustStrength(ThrustsVal[1]);
             }
             if (ImGui::SliderFloat("Back Left", &ThrustsVal[2], 0, maxPIDOutput))
             {
-                if (dronePawn->ThrusterBL) dronePawn->ThrusterBL->ThrustStrength = ThrustsVal[2];
+                dronePawn->Thrusters[2]->SetThrustStrength(ThrustsVal[2]);
             }
         }
         ImGui::Unindent();
