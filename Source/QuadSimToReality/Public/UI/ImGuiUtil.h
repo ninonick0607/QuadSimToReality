@@ -1,11 +1,13 @@
 // ImGuiUtil.h
 #pragma once
 #include "CoreMinimal.h"
+#include "Controllers/ZMQController.h"
 
 // Forward declarations
 class AQuadPawn;
 class QuadPIDController;
 class UQuadDroneController;
+
 enum class EFlightMode : uint8;  // Forward declare the enum
 
 class QUADSIMTOREALITY_API ImGuiUtil
@@ -63,17 +65,18 @@ private:
     void DisplayCameraControls();
     void DisplayResetDroneButtons();
     void DisplayDesiredVelocities();
+    
+    AQuadPawn* dronePawn;
+    UQuadDroneController* controller;
 
     // Member variables
-    AQuadPawn* dronePawn;
     bool& Debug_DrawDroneCollisionSphere;
     bool& Debug_DrawDroneWaypoint;
     float maxPIDOutput;
     float& maxVelocity;
     float& maxAngle;
-    UQuadDroneController* controller;
     FVector& desiredNewVelocity;
-
+    
     // Member variables for thrust plotting
     TArray<float> TimeData;
     TArray<float> Thrust0Data;

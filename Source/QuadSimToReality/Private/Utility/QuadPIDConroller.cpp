@@ -1,12 +1,21 @@
+
 // QuadPIDController.cpp
 #include "Utility/QuadPIDConroller.h"
 #include "Math/UnrealMathUtility.h"
 
 QuadPIDController::QuadPIDController()
-    : ProportionalGain(0.0f), IntegralGain(0.0f), DerivativeGain(0.0f),
-      minOutput(0.0f), maxOutput(1.0f),
-      integralSum(0.0f), prevError(0.0f), lastOutput(0.0f)
+    : ProportionalGain(0.0f)
+    , IntegralGain(0.0f)
+    , DerivativeGain(0.0f)
+    , minOutput(0.0f)
+    , maxOutput(1.0f)
+    , prevError(0.0f)
+    , lastOutput(0.0f)
+    , absoluteTime(0.0f)
+    , currentBufferSum(0.0f)
 {
+    // Pre-allocate buffer to avoid reallocations
+    integralBuffer.Reserve(ESTIMATED_BUFFER_SIZE);
 }
 
 void QuadPIDController::SetGains(float pGain, float iGain, float dGain)
@@ -15,9 +24,17 @@ void QuadPIDController::SetGains(float pGain, float iGain, float dGain)
     IntegralGain = iGain;
     DerivativeGain = dGain;
 }
-void QuadPIDController::ResetIntegral()
+
+void QuadPIDController::RemoveExpiredPoints()
 {
-    integralSum = 0.0f;
+    const float windowStart = absoluteTime - INTEGRAL_WINDOW_DURATION;
+    
+    // Remove points older than the window duration
+    while (!integralBuffer.IsEmpty() && integralBuffer[0].timestamp < windowStart)
+    {
+        currentBufferSum -= integralBuffer[0].value;
+        integralBuffer.RemoveAt(0, 1, false); // false = don't shrink array
+    }
 }
 
 float QuadPIDController::Calculate(float error, float dt)
@@ -28,30 +45,40 @@ float QuadPIDController::Calculate(float error, float dt)
         return 0.0f;
     }
 
+    absoluteTime += dt;
+
+    // Remove expired points from the sliding window
+    RemoveExpiredPoints();
+
     // Proportional term
     float p_term = ProportionalGain * error;
 
-    // Integral term
-    integralSum += error * dt;
-    // new waypoint zero out sum
-    float maxIntegral = 100.0f;
-    integralSum = FMath::Clamp(integralSum, -maxIntegral, maxIntegral);
-    float i_term = IntegralGain * integralSum;
+    // Add new integral point
+    IntegralPoint newPoint;
+    newPoint.timestamp = absoluteTime;
+    newPoint.value = error * dt;
+    
+    integralBuffer.Add(newPoint);
+    currentBufferSum += newPoint.value;
+
+    // Integral term with sliding window
+    float i_term = IntegralGain * currentBufferSum;
 
     // Derivative term
     float d_term = DerivativeGain * (error - prevError) / dt;
 
-    // Total output
+    // Combine terms and clamp output
     float output = p_term + i_term + d_term;
-
-    // Clamp output
     output = FMath::Clamp(output, minOutput, maxOutput);
-
-    // Update previous error
+    
     prevError = error;
-
-    // Store last output
     lastOutput = output;
+
+    // Debug logging
+    UE_LOG(LogTemp, VeryVerbose, TEXT("Time: %.3f, Buffer Size: %d, Sum: %.4f"), 
+           absoluteTime,
+           integralBuffer.Num(), 
+           currentBufferSum);
 
     return output;
 }
@@ -64,6 +91,14 @@ void QuadPIDController::SetLimits(float min_output, float max_output)
 
 void QuadPIDController::Reset()
 {
-    integralSum = 0.0f;
+    integralBuffer.Empty();
+    currentBufferSum = 0.0f;
     prevError = 0.0f;
+    absoluteTime = 0.0f;
+}
+
+void QuadPIDController::ResetIntegral()
+{
+    integralBuffer.Empty();
+    currentBufferSum = 0.0f;
 }

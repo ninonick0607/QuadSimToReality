@@ -81,8 +81,12 @@ public:
     void ResetDroneHigh();
     void ResetDroneOrigin();
 
+    void bufferDebug(FFullPIDSet* PID_Set);
+    
     const FVector& GetInitialPosition() const { return initialDronePosition; }
 
+
+    
     void SetDesiredVelocity(const FVector& NewVelocity);
     void SetFlightMode(EFlightMode NewMode);
     EFlightMode GetFlightMode() const;
@@ -90,7 +94,6 @@ public:
     {
        return PIDMap.Find(Mode); 
     }
-    void SetPitchTestMode(bool bEnable);
 
 private:
     
@@ -118,7 +121,6 @@ private:
     TUniquePtr<ImGuiUtil> AutoWaypointHUD;
     TUniquePtr<ImGuiUtil> VelocityHUD;
     TUniquePtr<ImGuiUtil>JoyStickHUD;
-    TUniquePtr<ImGuiUtil> ManualThrustHUD;
 
     FVector desiredNewVelocity;
 

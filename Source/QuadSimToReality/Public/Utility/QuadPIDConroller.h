@@ -1,3 +1,4 @@
+// QuadPIDController.h
 #pragma once
 
 #include "CoreMinimal.h"
@@ -13,6 +14,10 @@ public:
 	void ResetIntegral();
 
 	float Calculate(float error, float dt);
+    
+	// Getters for buffer info
+	int32 GetBufferSize() const { return integralBuffer.Num(); }
+	float GetCurrentBufferSum() const { return currentBufferSum; }
 
 	// PID Gains
 	float ProportionalGain;
@@ -23,8 +28,27 @@ public:
 	float lastOutput;
 
 private:
+	// Integral window duration in seconds
+	static constexpr float INTEGRAL_WINDOW_DURATION = 2.0f;
+	static constexpr int32 ESTIMATED_BUFFER_SIZE = 140;
+    
+	struct IntegralPoint
+	{
+		float timestamp;  // Time when this point was added
+		float value;      // The error * dt value
+	};
+    
+	// Remove expired points from the sliding window
+	void RemoveExpiredPoints();
+    
+	TArray<IntegralPoint> integralBuffer;
+	float absoluteTime;       // Track total elapsed time
+	float currentBufferSum;   // Running sum of integral values
+
+	// Output limits
 	float minOutput;
 	float maxOutput;
-	float integralSum;
+    
+	// Previous error for derivative calculation
 	float prevError;
 };

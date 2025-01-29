@@ -10,9 +10,22 @@
 #include "Misc/DateTime.h"
 
 ImGuiUtil::ImGuiUtil(
-    AQuadPawn* InPawn, UQuadDroneController* InController, FVector& IndesiredNewVelocity, bool& InDebug_DrawDroneCollisionSphere, bool& InDebug_DrawDroneWaypoint, float InMaxPIDOutput,float& InMaxVelocity,float& InMaxAngle)
-    : dronePawn(InPawn),Debug_DrawDroneCollisionSphere(InDebug_DrawDroneCollisionSphere) , Debug_DrawDroneWaypoint(InDebug_DrawDroneWaypoint),maxPIDOutput(InMaxPIDOutput) ,maxVelocity(InMaxVelocity), maxAngle(InMaxAngle), controller(InController), desiredNewVelocity(IndesiredNewVelocity)
-
+    AQuadPawn* InPawn, 
+    UQuadDroneController* InController, 
+    FVector& IndesiredNewVelocity, 
+    bool& InDebug_DrawDroneCollisionSphere, 
+    bool& InDebug_DrawDroneWaypoint, 
+    float InMaxPIDOutput,
+    float& InMaxVelocity,
+    float& InMaxAngle)
+    : dronePawn(InPawn)
+    , Debug_DrawDroneCollisionSphere(InDebug_DrawDroneCollisionSphere)
+    , Debug_DrawDroneWaypoint(InDebug_DrawDroneWaypoint)
+    , maxPIDOutput(InMaxPIDOutput)
+    , maxVelocity(InMaxVelocity)
+    , maxAngle(InMaxAngle)
+    , controller(InController)
+    , desiredNewVelocity(IndesiredNewVelocity)
 {
 }
 ImGuiUtil::~ImGuiUtil()
@@ -105,6 +118,13 @@ void ImGuiUtil::VelocityHud(
     ImGui::SetNextWindowPos(ImVec2(420, 10), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(500, 500), ImGuiCond_FirstUseEver);
 
+    UZMQController* zmqControllerCurrent = dronePawn ? dronePawn->FindComponentByClass<UZMQController>() : nullptr;
+    FVector currentGoalState = FVector::ZeroVector;
+    if (IsValid(zmqControllerCurrent))
+    {
+        currentGoalState = zmqControllerCurrent->GetCurrentGoalPosition();
+    }
+
     ImGui::Begin("Drone Controller", nullptr, ImGuiWindowFlags_AlwaysVerticalScrollbar);
 
     // Display Drone Model Feedback
@@ -135,17 +155,18 @@ void ImGuiUtil::VelocityHud(
 
     // Display Desired and Current Positions and Errors
     ImGui::Separator();
-    ImGui::Text("Desired Position X, Y, Z: %.2f, %.2f, %.2f", waypoint.X, waypoint.Y, waypoint.Z);
     ImGui::Text("Current Position X, Y, Z: %.2f, %.2f, %.2f", currLoc.X, currLoc.Y, currLoc.Z);
+    ImGui::Text("Desired Position X, Y, Z: %.2f, %.2f, %.2f", waypoint.X, waypoint.Y, waypoint.Z);
     ImGui::Text("Position Error X, Y, Z: %.2f, %.2f, %.2f", error.X, error.Y, error.Z);
     ImGui::Spacing();
-    ImGui::Text("Desired Velocity X, Y, Z: %.2f, %.2f, %.2f", desiredNewVelocity.X, desiredNewVelocity.Y, desiredNewVelocity.Z);
-    ImGui::Text("Current Velocity X, Y, Z: %.2f, %.2f, %.2f", currentVelocity.X, currentVelocity.Y, currentVelocity.Z);
+    ImGui::Text("Velocity Command Received X, Y, Z: %.2f, %.2f, %.2f", desiredNewVelocity.X, desiredNewVelocity.Y, desiredNewVelocity.Z);
+    ImGui::Text("Current Goal State X, Y, Z: %.2f, %.2f, %.2f", currentGoalState.X, currentGoalState.Y, currentGoalState.Z);
     ImGui::Spacing();
-
+    
     // PID Settings
     static bool syncXY = false;
     static bool syncRP = false;
+    
     DisplayPIDSettings(
         EFlightMode::VelocityControl,
         "PID Settings",
@@ -322,6 +343,44 @@ void ImGuiUtil::RenderImPlot(const TArray<float> &ThrustsVal, float deltaTime)
         ImPlot::EndPlot();
     }
 
+    if (ImPlot::BeginPlot("PID Integral Sums"))
+    {
+        ImPlot::SetupAxes("Time (s)", "Integral Sum");
+        
+        FFullPIDSet* CurrentSet = controller->GetPIDSet(controller->GetFlightMode());
+        if (CurrentSet)
+        {
+            // Plot the integral sums
+            static TArray<float> Times;
+            static TArray<float> XSums;
+            static TArray<float> YSums;
+            static TArray<float> ZSums;
+
+            // Add current values
+            Times.Add(CumulativeTime);
+            XSums.Add(CurrentSet->XPID->GetCurrentBufferSum());
+            YSums.Add(CurrentSet->YPID->GetCurrentBufferSum());
+            ZSums.Add(CurrentSet->ZPID->GetCurrentBufferSum());
+
+            // Keep arrays at reasonable size
+            const int32 MaxPoints = 1000;
+            if (Times.Num() > MaxPoints)
+            {
+                Times.RemoveAt(0);
+                XSums.RemoveAt(0);
+                YSums.RemoveAt(0);
+                ZSums.RemoveAt(0);
+            }
+
+            // Plot the data
+            ImPlot::PlotLine("X Integral", Times.GetData(), XSums.GetData(), Times.Num());
+            ImPlot::PlotLine("Y Integral", Times.GetData(), YSums.GetData(), Times.Num());
+            ImPlot::PlotLine("Z Integral", Times.GetData(), ZSums.GetData(), Times.Num());
+        }
+
+        ImPlot::EndPlot();
+    }
+    
     ImGui::End();
 }
 
@@ -342,7 +401,6 @@ void ImGuiUtil::DisplayDebugOptions()
     ImGui::Separator();
 }
 
-// In ImGuiUtil:
 void ImGuiUtil::DisplayThrusterControls(TArray<float>& ThrustsVal)
 {
     if (!dronePawn) return;
@@ -354,10 +412,11 @@ void ImGuiUtil::DisplayThrusterControls(TArray<float>& ThrustsVal)
 
     if (ImGui::SliderFloat("All Thrusts", &AllThrustValue, 0, maxPIDOutput))
     {
-        for(auto* Thruster : dronePawn->Thrusters)
-        {
-            Thruster->SetThrustStrength(AllThrustValue);
-        }
+        // Apply to all thrusters
+        if (dronePawn->ThrusterFL) dronePawn->ThrusterFL->ThrustStrength = AllThrustValue;
+        if (dronePawn->ThrusterFR) dronePawn->ThrusterFR->ThrustStrength = AllThrustValue;
+        if (dronePawn->ThrusterBL) dronePawn->ThrusterBL->ThrustStrength = AllThrustValue;
+        if (dronePawn->ThrusterBR) dronePawn->ThrusterBR->ThrustStrength = AllThrustValue;
     }
 
     ImGui::Separator();
@@ -381,8 +440,8 @@ void ImGuiUtil::DisplayThrusterControls(TArray<float>& ThrustsVal)
             if (ImGui::SliderFloat("FL & BR Thrust", &ThrustsVal[0], 0, maxPIDOutput))
             {
                 ThrustsVal[3] = ThrustsVal[0];
-                dronePawn->Thrusters[0]->SetThrustStrength(ThrustsVal[0]);
-                dronePawn->Thrusters[3]->SetThrustStrength(ThrustsVal[0]);
+                if (dronePawn->ThrusterFL) dronePawn->ThrusterFL->ThrustStrength = ThrustsVal[0];
+                if (dronePawn->ThrusterBR) dronePawn->ThrusterBR->ThrustStrength = ThrustsVal[0];
             }
             ImGui::Text("Back Right (Synchronized): %.2f", ThrustsVal[3]);
         }
@@ -390,11 +449,11 @@ void ImGuiUtil::DisplayThrusterControls(TArray<float>& ThrustsVal)
         {
             if (ImGui::SliderFloat("Front Left", &ThrustsVal[0], 0, maxPIDOutput))
             {
-                dronePawn->Thrusters[0]->SetThrustStrength(ThrustsVal[0]);
+                if (dronePawn->ThrusterFL) dronePawn->ThrusterFL->ThrustStrength = ThrustsVal[0];
             }
             if (ImGui::SliderFloat("Back Right", &ThrustsVal[3], 0, maxPIDOutput))
             {
-                dronePawn->Thrusters[3]->SetThrustStrength(ThrustsVal[3]);
+                if (dronePawn->ThrusterBR) dronePawn->ThrusterBR->ThrustStrength = ThrustsVal[3];
             }
         }
         ImGui::Unindent();
@@ -407,8 +466,8 @@ void ImGuiUtil::DisplayThrusterControls(TArray<float>& ThrustsVal)
             if (ImGui::SliderFloat("FR & BL Thrust", &ThrustsVal[1], 0, maxPIDOutput))
             {
                 ThrustsVal[2] = ThrustsVal[1];
-                dronePawn->Thrusters[1]->SetThrustStrength(ThrustsVal[1]);
-                dronePawn->Thrusters[2]->SetThrustStrength(ThrustsVal[1]);
+                if (dronePawn->ThrusterFR) dronePawn->ThrusterFR->ThrustStrength = ThrustsVal[1];
+                if (dronePawn->ThrusterBL) dronePawn->ThrusterBL->ThrustStrength = ThrustsVal[1];
             }
             ImGui::Text("Back Left (Synchronized): %.2f", ThrustsVal[2]);
         }
@@ -416,11 +475,11 @@ void ImGuiUtil::DisplayThrusterControls(TArray<float>& ThrustsVal)
         {
             if (ImGui::SliderFloat("Front Right", &ThrustsVal[1], 0, maxPIDOutput))
             {
-                dronePawn->Thrusters[1]->SetThrustStrength(ThrustsVal[1]);
+                if (dronePawn->ThrusterFR) dronePawn->ThrusterFR->ThrustStrength = ThrustsVal[1];
             }
             if (ImGui::SliderFloat("Back Left", &ThrustsVal[2], 0, maxPIDOutput))
             {
-                dronePawn->Thrusters[2]->SetThrustStrength(ThrustsVal[2]);
+                if (dronePawn->ThrusterBL) dronePawn->ThrusterBL->ThrustStrength = ThrustsVal[2];
             }
         }
         ImGui::Unindent();
