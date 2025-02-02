@@ -55,9 +55,68 @@ void ImGuiUtil::AutoWaypointHud(
 
     // Display Debug Draw Options
     DisplayDebugOptions();
+    //------------------------------------
+    static float AllThrustValue = 0.0f;
 
-    // Display Thruster Controls
-    DisplayThrusterControls(ThrustsVal);
+    if (ImGui::SliderFloat("All Thrusts", &AllThrustValue, 0, maxPIDOutput))
+    {
+        // Apply to all thrust values
+        for (int i = 0; i < ThrustsVal.Num(); i++)
+        {
+            ThrustsVal[i] = AllThrustValue;
+        }
+    }
+
+    ImGui::Separator();
+    ImGui::Text("Thruster Power");
+
+    static bool synchronizeDiagonal1 = false;
+    static bool synchronizeDiagonal2 = false;
+
+    ImGui::Checkbox("Synchronize Diagonal Motors FL & BR", &synchronizeDiagonal1);
+    ImGui::Checkbox("Synchronize Diagonal Motors FR & BL", &synchronizeDiagonal2);
+
+    ImGui::Separator();
+
+    if (ThrustsVal.Num() >= 4)
+    {
+        // Diagonal 1
+        ImGui::Text("Diagonal 1 Motors");
+        ImGui::Indent();
+        if (synchronizeDiagonal1)
+        {
+            if (ImGui::SliderFloat("FL & BR Thrust", &ThrustsVal[0], 0, maxPIDOutput))
+            {
+                ThrustsVal[3] = ThrustsVal[0];
+            }
+            ImGui::Text("Back Right (Synchronized): %.2f", ThrustsVal[3]);
+        }
+        else
+        {
+            ImGui::SliderFloat("Front Left", &ThrustsVal[0], 0, maxPIDOutput);
+            ImGui::SliderFloat("Back Right", &ThrustsVal[3], 0, maxPIDOutput);
+        }
+        ImGui::Unindent();
+
+        // Diagonal 2
+        ImGui::Text("Diagonal 2 Motors");
+        ImGui::Indent();
+        if (synchronizeDiagonal2)
+        {
+            if (ImGui::SliderFloat("FR & BL Thrust", &ThrustsVal[1], 0, maxPIDOutput))
+            {
+                ThrustsVal[2] = ThrustsVal[1];
+            }
+            ImGui::Text("Back Left (Synchronized): %.2f", ThrustsVal[2]);
+        }
+        else
+        {
+            ImGui::SliderFloat("Front Right", &ThrustsVal[1], 0, maxPIDOutput);
+            ImGui::SliderFloat("Back Left", &ThrustsVal[2], 0, maxPIDOutput);
+        }
+        ImGui::Unindent();
+    }
+    //---------------------------------------------------
 
     // Display Desired and Current Roll/Pitch
     ImGui::Separator();
@@ -140,9 +199,68 @@ void ImGuiUtil::VelocityHud(
     // Display Debug Draw Options
     DisplayDebugOptions();
 
-    // Display Thruster Controls
-    DisplayThrusterControls(ThrustsVal);
+    //------------------------------------
+    static float AllThrustValue = 0.0f;
 
+    if (ImGui::SliderFloat("All Thrusts", &AllThrustValue, 0, maxPIDOutput))
+    {
+        // Apply to all thrust values
+        for (int i = 0; i < ThrustsVal.Num(); i++)
+        {
+            ThrustsVal[i] = AllThrustValue;
+        }
+    }
+
+    ImGui::Separator();
+    ImGui::Text("Thruster Power");
+
+    static bool synchronizeDiagonal1 = false;
+    static bool synchronizeDiagonal2 = false;
+
+    ImGui::Checkbox("Synchronize Diagonal Motors FL & BR", &synchronizeDiagonal1);
+    ImGui::Checkbox("Synchronize Diagonal Motors FR & BL", &synchronizeDiagonal2);
+
+    ImGui::Separator();
+
+    if (ThrustsVal.Num() >= 4)
+    {
+        // Diagonal 1
+        ImGui::Text("Diagonal 1 Motors");
+        ImGui::Indent();
+        if (synchronizeDiagonal1)
+        {
+            if (ImGui::SliderFloat("FL & BR Thrust", &ThrustsVal[0], 0, maxPIDOutput))
+            {
+                ThrustsVal[3] = ThrustsVal[0];
+            }
+            ImGui::Text("Back Right (Synchronized): %.2f", ThrustsVal[3]);
+        }
+        else
+        {
+            ImGui::SliderFloat("Front Left", &ThrustsVal[0], 0, maxPIDOutput);
+            ImGui::SliderFloat("Back Right", &ThrustsVal[3], 0, maxPIDOutput);
+        }
+        ImGui::Unindent();
+
+        // Diagonal 2
+        ImGui::Text("Diagonal 2 Motors");
+        ImGui::Indent();
+        if (synchronizeDiagonal2)
+        {
+            if (ImGui::SliderFloat("FR & BL Thrust", &ThrustsVal[1], 0, maxPIDOutput))
+            {
+                ThrustsVal[2] = ThrustsVal[1];
+            }
+            ImGui::Text("Back Left (Synchronized): %.2f", ThrustsVal[2]);
+        }
+        else
+        {
+            ImGui::SliderFloat("Front Right", &ThrustsVal[1], 0, maxPIDOutput);
+            ImGui::SliderFloat("Back Left", &ThrustsVal[2], 0, maxPIDOutput);
+        }
+        ImGui::Unindent();
+    }
+    //---------------------------------------------------
     // Display Desired and Current Roll/Pitch
     ImGui::Separator();
     ImGui::Text("Desired Roll: %.2f", rollError);
@@ -216,9 +334,68 @@ void ImGuiUtil::JoyStickHud(
     // Display Debug Draw Options
     DisplayDebugOptions();
 
-    // Display Thruster Controls
-    DisplayThrusterControls(ThrustsVal);
+    //------------------------------------
+    static float AllThrustValue = 0.0f;
 
+    if (ImGui::SliderFloat("All Thrusts", &AllThrustValue, 0, maxPIDOutput))
+    {
+        // Apply to all thrust values
+        for (int i = 0; i < ThrustsVal.Num(); i++)
+        {
+            ThrustsVal[i] = AllThrustValue;
+        }
+    }
+
+    ImGui::Separator();
+    ImGui::Text("Thruster Power");
+
+    static bool synchronizeDiagonal1 = false;
+    static bool synchronizeDiagonal2 = false;
+
+    ImGui::Checkbox("Synchronize Diagonal Motors FL & BR", &synchronizeDiagonal1);
+    ImGui::Checkbox("Synchronize Diagonal Motors FR & BL", &synchronizeDiagonal2);
+
+    ImGui::Separator();
+
+    if (ThrustsVal.Num() >= 4)
+    {
+        // Diagonal 1
+        ImGui::Text("Diagonal 1 Motors");
+        ImGui::Indent();
+        if (synchronizeDiagonal1)
+        {
+            if (ImGui::SliderFloat("FL & BR Thrust", &ThrustsVal[0], 0, maxPIDOutput))
+            {
+                ThrustsVal[3] = ThrustsVal[0];
+            }
+            ImGui::Text("Back Right (Synchronized): %.2f", ThrustsVal[3]);
+        }
+        else
+        {
+            ImGui::SliderFloat("Front Left", &ThrustsVal[0], 0, maxPIDOutput);
+            ImGui::SliderFloat("Back Right", &ThrustsVal[3], 0, maxPIDOutput);
+        }
+        ImGui::Unindent();
+
+        // Diagonal 2
+        ImGui::Text("Diagonal 2 Motors");
+        ImGui::Indent();
+        if (synchronizeDiagonal2)
+        {
+            if (ImGui::SliderFloat("FR & BL Thrust", &ThrustsVal[1], 0, maxPIDOutput))
+            {
+                ThrustsVal[2] = ThrustsVal[1];
+            }
+            ImGui::Text("Back Left (Synchronized): %.2f", ThrustsVal[2]);
+        }
+        else
+        {
+            ImGui::SliderFloat("Front Right", &ThrustsVal[1], 0, maxPIDOutput);
+            ImGui::SliderFloat("Back Left", &ThrustsVal[2], 0, maxPIDOutput);
+        }
+        ImGui::Unindent();
+    }
+    //---------------------------------------------------
     // Display Desired and Current Roll/Pitch
     ImGui::Separator();
     ImGui::Text("Desired Roll: %.2f", rollError);
@@ -399,91 +576,6 @@ void ImGuiUtil::DisplayDebugOptions()
     ImGui::Checkbox("Drone Collision Sphere", &Debug_DrawDroneCollisionSphere);
     ImGui::Checkbox("Drone Waypoint", &Debug_DrawDroneWaypoint);
     ImGui::Separator();
-}
-
-void ImGuiUtil::DisplayThrusterControls(TArray<float>& ThrustsVal)
-{
-    if (!dronePawn) return;
-
-    ImGui::Separator();
-    ImGui::Text("Control All Thrusts");
-
-    static float AllThrustValue = 0.0f;
-
-    if (ImGui::SliderFloat("All Thrusts", &AllThrustValue, 0, maxPIDOutput))
-    {
-        // Apply to all thrusters
-        if (dronePawn->ThrusterFL) dronePawn->ThrusterFL->ThrustStrength = AllThrustValue;
-        if (dronePawn->ThrusterFR) dronePawn->ThrusterFR->ThrustStrength = AllThrustValue;
-        if (dronePawn->ThrusterBL) dronePawn->ThrusterBL->ThrustStrength = AllThrustValue;
-        if (dronePawn->ThrusterBR) dronePawn->ThrusterBR->ThrustStrength = AllThrustValue;
-    }
-
-    ImGui::Separator();
-    ImGui::Text("Thruster Power");
-
-    static bool synchronizeDiagonal1 = false;
-    static bool synchronizeDiagonal2 = false;
-
-    ImGui::Checkbox("Synchronize Diagonal Motors FL & BR", &synchronizeDiagonal1);
-    ImGui::Checkbox("Synchronize Diagonal Motors FR & BL", &synchronizeDiagonal2);
-
-    ImGui::Separator();
-
-    if (ThrustsVal.Num() >= 4)
-    {
-        // Diagonal 1
-        ImGui::Text("Diagonal 1 Motors");
-        ImGui::Indent();
-        if (synchronizeDiagonal1)
-        {
-            if (ImGui::SliderFloat("FL & BR Thrust", &ThrustsVal[0], 0, maxPIDOutput))
-            {
-                ThrustsVal[3] = ThrustsVal[0];
-                if (dronePawn->ThrusterFL) dronePawn->ThrusterFL->ThrustStrength = ThrustsVal[0];
-                if (dronePawn->ThrusterBR) dronePawn->ThrusterBR->ThrustStrength = ThrustsVal[0];
-            }
-            ImGui::Text("Back Right (Synchronized): %.2f", ThrustsVal[3]);
-        }
-        else
-        {
-            if (ImGui::SliderFloat("Front Left", &ThrustsVal[0], 0, maxPIDOutput))
-            {
-                if (dronePawn->ThrusterFL) dronePawn->ThrusterFL->ThrustStrength = ThrustsVal[0];
-            }
-            if (ImGui::SliderFloat("Back Right", &ThrustsVal[3], 0, maxPIDOutput))
-            {
-                if (dronePawn->ThrusterBR) dronePawn->ThrusterBR->ThrustStrength = ThrustsVal[3];
-            }
-        }
-        ImGui::Unindent();
-
-        // Diagonal 2
-        ImGui::Text("Diagonal 2 Motors");
-        ImGui::Indent();
-        if (synchronizeDiagonal2)
-        {
-            if (ImGui::SliderFloat("FR & BL Thrust", &ThrustsVal[1], 0, maxPIDOutput))
-            {
-                ThrustsVal[2] = ThrustsVal[1];
-                if (dronePawn->ThrusterFR) dronePawn->ThrusterFR->ThrustStrength = ThrustsVal[1];
-                if (dronePawn->ThrusterBL) dronePawn->ThrusterBL->ThrustStrength = ThrustsVal[1];
-            }
-            ImGui::Text("Back Left (Synchronized): %.2f", ThrustsVal[2]);
-        }
-        else
-        {
-            if (ImGui::SliderFloat("Front Right", &ThrustsVal[1], 0, maxPIDOutput))
-            {
-                if (dronePawn->ThrusterFR) dronePawn->ThrusterFR->ThrustStrength = ThrustsVal[1];
-            }
-            if (ImGui::SliderFloat("Back Left", &ThrustsVal[2], 0, maxPIDOutput))
-            {
-                if (dronePawn->ThrusterBL) dronePawn->ThrusterBL->ThrustStrength = ThrustsVal[2];
-            }
-        }
-        ImGui::Unindent();
-    }
 }
 
 

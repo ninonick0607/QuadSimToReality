@@ -56,7 +56,6 @@ public:
 private:
     void DisplayDroneInfo();
     void DisplayDebugOptions();
-    void DisplayThrusterControls(TArray<float>& ThrustsVal);
     void DisplayPIDSettings(
         EFlightMode Mode,
         const char* headerLabel,

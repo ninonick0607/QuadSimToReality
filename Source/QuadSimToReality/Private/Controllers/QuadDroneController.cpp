@@ -348,27 +348,16 @@ void UQuadDroneController::ApplyControllerInput(double a_deltaTime)
 	float pitch_error = desiredPitch - currentRotation.Pitch;
 	float pitch_output = CurrentSet->PitchPID->Calculate(pitch_error, a_deltaTime);
 
-	// Yaw control 
-	float yawRate = 90.0f; // Degrees per second
-	desiredYaw += yawInput * yawRate * a_deltaTime;
-	desiredYaw = FMath::Fmod(desiredYaw + 180.0f, 360.0f) - 180.0f;
-
-	float yaw_error = desiredYaw - currentRotation.Yaw;
-	yaw_error = FMath::UnwindDegrees(yaw_error);
-	float yaw_output = CurrentSet->YawPID->Calculate(yaw_error, a_deltaTime);
-
-	// Apply yaw torque
-	FVector yawTorque = FVector(0.0f, 0.0f, yaw_output);
-	dronePawn->DroneBody->AddTorqueInDegrees(yawTorque, NAME_None, true);
-
 	// Thrust Mixing
 	ThrustMixer(0, 0, z_output, roll_output, pitch_output,0);
 
 	// Apply thrusts to rotors
-
+	
 	for (int i = 0; i < Thrusts.Num(); ++i)
 	{
-		dronePawn->Rotors[i].Thruster->ThrustStrength = droneMass * mult * Thrusts[i];
+		float force = droneMass * mult * Thrusts[i];
+		// or some scaling factor
+		dronePawn->Thrusters[i]->ApplyForce(force);
 	}
 
 	// Collect data for ImGui display
@@ -495,7 +484,9 @@ void UQuadDroneController::AutoWaypointControl(double a_deltaTime)
 	// Update the thrust of each rotor
 	for (int i = 0; i < Thrusts.Num(); ++i)
 	{
-		dronePawn->Rotors[i].Thruster->ThrustStrength = droneMass * mult * Thrusts[i];
+		float force = droneMass * mult * Thrusts[i];
+		// or some scaling factor
+		dronePawn->Thrusters[i]->ApplyForce(force);
 	}
 
 	AutoWaypointHUD->AutoWaypointHud(Thrusts, roll_error, pitch_error, currentRotation, setPoint, currentPosition,
@@ -618,7 +609,9 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
 	// Update rotors
 	for (int i = 0; i < Thrusts.Num(); ++i)
 	{
-		dronePawn->Rotors[i].Thruster->ThrustStrength = droneMass * mult * Thrusts[i];
+		float force = droneMass * mult * Thrusts[i];
+		// or some scaling factor
+		dronePawn->Thrusters[i]->ApplyForce(force);
 	}
 	// Debug visualization
 	if (Debug_DrawDroneWaypoint)

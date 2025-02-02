@@ -57,8 +57,6 @@ public:
     AQuadPawn* dronePawn;
     UPROPERTY()
     TArray<float> Thrusts;
-
-
     
     void ResetPID();
     void ResetDroneIntegral();
