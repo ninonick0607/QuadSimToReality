@@ -3,7 +3,7 @@
     "flight_parameters": {
       "max_velocity": 250.0,
       "max_angle": 15.0,
-      "max_pid_output": 600.0,
+      "max_pid_output": 2000.0,
       "altitude_threshold": 0.6,
       "min_altitude_local": 500.0,
       "acceptable_distance": 200

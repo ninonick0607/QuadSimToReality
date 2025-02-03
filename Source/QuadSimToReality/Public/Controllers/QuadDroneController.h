@@ -11,8 +11,6 @@ UENUM(BlueprintType)
 enum class EFlightMode : uint8
 {
     None UMETA(DisplayName = "None"),
-    AutoWaypoint UMETA(DisplayName = "AutoWaypoint"),
-    JoyStickControl UMETA(DisplayName = "JoyStickControl"),
     VelocityControl UMETA(DisplayName = "VelocityControl")
 };
 
@@ -64,26 +62,17 @@ public:
     void ThrustMixer(float xOutput, float yOutput, float zOutput, float rollOutput, float pitchOutput,float yawOutput);
     
     void Update(double DeltaTime);
-    void ApplyControllerInput(double a_deltaTime);
-    void AutoWaypointControl(double DeltaTime);
+
     void VelocityControl(double a_deltaTime);
     
-    void AddNavPlan(const FString& name, const TArray<FVector>& waypoints);
-    void SetNavPlan(const FString& name);
     void DrawDebugVisuals(const FVector& currentPosition, const FVector& setPoint)const;
-    void HandleThrustInput(float Value);
-    void HandleYawInput(float Value);
-    void HandlePitchInput(float Value);
-    void HandleRollInput(float Value);
-
+    
     void ResetDroneHigh();
     void ResetDroneOrigin();
 
     void bufferDebug(FFullPIDSet* PID_Set);
     
     const FVector& GetInitialPosition() const { return initialDronePosition; }
-
-
     
     void SetDesiredVelocity(const FVector& NewVelocity);
     void SetFlightMode(EFlightMode NewMode);
@@ -116,9 +105,7 @@ private:
     NavPlan* currentNav;
     int32 curPos;
      
-    TUniquePtr<ImGuiUtil> AutoWaypointHUD;
     TUniquePtr<ImGuiUtil> VelocityHUD;
-    TUniquePtr<ImGuiUtil>JoyStickHUD;
 
     FVector desiredNewVelocity;
 
@@ -138,8 +125,6 @@ private:
     float rollInput;
     float hoverThrust;
     bool bHoverThrustInitialized;
-
-
 
     FVector initialDronePosition;
 

@@ -24,25 +24,7 @@ public:
         float& InMaxAngle);
     ~ImGuiUtil();
 
-    void AutoWaypointHud(
-        TArray<float>& ThrustsVal,
-        float rollError, float pitchError,
-        const FRotator& currentRotation,
-        const FVector& waypoint, const FVector& currLoc,
-        const FVector& error,
-        const FVector& currentVelocity,
-        float xOutput, float yOutput, float zOutput, float deltaTime);
-
     void VelocityHud(
-        TArray<float>& ThrustsVal,
-        float rollError, float pitchError,
-        const FRotator& currentRotation,
-        const FVector& waypoint, const FVector& currLoc,
-        const FVector& error,
-        const FVector& currentVelocity,
-        float xOutput, float yOutput, float zOutput, float deltaTime);
-
-    void JoyStickHud(
         TArray<float>& ThrustsVal,
         float rollError, float pitchError,
         const FRotator& currentRotation,

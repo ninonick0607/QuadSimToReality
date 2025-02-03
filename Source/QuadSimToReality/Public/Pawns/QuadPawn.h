@@ -73,7 +73,6 @@ protected:
 private:
     // Helper functions
     void UpdateControl(float DeltaTime);
-    void InitializeRotors();
 
     bool bWaypointModeSelected;
     // Input components
