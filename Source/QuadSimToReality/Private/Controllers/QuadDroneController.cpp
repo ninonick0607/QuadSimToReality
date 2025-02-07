@@ -7,8 +7,10 @@
 #include "Core/DroneGlobalState.h"
 #include "UI/ImGuiUtil.h"
 #include "Core/DroneJSONConfig.h"
+#include "Core/DroneMathUtils.h"
 #include "Math/UnrealMathUtility.h"
 
+static constexpr float MotorThrustCoefficient = 1e-7f;
 
 // ---------------------- Constructor ------------------------
 
@@ -141,77 +143,6 @@ void UQuadDroneController::ResetDroneIntegral()
 }
 
 
-
-// ---------------------- Thrust, Desired Vel, Pitch, and Roll ------------------------
-
-void UQuadDroneController::ThrustMixer(float xOutput, float yOutput, float zOutput,
-                                       float rollOutput, float pitchOutput, float yawOutput)
-{
-	
-    switch (currentFlightMode)
-    {
-    case EFlightMode::None:
-        // no thrust
-        break;
-
-    case EFlightMode::VelocityControl:
-        // Mix the translational forces as before
-        Thrusts[0] = zOutput - xOutput + yOutput + rollOutput + pitchOutput + yawOutput;  // FL
-        Thrusts[1] = zOutput - xOutput - yOutput - rollOutput + pitchOutput - yawOutput;  // FR
-        Thrusts[2] = zOutput + xOutput + yOutput + rollOutput - pitchOutput - yawOutput;  // BL
-        Thrusts[3] = zOutput + xOutput - yOutput - rollOutput - pitchOutput + yawOutput;  // BR
-        break;
-    }
-	
-	static const int SpinDirections[4] = { +1, -1, -1, +1 };
-
-	for (int i = 0; i < Thrusts.Num(); ++i)
-	{
-		if (!dronePawn || !dronePawn->Thrusters.IsValidIndex(i))
-			continue;
-
-		// Apply thrust force
-		float droneMass = dronePawn->DroneBody->GetMass();
-		const float mult = 0.5f;
-		float forceVal = droneMass * mult * Thrusts[i];
-		dronePawn->Thrusters[i]->ApplyForce(forceVal);
-
-		// Calculate and apply torque
-		FVector RotorAxisWorld = dronePawn->Thrusters[i]->GetComponentTransform().GetUnitAxis(EAxis::Z);
-		
-		// Scale torque based on thrust and spin direction
-		// This couples the torque to the thrust magnitude for more realistic behavior
-		float torqueValue = forceVal * 0.01f * SpinDirections[i] + yawOutput * 0.5f * SpinDirections[i];
-		
-		// Apply both the yaw torque and the rotor-induced torque
-		FVector torqueVec = RotorAxisWorld * torqueValue;
-		dronePawn->Thrusters[i]->ApplyTorque(torqueVec, false); // Using radians
-
-		FVector upRef = FVector::UpVector;
-		if (FMath::Abs(FVector::DotProduct(RotorAxisWorld, upRef)) > 0.95f)
-		{
-			upRef = FVector::ForwardVector;
-		}
-
-		FVector tangentDir = RotorAxisWorld ^ upRef; // cross product
-		tangentDir.Normalize();
-
-		float debugLength = torqueValue * 20.f; 
-		FVector thrusterLocation = dronePawn->Thrusters[i]->GetComponentLocation();
-
-		FColor lineColor = (torqueValue >= 0.0f) ? FColor::Magenta : FColor::Cyan;
-		DrawDebugLine(
-			dronePawn->GetWorld(),
-			thrusterLocation,
-			thrusterLocation + (tangentDir * debugLength),
-			lineColor,
-			false, -1.f, 0, 2.f
-		);
-	}
-	
-}
-
-
 // ---------------------- Update ------------------------
 
 void UQuadDroneController::Update(double a_deltaTime)
@@ -229,96 +160,174 @@ void UQuadDroneController::Update(double a_deltaTime)
 	}
 }
 
+// ---------------------- Cascaded Control: VelocityControl ------------------------
+//
+// This implements the PX4 cascaded architecture. We assume:
+// 1. Outer Loop: Position controller (P only) that maps the error (setpoint minus current position)
+//    into a desired velocity (in cm/s). The desired velocity is then clamped to maxVelocity.
+// 2. Middle Loop: Velocity PID controllers produce acceleration commands. However, here we want
+//    the PID outputs to directly be RPM values (for our motors). For the vertical channel, we compute
+//    the required upward acceleration (gravity + PID output) and convert that into a "base" RPM via ThrustToRPM().
+// 3. Inner Loop: The horizontal acceleration commands (ax and ay) are converted into desired pitch and roll
+//    angles (using a small-angle approximation with gravity = 980 cm/s²). Their errors are fed into the attitude PIDs,
+//    whose outputs are interpreted as RPM corrections.
+// 4. Finally, the ThrustMixer sums the base RPM with the attitude corrections to yield the desired motor RPM for each rotor.
+// 5. When applying force, the computed motor RPM is converted back into a force (Newtons) via RPMToThrust().
+//    (Note: We ignore yaw here.)
+//
 void UQuadDroneController::VelocityControl(double a_deltaTime)
 {
 	FFullPIDSet* CurrentSet = PIDMap.Find(EFlightMode::VelocityControl);
-	if (!CurrentSet) return;
-	if (!dronePawn) return;
+	if (!CurrentSet || !dronePawn)
+		return;
 	
+	FVector currentPosition = dronePawn->GetActorLocation();
 	FVector currentVelocity = dronePawn->GetVelocity();
 	FRotator currentRotation = dronePawn->GetActorRotation();
-	FVector currentPosition = dronePawn->GetActorLocation();
-	// Safety checks
+	FVector droneForwardVector = dronePawn->GetActorForwardVector();
+
+	// Safety check: if dangerous orientation, reset.
 	bool needsReset = false;
-	
-	// Check for dangerous orientation
-	if (currentPosition.Z && FMath::Abs(currentRotation.Roll) > 60.0f || 
-		FMath::Abs(currentRotation.Pitch) > 60.0f)
+	if (currentPosition.Z && (FMath::Abs(currentRotation.Roll) > 60.0f || FMath::Abs(currentRotation.Pitch) > 60.0f))
 	{
 		needsReset = true;
-		UE_LOG(LogTemp, Warning, TEXT("Safety Reset: Dangerous orientation - Roll: %f, Pitch: %f"), 
-			   currentRotation.Roll, currentRotation.Pitch);
+		UE_LOG(LogTemp, Warning, TEXT("Safety Reset: Dangerous orientation - Roll: %f, Pitch: %f"), currentRotation.Roll, currentRotation.Pitch);
 	}
-	
 	if (needsReset)
 	{
-		// Reset drone's orientation and velocities
 		if (dronePawn->DroneBody)
 		{
-			// Reset rotation but keep position
 			FRotator safeRotation = FRotator(0.0f, currentRotation.Yaw, 0.0f);
 			dronePawn->SetActorRotation(safeRotation, ETeleportType::TeleportPhysics);
-            
-			// Zero out velocities
 			dronePawn->DroneBody->SetPhysicsLinearVelocity(FVector::ZeroVector);
 			dronePawn->DroneBody->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
-            
-			// Reset PID controllers
 			ResetDroneIntegral();
 		}
 	}
 
-	static float totalTime = 0.0f;
-	totalTime += a_deltaTime;
+	// --- Outer Loop: Position Controller ---
+	FVector positionError = desiredNewVelocity - currentPosition;
+	float Kp_Position = 0.1f;  // Tunable gain (could be exposed via ImGui)
+	FVector desiredVelocity = positionError * Kp_Position;
+	desiredVelocity = DroneMathUtils::ClampVectorMagnitude(desiredVelocity, maxVelocity);
+
+	// Draw Debug: Desired velocity vector (from current position)
+	{
+		FVector debugEnd = currentPosition + desiredVelocity;
+		DrawDebugLine(dronePawn->GetWorld(), currentPosition, debugEnd, FColor::Yellow, false, 0.1f, 0, 2.0f);
+	}
+
+	// --- Middle Loop: Velocity Controller ---
+	FVector velocityError = desiredNewVelocity - currentVelocity;  // Now correctly using desired velocity
     
-	// Calculate velocity error
-	FVector velocityError = desiredNewVelocity - currentVelocity;
+	// Compute acceleration commands from velocity PIDs
+	float ax = CurrentSet->XPID->Calculate(velocityError.X, a_deltaTime);
+	float ay = CurrentSet->YPID->Calculate(velocityError.Y, a_deltaTime);
+	float az = CurrentSet->ZPID->Calculate(velocityError.Z, a_deltaTime) + 980.0f; // Add gravity compensation
+	
+	// Normalize acceleration vector for attitude computation
+	FVector normalizedAccel = FVector(ax, ay, az).GetSafeNormal();
+    
+	// Use your existing functions for attitude calculation
+	float desiredRoll = DroneMathUtils::CalculateDesiredRoll(
+		normalizedAccel, droneForwardVector, maxAngle, altitudeThresh);
+	float desiredPitch = DroneMathUtils::CalculateDesiredPitch(
+		normalizedAccel, droneForwardVector, maxAngle, altitudeThresh);
 
-	// Use PID controllers to calculate outputs
-	float x_output = CurrentSet->XPID->Calculate(velocityError.X, a_deltaTime);
-	float y_output = CurrentSet->YPID->Calculate(velocityError.Y, a_deltaTime);
-	float z_output = CurrentSet->ZPID->Calculate(velocityError.Z, a_deltaTime);
+	// --- Inner Loop: Attitude Controller ---
+	float rollError = desiredRoll - currentRotation.Roll;
+	float pitchError = desiredPitch - currentRotation.Pitch;
 
-	// Attitude stabilization (keeping roll and pitch at zero)
-	float roll_error = -currentRotation.Roll;
-	float pitch_error = -currentRotation.Pitch;
+	float rollCorr = CurrentSet->RollPID->Calculate(rollError, a_deltaTime);
+	float pitchCorr = CurrentSet->PitchPID->Calculate(pitchError, a_deltaTime);
 
-	float roll_output = CurrentSet->RollPID->Calculate(roll_error, a_deltaTime);
-	float pitch_output = CurrentSet->PitchPID->Calculate(pitch_error, a_deltaTime);
+	// Compute thrust in Newtons
+	float droneMass = dronePawn->DroneBody->GetMass();
+	float totalThrust = droneMass * az;  // F = ma
+	float thrustPerMotor = totalThrust / 4.0f;
 
-	// Calculate desired yaw based on velocity direction
-	FVector horizontalVelocity = desiredNewVelocity;
-	horizontalVelocity.Z = 0; 
+	// Mix thrust and attitude corrections
+	ThrustMixer(thrustPerMotor, rollCorr, pitchCorr);
 
-	// Only update desired yaw if we have significant horizontal velocity
-	static constexpr float MIN_VELOCITY_FOR_YAW = 10.0f;
-	if (horizontalVelocity.SizeSquared() > MIN_VELOCITY_FOR_YAW * MIN_VELOCITY_FOR_YAW)
-	{
-		desiredYaw = FMath::RadiansToDegrees(FMath::Atan2(horizontalVelocity.Y, horizontalVelocity.X));
-	}
-	else
-	{
-		desiredYaw = currentRotation.Yaw;
-	}
+	// Debug visualization
+	DrawDebugLine(dronePawn->GetWorld(), currentPosition, 
+				  currentPosition + desiredNewVelocity, 
+				  FColor::Yellow, false, 0.1f, 0, 2.0f);
 
-	// Normalize desiredYaw to [-180, 180]
-	desiredYaw = FMath::Fmod(desiredYaw + 180.0f, 360.0f) - 180.0f;
-
-	// Calculate yaw error
-	float yaw_error = desiredYaw - currentRotation.Yaw;
-	yaw_error = FMath::UnwindDegrees(yaw_error);
-
-	// Calculate yaw output using PID
-	float yaw_output = CurrentSet->YawPID->Calculate(yaw_error, a_deltaTime);
-
-	ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output, yaw_output);
-
-	VelocityHUD->VelocityHud(Thrusts, roll_error, pitch_error, currentRotation, FVector::ZeroVector,
-		dronePawn->GetActorLocation(), FVector::ZeroVector, currentVelocity, x_output, y_output,
-		z_output, a_deltaTime);
-	VelocityHUD->RenderImPlot(Thrusts, a_deltaTime);
+	// Update HUD
+	VelocityHUD->VelocityHud(Thrusts, rollError, pitchError, currentRotation,
+		FVector::ZeroVector, currentPosition, FVector::ZeroVector, 
+		currentVelocity, ax, ay, az, a_deltaTime);
 }
 
+// ---------------------- RPM Conversion Functions ------------------------
+
+// Converts a thrust command (in Newtons) to an RPM value.
+float UQuadDroneController::ThrustToRPM(float thrust)
+{
+	if (thrust < 0.f) thrust = 0.f;
+	float omega = FMath::Sqrt(thrust / MotorThrustCoefficient); // rad/s
+	return (omega * 60.f) / (2.f * PI);
+}
+
+// Converts an RPM value back to thrust (in Newtons).
+float UQuadDroneController::RPMToThrust(float rpm)
+{
+	float omega = (rpm * 2.f * PI) / 60.f; // rad/s
+	return MotorThrustCoefficient * FMath::Pow(omega, 2);
+}
+
+// ---------------------- Thrust Mixer ------------------------
+//
+// This mixer now takes the base RPM (from vertical thrust) and adds attitude corrections
+// (in RPM) from the inner loop. It produces a desired RPM for each motor in an X configuration:
+//   Motor 0 (Front Left):  baseRPM + rollCorr + pitchCorr
+//   Motor 1 (Front Right): baseRPM - rollCorr + pitchCorr
+//   Motor 2 (Back Left):   baseRPM + rollCorr - pitchCorr
+//   Motor 3 (Back Right):  baseRPM - rollCorr - pitchCorr
+//
+// Then, when applying force, we convert each motor’s desired RPM back to thrust (Newtons).
+void UQuadDroneController::ThrustMixer(float baseThrust, float rollCorr, float pitchCorr)
+{
+	// Compute the desired RPM for each motor.
+	const float ROLL_SCALE = 0.2f;  // 20% of base thrust for roll authority
+	const float PITCH_SCALE = 0.2f; // 20% of base thrust for pitch authority
+    
+	float rollAdjustment = baseThrust * ROLL_SCALE * rollCorr;
+	float pitchAdjustment = baseThrust * PITCH_SCALE * pitchCorr;
+
+	// Calculate thrust for each motor (in Newtons)
+	// Front Left
+	Thrusts[0] = baseThrust + rollAdjustment + pitchAdjustment;
+	// Front Right  
+	Thrusts[1] = baseThrust - rollAdjustment + pitchAdjustment;
+	// Back Left
+	Thrusts[2] = baseThrust + rollAdjustment - pitchAdjustment;
+	// Back Right
+	Thrusts[3] = baseThrust - rollAdjustment - pitchAdjustment;
+	// --- Apply Forces ---
+	// For each motor, convert the desired RPM back into thrust (in Newtons)
+	// and apply that force at the thruster's location.
+
+	const float MAX_THRUST_PER_MOTOR = 26.0f; // About 2x hover thrust for your 5.3kg drone
+	for(int i = 0; i < Thrusts.Num(); i++)
+	{
+		Thrusts[i] = FMath::Clamp(Thrusts[i], 0.0f, MAX_THRUST_PER_MOTOR);
+	}
+	
+	for (int i = 0; i < Thrusts.Num(); ++i)
+	{
+		if (!dronePawn || !dronePawn->Thrusters.IsValidIndex(i))
+			continue;
+		
+		float appliedForce = RPMToThrust(Thrusts[i]);
+		dronePawn->Thrusters[i]->ApplyForce(appliedForce);
+		
+		// (Torque and yaw are ignored in this configuration.)
+	}
+}
+
+//
 // ---------------------- Helper Functions ------------------------
 
 void UQuadDroneController::ResetDroneHigh()

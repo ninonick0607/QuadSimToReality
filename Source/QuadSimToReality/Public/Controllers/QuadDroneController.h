@@ -44,22 +44,21 @@ class QUADSIMTOREALITY_API UQuadDroneController : public UObject
     GENERATED_BODY()
 
 public:
-    UQuadDroneController(const FObjectInitializer& ObjectInitializer);
-
-    void Initialize(AQuadPawn* InPawn);
-
-    virtual ~UQuadDroneController();
-
     
     UPROPERTY()
     AQuadPawn* dronePawn;
     UPROPERTY()
     TArray<float> Thrusts;
     
+    UQuadDroneController(const FObjectInitializer& ObjectInitializer);
+
+    void Initialize(AQuadPawn* InPawn);
+    virtual ~UQuadDroneController();
+    
     void ResetPID();
     void ResetDroneIntegral();
 
-    void ThrustMixer(float xOutput, float yOutput, float zOutput, float rollOutput, float pitchOutput,float yawOutput);
+    void ThrustMixer(float baseThrust, float rollCorr, float pitchCorr);
     
     void Update(double DeltaTime);
 
@@ -81,6 +80,9 @@ public:
     {
        return PIDMap.Find(Mode); 
     }
+
+    float ThrustToRPM(float thrust);
+    float RPMToThrust(float rpm);
 
 private:
     
