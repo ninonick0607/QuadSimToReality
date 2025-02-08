@@ -214,19 +214,7 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
 			ResetDroneIntegral();
 		}
 	}
-
-	// --- Outer Loop: Position Controller ---
-	FVector positionError = desiredNewVelocity - currentPosition;
-	float Kp_Position = 0.1f;  // Tunable gain (could be exposed via ImGui)
-	FVector desiredVelocity = positionError * Kp_Position;
-	desiredVelocity = DroneMathUtils::ClampVectorMagnitude(desiredVelocity, maxVelocity);
-
-	// Draw Debug: Desired velocity vector (from current position)
-	{
-		FVector debugEnd = currentPosition + desiredVelocity;
-		DrawDebugLine(dronePawn->GetWorld(), currentPosition, debugEnd, FColor::Yellow, false, 0.1f, 0, 2.0f);
-	}
-
+	\
 	// --- Middle Loop: Velocity Controller ---
 	FVector velocityError = desiredNewVelocity - currentVelocity;  // Now correctly using desired velocity
     
@@ -254,10 +242,10 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
 	// Compute thrust in Newtons
 	float droneMass = dronePawn->DroneBody->GetMass();
 	float totalThrust = droneMass * az;  // F = ma
-	float thrustPerMotor = totalThrust / 4.0f;
+	//float thrustPerMotor = totalThrust / 4.0f;
 
 	// Mix thrust and attitude corrections
-	ThrustMixer(thrustPerMotor, rollCorr, pitchCorr);
+	ThrustMixer(totalThrust, rollCorr, pitchCorr);
 
 	// Debug visualization
 	DrawDebugLine(dronePawn->GetWorld(), currentPosition, 
