@@ -25,7 +25,6 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	  , currentFlightMode(EFlightMode::None)
 	  , currentNav(nullptr)
 	  , curPos(0)
-	  , VelocityHUD(nullptr)
 	  , desiredNewVelocity(FVector::ZeroVector)
 {
 	// Load config values
@@ -78,7 +77,6 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
     VelocitySet.YawPID->SetGains(1.8f, 0.15f, 1.5f);
 	PIDMap.Add(EFlightMode::VelocityControl, MoveTemp(VelocitySet));
 
-	VelocityHUD = MakeUnique<ImGuiUtil>(dronePawn, this, desiredNewVelocity,Debug_DrawDroneCollisionSphere, Debug_DrawDroneWaypoint, maxPIDOutput, maxVelocity, maxAngle);
 	
 	DroneGlobalState::Get().BindController(this);
 }
@@ -96,12 +94,24 @@ void UQuadDroneController::Initialize(AQuadPawn* InPawn)
 		return;
 	}
 
+	// Save the pawn pointer.
 	if (dronePawn != InPawn)
 	{
 		UE_LOG(LogTemp, Display, TEXT("Initializing controller for pawn: %s"), *InPawn->GetName());
 		dronePawn = InPawn;
 	}
+
+	// Create and set up the HUD if it doesn’t exist.
+	if (!ControllerHUD)
+	{
+		ControllerHUD = NewObject<UImGuiUtil>(this, TEXT("ControllerHUD"));
+		ControllerHUD->RegisterComponent();
+		ControllerHUD->Initialize(dronePawn, this, desiredNewVelocity,
+								  Debug_DrawDroneCollisionSphere, Debug_DrawDroneWaypoint,
+								  maxPIDOutput, maxVelocity, maxAngle);
+	}
 }
+
 
 
 
@@ -255,7 +265,7 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
 				  FColor::Yellow, false, 0.1f, 0, 2.0f);
 
 	// Update HUD
-	VelocityHUD->VelocityHud(Thrusts, rollError, pitchError, currentRotation,
+	ControllerHUD->VelocityHud(Thrusts, rollError, pitchError, currentRotation,
 		FVector::ZeroVector, currentPosition, FVector::ZeroVector, 
 		currentVelocity, ax, ay, az, a_deltaTime);
 }

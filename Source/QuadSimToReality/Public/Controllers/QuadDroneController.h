@@ -50,6 +50,9 @@ public:
     UPROPERTY()
     TArray<float> Thrusts;
     
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI")
+    UImGuiUtil* ControllerHUD;
+    
     UQuadDroneController(const FObjectInitializer& ObjectInitializer);
 
     void Initialize(AQuadPawn* InPawn);
@@ -107,7 +110,6 @@ private:
     NavPlan* currentNav;
     int32 curPos;
      
-    TUniquePtr<ImGuiUtil> VelocityHUD;
 
     FVector desiredNewVelocity;
 

@@ -66,6 +66,7 @@ public:
     
     void SwitchCamera() const;
     void ToggleImguiInput();
+    float GetMass(){return DroneBody->GetMass();};
 
 protected:
     virtual void BeginPlay() override;
