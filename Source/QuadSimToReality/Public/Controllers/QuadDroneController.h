@@ -84,8 +84,6 @@ public:
        return PIDMap.Find(Mode); 
     }
 
-    float ThrustToRPM(float thrust);
-    float RPMToThrust(float rpm);
 
 private:
     
