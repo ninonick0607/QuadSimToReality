@@ -61,7 +61,7 @@ public:
     void ResetPID();
     void ResetDroneIntegral();
 
-    void ThrustMixer(float baseThrust, float rollCorr, float pitchCorr);
+    void ThrustMixer(float xOutput, float yOutput, float zOutput, float rollOutput, float pitchOutput, float yawOutput);
     
     void Update(double DeltaTime);
 
