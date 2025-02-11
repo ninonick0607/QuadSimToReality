@@ -179,6 +179,9 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
     FVector currentVelocity = dronePawn->GetVelocity();
     FRotator currentRotation = dronePawn->GetActorRotation();
 
+	FVector horizontalVelocity = desiredNewVelocity;
+	horizontalVelocity.Z = 0;
+	
     // Safety check: if dangerous orientation, reset.
     bool needsReset = false;
     if (currentPosition.Z && (FMath::Abs(currentRotation.Roll) > 60.0f || FMath::Abs(currentRotation.Pitch) > 60.0f))
@@ -213,14 +216,26 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
     float pitch_output = CurrentSet->PitchPID->Calculate(pitch_error, a_deltaTime);
 
     // --- Yaw Control using PID ---
-    if (!bDesiredYawInitialized)
-    {
-        desiredYaw = currentRotation.Yaw;
-        bDesiredYawInitialized = true;
-    }
-    float yawError = FMath::FindDeltaAngleDegrees(currentRotation.Yaw, desiredYaw);
-    float yaw_output = CurrentSet->YawPID->Calculate(yawError, a_deltaTime);
 
+	static constexpr float MIN_VELOCITY_FOR_YAW = 10.0f;
+	if (horizontalVelocity.SizeSquared() > MIN_VELOCITY_FOR_YAW * MIN_VELOCITY_FOR_YAW)
+	{
+		desiredYaw = FMath::RadiansToDegrees(FMath::Atan2(horizontalVelocity.Y, horizontalVelocity.X));
+	}
+	else
+	{
+		desiredYaw = currentRotation.Yaw;
+	}
+
+
+	desiredYaw = FMath::Fmod(desiredYaw + 180.0f, 360.0f) - 180.0f;
+
+	float yawError = desiredYaw - currentRotation.Yaw;
+	//yawError = FMath::UnwindDegrees(yawError);
+
+    //float yawError = FMath::FindDeltaAngleDegrees(currentRotation.Yaw, desiredYaw);
+    float yaw_output = CurrentSet->YawPID->Calculate(yawError, a_deltaTime);
+	desiredYaw = FMath::Fmod(desiredYaw + 180.0f, 360.0f) - 180.0f;
     // Mix thrust and attitude corrections (now with a separate yaw output)
     ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output, yaw_output);
 
@@ -247,41 +262,40 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
         currentVelocity, x_output, y_output, z_output, a_deltaTime);
 }
 
-
-void UQuadDroneController::ThrustMixer(float xOutput, float yOutput, float zOutput, float rollOutput, float pitchOutput, float yawOutput)
+void UQuadDroneController::ThrustMixer(float xOutput, float yOutput, float zOutput,
+										 float rollOutput, float pitchOutput, float yaw_output)
 {
 	float droneMass = dronePawn->DroneBody->GetMass();
 	const float mult = 0.5f;
     
-	// --- Compute force mixing (without yaw) ---
-	Thrusts[0] = zOutput - xOutput + yOutput + rollOutput + pitchOutput;  // FL
-	Thrusts[1] = zOutput - xOutput - yOutput - rollOutput + pitchOutput;  // FR
-	Thrusts[2] = zOutput + xOutput + yOutput + rollOutput - pitchOutput;  // BL
-	Thrusts[3] = zOutput + xOutput - yOutput - rollOutput - pitchOutput;  // BR
-
+	float baseThrust = (-droneMass * GetWorld()->GetGravityZ()) / 4.0f;
+    
+	Thrusts[0] = baseThrust + zOutput - xOutput + yOutput + rollOutput + pitchOutput;
+	Thrusts[1] = baseThrust + zOutput - xOutput - yOutput - rollOutput + pitchOutput;
+	Thrusts[2] = baseThrust + zOutput + xOutput + yOutput + rollOutput - pitchOutput;
+	Thrusts[3] = baseThrust + zOutput + xOutput - yOutput - rollOutput - pitchOutput;
+    
 	for (int i = 0; i < Thrusts.Num(); i++)
 	{
 		Thrusts[i] = FMath::Clamp(Thrusts[i], 0.0f, 700.0f);
 	}
     
-	// --- Apply forces and yaw torque to each motor ---
-	// Calculate a yaw torque value scaled by mass and a constant multiplier.
-	float yawTorque = droneMass * mult * yawOutput;
-
-	for (int i = 0; i < Thrusts.Num(); ++i)
+	float yawTorque = droneMass * mult * yaw_output;
+	for (int i = 0; i < Thrusts.Num(); i++)
 	{
 		if (!dronePawn || !dronePawn->Thrusters.IsValidIndex(i))
 			continue;
-        
-		// Apply force based on the mixed thrust value.
 		float force = droneMass * mult * Thrusts[i];
 		dronePawn->Thrusters[i]->ApplyForce(force);
+        
+		float motorYawTorque = (i == 0 || i == 2) ? -yawTorque : yawTorque;
+		UE_LOG(LogTemp, Display, TEXT("YawTorque called: %f"),motorYawTorque );
 
-		// Distribute yaw torque: motors 0 and 3 get positive torque, motors 1 and 2 get negative torque.
-		float motorYawTorque = (i == 0 || i == 3) ? yawTorque : -yawTorque;
-		dronePawn->Thrusters[i]->ApplyTorque(FVector(0.0f, 0.0f, motorYawTorque));
+		dronePawn->Thrusters[i]->ApplyTorque(FVector(0.f, 0.f, motorYawTorque), true);
 	}
 }
+
+
 
 //
 // ---------------------- Helper Functions ------------------------

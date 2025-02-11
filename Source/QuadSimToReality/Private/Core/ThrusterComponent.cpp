@@ -31,14 +31,10 @@ void UThrusterComponent::ApplyForce(float Force)
         return;
     }
 
-    // By default, push along local +X.
     const FVector Direction = GetComponentTransform().GetUnitAxis(EAxis::X);
     const FVector ForceVector = Direction * Force;
 
-    // Use this component's location as the point of force application.
     const FVector ForceLocation = GetComponentLocation();
-
-    // Apply force at that location
     RootPrim->AddForceAtLocation(ForceVector, ForceLocation);
 
     UE_LOG(LogTemp, Warning,
@@ -47,23 +43,20 @@ void UThrusterComponent::ApplyForce(float Force)
     );
 
 #if WITH_EDITOR
-    // Debug line
     if (Force > 0.01f)
     {
-        DrawDebugLine(
-            GetWorld(),
+        DrawDebugLine(GetWorld(),
             ForceLocation,
             ForceLocation + (Direction * Force * 0.01f),
             FColor::Blue,
-            false, // bPersistentLines
-            -1.0f, // Lifetime
+            false, 
+            -1.0f, 
             0,
             2.0f
         );
     }
 #endif
 }
-
 void UThrusterComponent::ApplyTorque(const FVector& Torque, bool bIsDegrees /*= true*/)
 {
     AActor* Owner = GetOwner();
@@ -116,4 +109,10 @@ void UThrusterComponent::ApplyTorque(const FVector& Torque, bool bIsDegrees /*= 
         2.0f
     );
 #endif
+}
+
+void UThrusterComponent::ApplyTorque(float TorqueValue, bool bIsDegrees)
+{
+    FVector TorqueVector(0.0f, 0.0f, TorqueValue);
+    ApplyTorque(TorqueVector, bIsDegrees);
 }
