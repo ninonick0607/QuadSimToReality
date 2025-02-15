@@ -16,15 +16,29 @@
 
 UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectInitializer)
 	: dronePawn(nullptr)
-	  , Thrusts({0, 0, 0, 0})
-	  , desiredYaw(0.f)
-	  , bDesiredYawInitialized(false)
-	  , desiredAltitude(0.0f)
-	  , bDesiredAltitudeInitialized(false)
-	  , currentFlightMode(EFlightMode::None)
-	  , currentNav(nullptr)
-	  , curPos(0)
-	  , desiredNewVelocity(FVector::ZeroVector)
+	, Thrusts({0, 0, 0, 0})
+	, desiredYaw(0.f)
+	, bDesiredYawInitialized(false)
+	, desiredAltitude(0.0f)
+	, bDesiredAltitudeInitialized(false)
+	, currentFlightMode(EFlightMode::None)
+	, currentNav(nullptr)
+	, curPos(0)
+	, desiredNewVelocity(FVector::ZeroVector)
+	, initialTakeoff(true)
+	, altitudeReached(false)
+	, Debug_DrawDroneCollisionSphere(true)
+	, Debug_DrawDroneWaypoint(true)
+	, thrustInput(0.0f)
+	, yawInput(0.0f)
+	, pitchInput(0.0f)
+	, rollInput(0.0f)
+	, hoverThrust(0.0f)
+	, bHoverThrustInitialized(false)
+	, MaxAngularVelocity(180.0)  
+	, YawTorqueForce(100.0)       
+	, LastYawTorqueApplied(0.0)
+	, UpsideDown(false)
 {
 	// Load config values
 	const auto& Config = UDroneJSONConfig::Get().Config;
@@ -34,23 +48,8 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	altitudeThresh = Config.FlightParams.AltitudeThreshold;
 	minAltitudeLocal = Config.FlightParams.MinAltitudeLocal;
 	acceptableDistance = Config.FlightParams.AcceptableDistance;
-
-	// Initialize other values
-	initialTakeoff = true;
-	altitudeReached = false;
-	Debug_DrawDroneCollisionSphere = true;
-	Debug_DrawDroneWaypoint = true;
-	thrustInput = 0.0f;
-	yawInput = 0.0f;
-	pitchInput = 0.0f;
-	rollInput = 0.0f;
-	hoverThrust = 0.0f;
-	bHoverThrustInitialized = false;
-	Thrusts.SetNum(4);
 	
     FFullPIDSet VelocitySet;
-
-    // 3) Fill VelocitySet
     VelocitySet.XPID = new QuadPIDController();
     VelocitySet.XPID->SetLimits(-maxPIDOutput, maxPIDOutput);
     VelocitySet.XPID->SetGains(1.f, 0.f, 0.1f);
@@ -118,7 +117,6 @@ void UQuadDroneController::Initialize(AQuadPawn* InPawn)
 
 void UQuadDroneController::ResetPID()
 {
-	// For each flight mode in the TMap, reset all six
 	for (auto& Elem : PIDMap)
 	{
 		FFullPIDSet& ThisSet = Elem.Value;
@@ -164,7 +162,6 @@ void UQuadDroneController::Update(double a_deltaTime)
 	case EFlightMode::None:
 		return;
 	case EFlightMode::VelocityControl:
-
 		break;
 	}
 }
@@ -203,20 +200,16 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
 
     // --- Middle Loop: Velocity Controller ---
     FVector velocityError = desiredNewVelocity - currentVelocity;  // Using desired velocity
-
-    // Compute acceleration commands from velocity PIDs
-    float x_output = CurrentSet->XPID->Calculate(velocityError.X, a_deltaTime);
+	float x_output = CurrentSet->XPID->Calculate(velocityError.X, a_deltaTime);
     float y_output = CurrentSet->YPID->Calculate(velocityError.Y, a_deltaTime);
     float z_output = CurrentSet->ZPID->Calculate(velocityError.Z, a_deltaTime);
 
     float roll_error = -currentRotation.Roll;
     float pitch_error = -currentRotation.Pitch;
-    
     float roll_output = CurrentSet->RollPID->Calculate(roll_error, a_deltaTime);
     float pitch_output = CurrentSet->PitchPID->Calculate(pitch_error, a_deltaTime);
 
     // --- Yaw Control using PID ---
-
 	static constexpr float MIN_VELOCITY_FOR_YAW = 10.0f;
 	if (horizontalVelocity.SizeSquared() > MIN_VELOCITY_FOR_YAW * MIN_VELOCITY_FOR_YAW)
 	{
@@ -226,18 +219,9 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
 	{
 		desiredYaw = currentRotation.Yaw;
 	}
-
-
-	desiredYaw = FMath::Fmod(desiredYaw + 180.0f, 360.0f) - 180.0f;
-
-	float yawError = desiredYaw - currentRotation.Yaw;
-	//yawError = FMath::UnwindDegrees(yawError);
-
-    //float yawError = FMath::FindDeltaAngleDegrees(currentRotation.Yaw, desiredYaw);
-    float yaw_output = CurrentSet->YawPID->Calculate(yawError, a_deltaTime);
-	desiredYaw = FMath::Fmod(desiredYaw + 180.0f, 360.0f) - 180.0f;
-    // Mix thrust and attitude corrections (now with a separate yaw output)
-    ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output, yaw_output);
+	
+	YawStabilization(a_deltaTime);
+    ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
 
     // Debug visualization (unchanged)
     if (Debug_DrawDroneWaypoint)
@@ -263,7 +247,7 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
 }
 
 void UQuadDroneController::ThrustMixer(float xOutput, float yOutput, float zOutput,
-										 float rollOutput, float pitchOutput, float yaw_output)
+									  float rollOutput, float pitchOutput)
 {
 	float droneMass = dronePawn->DroneBody->GetMass();
 	const float mult = 0.5f;
@@ -278,26 +262,72 @@ void UQuadDroneController::ThrustMixer(float xOutput, float yOutput, float zOutp
 	for (int i = 0; i < Thrusts.Num(); i++)
 	{
 		Thrusts[i] = FMath::Clamp(Thrusts[i], 0.0f, 700.0f);
-	}
-    
-	float yawTorque = droneMass * mult * yaw_output;
-	for (int i = 0; i < Thrusts.Num(); i++)
-	{
-		if (!dronePawn || !dronePawn->Thrusters.IsValidIndex(i))
-			continue;
-		float force = droneMass * mult * Thrusts[i];
-		dronePawn->Thrusters[i]->ApplyForce(force);
-        
-		float motorYawTorque = (i == 0 || i == 2) ? -yawTorque : yawTorque;
-		UE_LOG(LogTemp, Display, TEXT("YawTorque called: %f"),motorYawTorque );
-
-		dronePawn->Thrusters[i]->ApplyTorque(FVector(0.f, 0.f, motorYawTorque), true);
+		if (dronePawn->Thrusters.IsValidIndex(i))
+		{
+			float force = droneMass * mult * Thrusts[i];
+			dronePawn->Thrusters[i]->ApplyForce(force);
+		}
 	}
 }
 
 
+void UQuadDroneController::YawStabilization(double DeltaTime)
+{
+	if (!dronePawn || !dronePawn->DroneBody) return;
 
-//
+	// Calculate yaw error
+	FRotator CurrentRot = dronePawn->GetActorRotation();
+	float CurrentYaw = CurrentRot.Yaw;
+	float YawError = FMath::FindDeltaAngleDegrees(CurrentYaw, desiredYaw);
+
+	// Get PID output
+	FFullPIDSet* CurrentSet = PIDMap.Find(EFlightMode::VelocityControl);
+	if (!CurrentSet) return;
+	float PIDOutput = CurrentSet->YawPID->Calculate(YawError, DeltaTime);
+
+	// Calculate torque vector (applied around up axis)
+	FVector UpVector = dronePawn->DroneBody->GetUpVector();
+	FVector TorqueVector = UpVector * PIDOutput * YawTorqueForce;
+
+	// Apply torque through all thrusters (summing their contributions)
+	for (UThrusterComponent* Thruster : dronePawn->Thrusters)
+	{
+		if (Thruster)
+		{
+			// Apply torque in world space
+			Thruster->ApplyTorque(TorqueVector, true);
+		}
+	}
+
+	// Debug visualization
+	FVector DroneLocation = dronePawn->GetActorLocation();
+	DrawDebugDirectionalArrow(
+		GetWorld(),
+		DroneLocation,
+		DroneLocation + UpVector * 100.f,
+		50.f,
+		FColor::Blue,
+		false,
+		0.1f,
+		0,
+		3.f
+	);
+    
+	FVector ForwardVector = dronePawn->DroneBody->GetForwardVector();
+	DrawDebugDirectionalArrow(
+		GetWorld(),
+		DroneLocation,
+		DroneLocation + ForwardVector * 100.f,
+		50.f,
+		FColor::Red,
+		false,
+		0.1f,
+		0,
+		3.f
+	);
+}
+
+
 // ---------------------- Helper Functions ------------------------
 
 void UQuadDroneController::ResetDroneHigh()
@@ -369,6 +399,8 @@ void UQuadDroneController::ResetDroneOrigin()
 		altitudeReached = false;
 	}
 }
+
+
 
 void UQuadDroneController::DrawDebugVisuals(const FVector& currentPosition, const FVector& setPoint) const
 {

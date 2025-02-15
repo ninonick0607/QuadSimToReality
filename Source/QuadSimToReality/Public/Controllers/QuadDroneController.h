@@ -54,35 +54,28 @@ public:
     UImGuiUtil* ControllerHUD;
     
     UQuadDroneController(const FObjectInitializer& ObjectInitializer);
+    virtual ~UQuadDroneController();
 
     void Initialize(AQuadPawn* InPawn);
-    virtual ~UQuadDroneController();
+    void Update(double DeltaTime);
     
+    void VelocityControl(double a_deltaTime);
+    void ThrustMixer(float xOutput, float yOutput, float zOutput, float rollOutput, float pitchOutput);
+    void YawStabilization(double DeltaTime);
+
     void ResetPID();
     void ResetDroneIntegral();
-
-    void ThrustMixer(float xOutput, float yOutput, float zOutput, float rollOutput, float pitchOutput, float yawOutput);
-    
-    void Update(double DeltaTime);
-
-    void VelocityControl(double a_deltaTime);
-    
-    void DrawDebugVisuals(const FVector& currentPosition, const FVector& setPoint)const;
-    
     void ResetDroneHigh();
     void ResetDroneOrigin();
-
+    
+    void DrawDebugVisuals(const FVector& currentPosition, const FVector& setPoint)const;
     void bufferDebug(FFullPIDSet* PID_Set);
     
     const FVector& GetInitialPosition() const { return initialDronePosition; }
-    
     void SetDesiredVelocity(const FVector& NewVelocity);
     void SetFlightMode(EFlightMode NewMode);
     EFlightMode GetFlightMode() const;
-    FFullPIDSet* GetPIDSet(EFlightMode Mode)
-    {
-       return PIDMap.Find(Mode); 
-    }
+    FFullPIDSet* GetPIDSet(EFlightMode Mode) { return PIDMap.Find(Mode); }
 
 
 private:
@@ -107,8 +100,7 @@ private:
     TArray<NavPlan> setPointNavigation;
     NavPlan* currentNav;
     int32 curPos;
-     
-
+    
     FVector desiredNewVelocity;
 
     float maxVelocity;
@@ -128,6 +120,12 @@ private:
     float hoverThrust;
     bool bHoverThrustInitialized;
 
+
+    double MaxAngularVelocity;
+    double YawTorqueForce;
+    double LastYawTorqueApplied;
+    bool UpsideDown;
+    
     FVector initialDronePosition;
 
 };

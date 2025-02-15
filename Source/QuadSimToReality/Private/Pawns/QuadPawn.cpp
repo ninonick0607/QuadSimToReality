@@ -12,15 +12,15 @@
 #define EPSILON 0.0001f
 
 AQuadPawn::AQuadPawn()
-	: DroneBody(nullptr) // 1
-	  , DroneCamMesh(nullptr) // 2
-	  , SpringArm(nullptr) // 3
-	  , Camera(nullptr) // 4
-	  , CameraFPV(nullptr) // 5
-	  , WaypointMode(EWaypointMode::WaitingForModeSelection) // 14
-	  , NewWaypoint(FVector::ZeroVector) // 16
-	  , QuadController(nullptr) // 20
-	  , bWaypointModeSelected(false) // 21
+	: DroneBody(nullptr) 
+	  , DroneCamMesh(nullptr) 
+	  , SpringArm(nullptr)
+	  , Camera(nullptr) 
+	  , CameraFPV(nullptr) 
+	  , WaypointMode(EWaypointMode::WaitingForModeSelection)
+	  , NewWaypoint(FVector::ZeroVector) 
+	  , QuadController(nullptr) 
+	  , bWaypointModeSelected(false)
 	  , Input_ToggleImguiInput(nullptr)
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -52,7 +52,6 @@ AQuadPawn::AQuadPawn()
 		);
 		Thrusters[i]->SetupAttachment(DroneBody,*socketNames[i]); 
 		Thrusters[i]->SetRelativeRotation(FRotator(90.f, 0.f, 0.f));
-
 	}
 
 	// Create camera components
