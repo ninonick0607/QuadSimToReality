@@ -56,7 +56,9 @@ public:
     TArray<UStaticMeshComponent*> Propellers;
     UPROPERTY(VisibleAnywhere, Category = "Components")
     TArray<UThrusterComponent*> Thrusters;
-
+    // Add to AQuadPawn class definition
+    UPROPERTY(EditDefaultsOnly, Category = "Drone Configuration")
+    TArray<bool> MotorClockwiseDirections = {false, true, true, false};
     // Controllers
     UPROPERTY(VisibleAnywhere, Category = "Controller")
     UQuadDroneController* QuadController;

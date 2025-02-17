@@ -36,7 +36,7 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	, hoverThrust(0.0f)
 	, bHoverThrustInitialized(false)
 	, MaxAngularVelocity(180.0)  
-	, YawTorqueForce(100.0)       
+	, YawTorqueForce(2.0)       
 	, LastYawTorqueApplied(0.0)
 	, UpsideDown(false)
 {
@@ -203,9 +203,21 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
 	float x_output = CurrentSet->XPID->Calculate(velocityError.X, a_deltaTime);
     float y_output = CurrentSet->YPID->Calculate(velocityError.Y, a_deltaTime);
     float z_output = CurrentSet->ZPID->Calculate(velocityError.Z, a_deltaTime);
+	
+	static constexpr float ROLL_DEADZONE = 0.5f;  // degrees
+	static constexpr float PITCH_DEADZONE = 0.5f; // degrees
 
-    float roll_error = -currentRotation.Roll;
-    float pitch_error = -currentRotation.Pitch;
+	float roll_error = -currentRotation.Roll;
+	if (FMath::Abs(roll_error) < ROLL_DEADZONE)
+	{
+		roll_error = 0.0f;
+	}
+	float pitch_error = -currentRotation.Pitch;
+	if (FMath::Abs(pitch_error) < PITCH_DEADZONE)
+	{
+		pitch_error = 0.0f;
+	}
+
     float roll_output = CurrentSet->RollPID->Calculate(roll_error, a_deltaTime);
     float pitch_output = CurrentSet->PitchPID->Calculate(pitch_error, a_deltaTime);
 
@@ -219,8 +231,11 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
 	{
 		desiredYaw = currentRotation.Yaw;
 	}
-	
+
+
+	desiredYaw = FMath::Fmod(desiredYaw + 180.0f, 360.0f) - 180.0f;
 	YawStabilization(a_deltaTime);
+	
     ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
 
     // Debug visualization (unchanged)
@@ -247,7 +262,7 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
 }
 
 void UQuadDroneController::ThrustMixer(float xOutput, float yOutput, float zOutput,
-									  float rollOutput, float pitchOutput)
+										 float rollOutput, float pitchOutput)
 {
 	float droneMass = dronePawn->DroneBody->GetMass();
 	const float mult = 0.5f;
@@ -262,13 +277,17 @@ void UQuadDroneController::ThrustMixer(float xOutput, float yOutput, float zOutp
 	for (int i = 0; i < Thrusts.Num(); i++)
 	{
 		Thrusts[i] = FMath::Clamp(Thrusts[i], 0.0f, 700.0f);
-		if (dronePawn->Thrusters.IsValidIndex(i))
-		{
-			float force = droneMass * mult * Thrusts[i];
-			dronePawn->Thrusters[i]->ApplyForce(force);
-		}
+	}
+    
+	for (int i = 0; i < Thrusts.Num(); i++)
+	{
+		if (!dronePawn || !dronePawn->Thrusters.IsValidIndex(i))
+			continue;
+		float force = droneMass * mult * Thrusts[i];
+		dronePawn->Thrusters[i]->ApplyForce(force);
 	}
 }
+
 
 
 void UQuadDroneController::YawStabilization(double DeltaTime)
@@ -279,27 +298,27 @@ void UQuadDroneController::YawStabilization(double DeltaTime)
 	FRotator CurrentRot = dronePawn->GetActorRotation();
 	float CurrentYaw = CurrentRot.Yaw;
 	float YawError = FMath::FindDeltaAngleDegrees(CurrentYaw, desiredYaw);
-
-	// Get PID output
+	
+	static constexpr float YAW_ERROR_THRESHOLD = 1.0f; 
+	if (FMath::Abs(YawError) < YAW_ERROR_THRESHOLD)
+	{
+		return;
+	}
 	FFullPIDSet* CurrentSet = PIDMap.Find(EFlightMode::VelocityControl);
 	if (!CurrentSet) return;
 	float PIDOutput = CurrentSet->YawPID->Calculate(YawError, DeltaTime);
 
-	// Calculate torque vector (applied around up axis)
 	FVector UpVector = dronePawn->DroneBody->GetUpVector();
 	FVector TorqueVector = UpVector * PIDOutput * YawTorqueForce;
 
-	// Apply torque through all thrusters (summing their contributions)
 	for (UThrusterComponent* Thruster : dronePawn->Thrusters)
 	{
 		if (Thruster)
 		{
-			// Apply torque in world space
 			Thruster->ApplyTorque(TorqueVector, true);
 		}
 	}
 
-	// Debug visualization
 	FVector DroneLocation = dronePawn->GetActorLocation();
 	DrawDebugDirectionalArrow(
 		GetWorld(),
@@ -321,10 +340,27 @@ void UQuadDroneController::YawStabilization(double DeltaTime)
 		50.f,
 		FColor::Red,
 		false,
-		0.1f,
+		-1.f,
 		0,
 		3.f
 	);
+
+	for(int i = 0; i < dronePawn->Thrusters.Num(); i++)
+	{
+		FVector MotorPos = dronePawn->Thrusters[i]->GetComponentLocation();
+		FString DirText = dronePawn->MotorClockwiseDirections[i] ? TEXT("CW") : TEXT("CCW");
+		DrawDebugString(
+			GetWorld(),
+			MotorPos + FVector(0,0,15),
+			FString::Printf(TEXT("M%d\n%s"), i, *DirText),
+			nullptr,
+			FColor::White,
+			0.f,
+			true,
+			1.2f
+		);
+	}
+	
 }
 
 
