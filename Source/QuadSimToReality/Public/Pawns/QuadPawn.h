@@ -63,8 +63,10 @@ public:
     UPROPERTY(VisibleAnywhere, Category = "Controller")
     UQuadDroneController* QuadController;
     
-    UPROPERTY(VisibleAnywhere, Category = "ZMQ")
+    // Add a UPROPERTY for the ZMQController
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "ZMQ", meta = (AllowPrivateAccess = "true"))
     UZMQController* ZMQController;
+
     
     void SwitchCamera() const;
     void ToggleImguiInput();

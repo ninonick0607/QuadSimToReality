@@ -164,6 +164,27 @@ void UQuadDroneController::Update(double a_deltaTime)
 	case EFlightMode::VelocityControl:
 		break;
 	}
+
+
+	if (dronePawn && dronePawn->ZMQController)
+	{
+		FString DroneID = dronePawn->ZMQController->GetConfiguration().DroneID;
+		FVector DroneLocation = dronePawn->GetActorLocation();
+        
+		FVector Offset(0, 0, dronePawn->DroneBody->Bounds.BoxExtent.Z + 20.f);
+		FVector DebugLocation = DroneLocation + Offset;
+
+		DrawDebugString(
+			dronePawn->GetWorld(),   
+			DebugLocation,           
+			DroneID,                 
+			nullptr,                 
+			FColor::Green,           
+			0.f,                     
+			true,                    
+			1.2f                     
+		);
+	}
 }
 
 void UQuadDroneController::VelocityControl(double a_deltaTime)
@@ -199,24 +220,13 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
     }
 
     // --- Middle Loop: Velocity Controller ---
-    FVector velocityError = desiredNewVelocity - currentVelocity;  // Using desired velocity
+    FVector velocityError = desiredNewVelocity - currentVelocity;  
 	float x_output = CurrentSet->XPID->Calculate(velocityError.X, a_deltaTime);
     float y_output = CurrentSet->YPID->Calculate(velocityError.Y, a_deltaTime);
     float z_output = CurrentSet->ZPID->Calculate(velocityError.Z, a_deltaTime);
 	
-	static constexpr float ROLL_DEADZONE = 0.5f;  // degrees
-	static constexpr float PITCH_DEADZONE = 0.5f; // degrees
-
 	float roll_error = -currentRotation.Roll;
-	if (FMath::Abs(roll_error) < ROLL_DEADZONE)
-	{
-		roll_error = 0.0f;
-	}
 	float pitch_error = -currentRotation.Pitch;
-	if (FMath::Abs(pitch_error) < PITCH_DEADZONE)
-	{
-		pitch_error = 0.0f;
-	}
 
     float roll_output = CurrentSet->RollPID->Calculate(roll_error, a_deltaTime);
     float pitch_output = CurrentSet->PitchPID->Calculate(pitch_error, a_deltaTime);

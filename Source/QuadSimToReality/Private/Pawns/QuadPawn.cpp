@@ -76,6 +76,8 @@ AQuadPawn::AQuadPawn()
 	SpringArm->bInheritPitch = false;
 	SpringArm->bInheritRoll = false;
 
+	ZMQController = CreateDefaultSubobject<UZMQController>(TEXT("ZMQController"));
+	
 	AutoPossessPlayer = EAutoReceiveInput::Player0;
 }
 
@@ -90,15 +92,10 @@ void AQuadPawn::BeginPlay()
 		QuadController->Initialize(this);
 	}
 
-	// Initialize ZMQController
-	if (!ZMQController)
+	if (ZMQController)
 	{
-		ZMQController = NewObject<UZMQController>(this, TEXT("ZMQController"));
-        
-		FZMQConfiguration Config;
-        
-		ZMQController->Initialize(this, QuadController, Config);
-		ZMQController->RegisterComponent(); 
+		ZMQController->Initialize(this, QuadController, ZMQController->GetConfiguration());
+
 	}
 	
 	// Reset PID controllers
