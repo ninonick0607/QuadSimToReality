@@ -58,7 +58,8 @@ public:
     const FZMQConfiguration& GetConfiguration() const { return Configuration; }
 
     FVector GetCurrentGoalPosition() const { return CurrentGoalPosition; }
-    
+    void SetDroneID(const FString& NewID);
+
 protected:
     virtual void BeginPlay() override;
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;

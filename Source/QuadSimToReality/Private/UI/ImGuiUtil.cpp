@@ -107,7 +107,6 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 
 	if (ThrustsVal.Num() >= 4)
 	{
-		// -------------------- Diagonal 1 --------------------
 		ImGui::Text("Diagonal 1 Motors");
     
 		// Push a unique ID to differentiate these widgets
@@ -115,7 +114,6 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 		ImGui::Indent();
 		if (synchronizeDiagonal1)
 		{
-			// Now "FL & BR Thrust" is effectively labeled "Diag1/FL & BR Thrust"
 			if (ImGui::SliderFloat("FL & BR Thrust", &ThrustsVal[0], 0, maxPIDOutput))
 			{
 				ThrustsVal[3] = ThrustsVal[0];

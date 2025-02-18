@@ -3,7 +3,6 @@
 #include "Components/SceneCaptureComponent2D.h"
 #include <zmq.hpp>
 #include <zmq_addon.hpp>
-#include "Kismet/GameplayStatics.h"
 #include "ImageUtils.h"
 #include "Pawns/QuadPawn.h"
 #include "Controllers/QuadDroneController.h"
@@ -31,7 +30,6 @@ UZMQController::UZMQController()
 
 UZMQController::~UZMQController()
 {
-    // Cleanup handled in EndPlay
 }
 
 void UZMQController::Initialize(AQuadPawn* InPawn, UQuadDroneController* InDroneController, const FZMQConfiguration& Config)
@@ -74,18 +72,15 @@ void UZMQController::InitializeZMQ()
 {
     try 
     {
-        // Initialize publish socket
         PublishSocket = MakeShared<zmq::socket_t>(Context, zmq::socket_type::pub);
         FString PublishEndpoint = FString::Printf(TEXT("tcp://*:%d"), Configuration.PublishPort);
         PublishSocket->bind(TCHAR_TO_UTF8(*PublishEndpoint));
 
-        // Initialize command socket
         CommandSocket = MakeShared<zmq::socket_t>(Context, zmq::socket_type::sub);
         FString CommandEndpoint = FString::Printf(TEXT("tcp://localhost:%d"), Configuration.CommandPort);
         CommandSocket->connect(TCHAR_TO_UTF8(*CommandEndpoint));
         CommandSocket->set(zmq::sockopt::subscribe, "");
 
-        // Initialize control socket
         ControlSocket = MakeShared<zmq::socket_t>(Context, zmq::socket_type::pub);
         FString ControlEndpoint = FString::Printf(TEXT("tcp://*:%d"), Configuration.ControlPort);
         ControlSocket->bind(TCHAR_TO_UTF8(*ControlEndpoint));
@@ -337,4 +332,9 @@ void UZMQController::SetConfiguration(const FZMQConfiguration& NewConfig)
     {
         GetWorld()->GetTimerManager().ClearTimer(ImageCaptureTimerHandle);
     }
+}
+
+void UZMQController::SetDroneID(const FString& NewID)
+{
+    Configuration.DroneID = NewID;
 }

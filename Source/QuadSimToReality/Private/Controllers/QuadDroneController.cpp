@@ -76,12 +76,12 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	PIDMap.Add(EFlightMode::VelocityControl, MoveTemp(VelocitySet));
 
 	
-	DroneGlobalState::Get().BindController(this);
+	UDroneGlobalState::Get()->BindController(this);
 }
 
 UQuadDroneController::~UQuadDroneController()
 {
-	DroneGlobalState::Get().UnbindController();
+	UDroneGlobalState::Get()->UnbindController();
 }
 
 void UQuadDroneController::Initialize(AQuadPawn* InPawn)
@@ -236,7 +236,7 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
 
 
 	//desiredYaw = FMath::Fmod(desiredYaw + 180.0f, 360.0f) - 180.0f;
-	YawStabilization(a_deltaTime);
+	//YawStabilization(a_deltaTime);
 	
     ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
 
@@ -259,8 +259,21 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
     }
 	if (dronePawn && dronePawn->ImGuiUtil)
 	{
-		dronePawn->ImGuiUtil->VelocityHud(Thrusts, roll_output, pitch_output, currentRotation,FVector::ZeroVector, currentPosition, FVector::ZeroVector,currentVelocity, x_output, y_output, z_output, a_deltaTime);
-	}   
+		auto& DroneArray = UDroneGlobalState::Get()->GetAllDrones();
+		int32 idx = UDroneGlobalState::Get()->SelectedDroneIndex;
+
+		AQuadPawn* selectedPawn = nullptr;
+		if (DroneArray.IsValidIndex(idx))
+		{
+			selectedPawn = DroneArray[idx].Get();
+		}
+
+		if (dronePawn == selectedPawn)
+		{
+			dronePawn->ImGuiUtil->VelocityHud(Thrusts,roll_output,pitch_output,currentRotation,FVector::ZeroVector,currentPosition,FVector::ZeroVector,currentVelocity,x_output,y_output,z_output,a_deltaTime);
+		}
+	}
+
 }
 
 void UQuadDroneController::ThrustMixer(float xOutput, float yOutput, float zOutput,

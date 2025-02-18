@@ -1,3 +1,4 @@
+
 // QuadPawn.cpp
 
 #include "Pawns/QuadPawn.h"
@@ -6,6 +7,7 @@
 #include "Camera/CameraComponent.h"
 #include "Math/UnrealMathUtility.h"
 #include "Controllers/ZMQController.h"
+#include "Core/DroneGlobalState.h"
 #include "Engine/Engine.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -81,12 +83,20 @@ AQuadPawn::AQuadPawn()
 	
 	AutoPossessPlayer = EAutoReceiveInput::Player0;
 }
-
 void AQuadPawn::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	if (ZMQController)
+	{
+		ZMQController->Initialize(this, QuadController, ZMQController->GetConfiguration());
+		ZMQController->SetDroneID(GetName());
+		PawnLocalID = ZMQController->GetConfiguration().DroneID;
+	}
+	
+	UDroneGlobalState::Get()->RegisterPawn(this);
 
-	// Initialize QuadController with this pawn
+	// Initialize QuadController with this pawn.
 	if (!QuadController)
 	{
 		QuadController = NewObject<UQuadDroneController>(this, TEXT("QuadDroneController"));
@@ -107,18 +117,36 @@ void AQuadPawn::BeginPlay()
 		  );
 	}
 
-	if (ZMQController)
-	{
-		ZMQController->Initialize(this, QuadController, ZMQController->GetConfiguration());
 
-	}
-	
-	// Reset PID controllers
+    
+	// Reset PID controllers.
 	QuadController->ResetPID();
 }
+
 void AQuadPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+
+	APlayerController* PC = Cast<APlayerController>(GetController());
+	if (!PC || !PC->IsLocalController())
+	{
+		return; 
+	}
+
+	static uint64 LastDrawFrame = 0;
+	uint64 CurrentFrame = GFrameCounter;
+
+	if (LastDrawFrame != CurrentFrame)
+	{
+		LastDrawFrame = CurrentFrame;
+
+		FString MyDroneID = (ZMQController)
+			? ZMQController->GetConfiguration().DroneID 
+			: FString("NoZMQ");
+		UDroneGlobalState::Get()->DrawDroneManagerWindow(GetWorld(), MyDroneID);
+	}
+
 	UpdateControl(DeltaTime);
 }
 

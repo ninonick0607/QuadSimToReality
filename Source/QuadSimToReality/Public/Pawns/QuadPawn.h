@@ -1,3 +1,4 @@
+
 // QuadPawn.h
 
 #pragma once
@@ -57,9 +58,10 @@ public:
     TArray<UStaticMeshComponent*> Propellers;
     UPROPERTY(VisibleAnywhere, Category = "Components")
     TArray<UThrusterComponent*> Thrusters;
-    // Add to AQuadPawn class definition
+
     UPROPERTY(EditDefaultsOnly, Category = "Drone Configuration")
     TArray<bool> MotorClockwiseDirections = {false, true, true, false};
+
     // Controllers
     UPROPERTY(VisibleAnywhere, Category = "Controller")
     UQuadDroneController* QuadController;
@@ -67,11 +69,12 @@ public:
     UPROPERTY()
     UImGuiUtil* ImGuiUtil;
     
-    // Add a UPROPERTY for the ZMQController
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "ZMQ", meta = (AllowPrivateAccess = "true"))
     UZMQController* ZMQController;
 
-    
+UPROPERTY(VisibleAnywhere)
+    FString PawnLocalID;
+
     void SwitchCamera() const;
     void ToggleImguiInput();
     float GetMass(){return DroneBody->GetMass();};
