@@ -99,15 +99,7 @@ void UQuadDroneController::Initialize(AQuadPawn* InPawn)
 		dronePawn = InPawn;
 	}
 
-	// Create and set up the HUD if it doesn’t exist.
-	if (!ControllerHUD)
-	{
-		ControllerHUD = NewObject<UImGuiUtil>(this, TEXT("ControllerHUD"));
-		ControllerHUD->RegisterComponent();
-		ControllerHUD->Initialize(dronePawn, this, desiredNewVelocity,
-								  Debug_DrawDroneCollisionSphere, Debug_DrawDroneWaypoint,
-								  maxPIDOutput, maxVelocity, maxAngle);
-	}
+
 }
 
 
@@ -243,7 +235,7 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
 	}
 
 
-	desiredYaw = FMath::Fmod(desiredYaw + 180.0f, 360.0f) - 180.0f;
+	//desiredYaw = FMath::Fmod(desiredYaw + 180.0f, 360.0f) - 180.0f;
 	YawStabilization(a_deltaTime);
 	
     ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
@@ -265,10 +257,10 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
             2.0f
         );
     }
-    // Update HUD
-    ControllerHUD->VelocityHud(Thrusts, roll_output, pitch_output, currentRotation,
-        FVector::ZeroVector, currentPosition, FVector::ZeroVector, 
-        currentVelocity, x_output, y_output, z_output, a_deltaTime);
+	if (dronePawn && dronePawn->ImGuiUtil)
+	{
+		dronePawn->ImGuiUtil->VelocityHud(Thrusts, roll_output, pitch_output, currentRotation,FVector::ZeroVector, currentPosition, FVector::ZeroVector,currentVelocity, x_output, y_output, z_output, a_deltaTime);
+	}   
 }
 
 void UQuadDroneController::ThrustMixer(float xOutput, float yOutput, float zOutput,
@@ -276,13 +268,11 @@ void UQuadDroneController::ThrustMixer(float xOutput, float yOutput, float zOutp
 {
 	float droneMass = dronePawn->DroneBody->GetMass();
 	const float mult = 0.5f;
-    
-	float baseThrust = (-droneMass * GetWorld()->GetGravityZ()) / 4.0f;
-    
-	Thrusts[0] = baseThrust + zOutput - xOutput + yOutput + rollOutput + pitchOutput;
-	Thrusts[1] = baseThrust + zOutput - xOutput - yOutput - rollOutput + pitchOutput;
-	Thrusts[2] = baseThrust + zOutput + xOutput + yOutput + rollOutput - pitchOutput;
-	Thrusts[3] = baseThrust + zOutput + xOutput - yOutput - rollOutput - pitchOutput;
+	
+	Thrusts[0] = zOutput - xOutput + yOutput + rollOutput + pitchOutput;
+	Thrusts[1] = zOutput - xOutput - yOutput - rollOutput + pitchOutput;
+	Thrusts[2] = zOutput + xOutput + yOutput + rollOutput - pitchOutput;
+	Thrusts[3] = zOutput + xOutput - yOutput - rollOutput - pitchOutput;
     
 	for (int i = 0; i < Thrusts.Num(); i++)
 	{

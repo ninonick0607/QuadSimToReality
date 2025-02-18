@@ -75,7 +75,8 @@ AQuadPawn::AQuadPawn()
 	SpringArm->bDoCollisionTest = false;
 	SpringArm->bInheritPitch = false;
 	SpringArm->bInheritRoll = false;
-
+	
+	ImGuiUtil = CreateDefaultSubobject<UImGuiUtil>(TEXT("DroneImGuiUtil"));
 	ZMQController = CreateDefaultSubobject<UZMQController>(TEXT("ZMQController"));
 	
 	AutoPossessPlayer = EAutoReceiveInput::Player0;
@@ -90,6 +91,20 @@ void AQuadPawn::BeginPlay()
 	{
 		QuadController = NewObject<UQuadDroneController>(this, TEXT("QuadDroneController"));
 		QuadController->Initialize(this);
+	}
+
+	if (ImGuiUtil)
+	{
+		ImGuiUtil->Initialize(
+			  this,
+			  QuadController, 
+			  FVector::ZeroVector, // default desired velocity
+			  /* DebugDrawCollisionSphere */ true,
+			  /* DebugDrawWaypoint       */ true,
+			  /* maxPIDOutput           */ 100.0f,
+			  /* maxVelocity            */ 600.0f,
+			  /* maxAngle               */ 45.0f
+		  );
 	}
 
 	if (ZMQController)

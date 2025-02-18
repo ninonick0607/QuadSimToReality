@@ -67,9 +67,17 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 	{
 		currentGoalState = zmqControllerCurrent->GetCurrentGoalPosition();
 	}
+	FString droneID = (zmqControllerCurrent) 
+		? zmqControllerCurrent->GetConfiguration().DroneID 
+		: FString("Unknown");
 
-	ImGui::Begin("Drone Controller", nullptr, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+	// Use ## to give ImGui a hidden unique identifier
+	FString WindowName = FString::Printf(TEXT("Drone Controller##%s"), *droneID);
 
+	ImGui::Begin(TCHAR_TO_UTF8(*WindowName), nullptr, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+	
+	ImGui::Text("Drone ID: %s", TCHAR_TO_UTF8(*droneID));
+	
 	// Display drone info and various UI elements
 	DisplayDroneInfo();
 	ImGui::SliderFloat("Max velocity", &maxVelocity, 0.0f, 600.0f);
@@ -99,10 +107,15 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 
 	if (ThrustsVal.Num() >= 4)
 	{
+		// -------------------- Diagonal 1 --------------------
 		ImGui::Text("Diagonal 1 Motors");
+    
+		// Push a unique ID to differentiate these widgets
+		ImGui::PushID("Diag1");
 		ImGui::Indent();
 		if (synchronizeDiagonal1)
 		{
+			// Now "FL & BR Thrust" is effectively labeled "Diag1/FL & BR Thrust"
 			if (ImGui::SliderFloat("FL & BR Thrust", &ThrustsVal[0], 0, maxPIDOutput))
 			{
 				ThrustsVal[3] = ThrustsVal[0];
@@ -111,12 +124,17 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 		}
 		else
 		{
+			// "Front Left" is effectively "Diag1/Front Left"
 			ImGui::SliderFloat("Front Left", &ThrustsVal[0], 0, maxPIDOutput);
 			ImGui::SliderFloat("Back Right", &ThrustsVal[3], 0, maxPIDOutput);
 		}
 		ImGui::Unindent();
+		ImGui::PopID();  // pop "Diag1"
 
+		// -------------------- Diagonal 2 --------------------
 		ImGui::Text("Diagonal 2 Motors");
+    
+		ImGui::PushID("Diag2");
 		ImGui::Indent();
 		if (synchronizeDiagonal2)
 		{
@@ -132,6 +150,7 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 			ImGui::SliderFloat("Back Left", &ThrustsVal[2], 0, maxPIDOutput);
 		}
 		ImGui::Unindent();
+		ImGui::PopID(); // pop "Diag2"
 	}
 
 	ImGui::Separator();

@@ -7,7 +7,8 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Controllers/ZMQController.h"
-#include "Core/ThrusterComponent.h" 
+#include "Core/ThrusterComponent.h"
+#include "UI/ImGuiUtil.h"
 #include "QuadPawn.generated.h"
 #define ACCEPTABLE_DIST 200
 
@@ -62,6 +63,9 @@ public:
     // Controllers
     UPROPERTY(VisibleAnywhere, Category = "Controller")
     UQuadDroneController* QuadController;
+
+    UPROPERTY()
+    UImGuiUtil* ImGuiUtil;
     
     // Add a UPROPERTY for the ZMQController
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "ZMQ", meta = (AllowPrivateAccess = "true"))

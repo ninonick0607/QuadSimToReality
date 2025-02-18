@@ -50,9 +50,6 @@ public:
     UPROPERTY()
     TArray<float> Thrusts;
     
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI")
-    UImGuiUtil* ControllerHUD;
-    
     UQuadDroneController(const FObjectInitializer& ObjectInitializer);
     virtual ~UQuadDroneController();
 
