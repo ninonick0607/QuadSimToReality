@@ -37,11 +37,6 @@ void UThrusterComponent::ApplyForce(float Force)
     const FVector ForceLocation = GetComponentLocation();
     RootPrim->AddForceAtLocation(ForceVector, ForceLocation);
 
-    UE_LOG(LogTemp, Warning,
-           TEXT("Thruster: Applying Force=%f at %s in Dir=%s"),
-           Force, *ForceLocation.ToString(), *Direction.ToString()
-    );
-
 #if WITH_EDITOR
     if (Force > 0.01f)
     {
@@ -73,12 +68,6 @@ void UThrusterComponent::ApplyTorque(const FVector& Torque, bool bIsDegrees /*= 
         return;
     }
     RootPrim->AddTorqueInDegrees(Torque, NAME_None, true);
-
-    UE_LOG(LogTemp, Warning,
-           TEXT("Thruster: Applying Torque=%s (%s)"),
-           *Torque.ToString(),
-           bIsDegrees ? TEXT("Degrees") : TEXT("Radians")
-    );
     
 }
 

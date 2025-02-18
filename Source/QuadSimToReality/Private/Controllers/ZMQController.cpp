@@ -34,6 +34,10 @@ UZMQController::~UZMQController()
 
 void UZMQController::Initialize(AQuadPawn* InPawn, UQuadDroneController* InDroneController, const FZMQConfiguration& Config)
 {
+    UE_LOG(LogTemp, Display, TEXT("UZMQController::Initialize called with Pawn=%s, Controller=%s"),
+       InPawn ? *InPawn->GetName() : TEXT("nullptr"),
+       InDroneController ? *InDroneController->GetName() : TEXT("nullptr"));    
+
     Configuration = Config;
     DronePawn = InPawn;
     DroneController = InDroneController;
@@ -132,6 +136,7 @@ void UZMQController::ProcessCommands()
                 }
                 else if (Command == "VELOCITY")
                 {
+                    UE_LOG(LogTemp, Display, TEXT("[ZMQController] Received 'VELOCITY' command."));
                     HandleVelocityCommand(Message);
                 }
             }
@@ -171,12 +176,22 @@ void UZMQController::HandleVelocityCommand(zmq::multipart_t& Message)
     if (VelocityData.size() == sizeof(float) * 3 && VelocityData.data())
     {
         float* VelocityArray = reinterpret_cast<float*>(VelocityData.data());
+
+        // Add a log so you know exactly what values you got
+        UE_LOG(LogTemp, Display, TEXT("[ZMQController] Velocity array from Python: %f, %f, %f"),
+            VelocityArray[0], VelocityArray[1], VelocityArray[2]);
+
         FVector DesiredVelocity(VelocityArray[0], VelocityArray[1], VelocityArray[2]);
 
         DroneController->SetDesiredVelocity(DesiredVelocity);
         DroneController->SetFlightMode(EFlightMode::VelocityControl);
     }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Invalid velocity data size in ZMQ message."));
+    }
 }
+
 
 void UZMQController::SendStateData()
 {

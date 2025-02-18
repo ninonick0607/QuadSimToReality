@@ -17,6 +17,7 @@ UDroneGlobalState* UDroneGlobalState::Get()
     return SingletonInstance;
 }
 
+// Standard constructor for a UObject
 UDroneGlobalState::UDroneGlobalState()
     : DesiredVelocity(FVector::ZeroVector)
     , BoundController(nullptr)
@@ -24,15 +25,10 @@ UDroneGlobalState::UDroneGlobalState()
 {
 }
 
-
 void UDroneGlobalState::SetDesiredVelocity(const FVector& NewVelocity)
 {
     DesiredVelocity = NewVelocity;
-    if (BoundController)
-    {
-        BoundController->SetDesiredVelocity(NewVelocity);
-        BoundController->SetFlightMode(EFlightMode::VelocityControl);
-    }
+
 }
 
 void UDroneGlobalState::BindController(UQuadDroneController* Controller)
@@ -50,8 +46,6 @@ void UDroneGlobalState::RegisterPawn(AQuadPawn* InPawn)
     if (InPawn)
     {
         AllDrones.Add(InPawn);
-        FString DroneName = FString::Printf(TEXT("Drone%d"), DroneCounter++);
-        PawnIDMap.Add(InPawn, DroneName);
     }
 }
 
@@ -59,16 +53,16 @@ void UDroneGlobalState::RegisterPawn(AQuadPawn* InPawn)
 void UDroneGlobalState::DrawDroneManagerWindow(UWorld* InWorld, const FString& InDroneID)
 {
     ImGui::Begin("Drone Manager");
-
-    // Display the caller's ID at the top (if needed)
+    
     ImGui::Text("Caller DroneID: %s", TCHAR_TO_UTF8(*InDroneID));
     ImGui::Separator();
+
     ImGui::Text("Select which drone to possess:");
 
     static TArray<const char*> DroneLabels;
     DroneLabels.Reset();
 
-    // Clean out any invalid references.
+    // Clean out any invalid references
     for (int i = AllDrones.Num() - 1; i >= 0; i--)
     {
         if (!AllDrones[i].IsValid())
@@ -77,21 +71,22 @@ void UDroneGlobalState::DrawDroneManagerWindow(UWorld* InWorld, const FString& I
         }
     }
 
-    // Build a label for each drone using its sequential number.
     for (int i = 0; i < AllDrones.Num(); i++)
     {
         FString Label = FString::Printf(TEXT("Drone%d##%d"), i + 1, i);
         DroneLabels.Add(TCHAR_TO_UTF8(*Label));
     }
 
-    // Display the combo box.
+    // If we have any valid drone labels...
     if (DroneLabels.Num() > 0)
     {
+        // Ensure index is valid
         if (SelectedDroneIndex >= DroneLabels.Num())
         {
             SelectedDroneIndex = 0;
         }
 
+        // ImGui combo
         if (ImGui::BeginCombo("Active Drone", DroneLabels[SelectedDroneIndex]))
         {
             for (int i = 0; i < DroneLabels.Num(); i++)
@@ -111,12 +106,13 @@ void UDroneGlobalState::DrawDroneManagerWindow(UWorld* InWorld, const FString& I
             ImGui::EndCombo();
         }
 
-        // If a new drone is selected, possess it.
+        // After the combo box, check if the currently possessed pawn is different
         APlayerController* PC = UGameplayStatics::GetPlayerController(InWorld, 0);
         AQuadPawn* CurrentPawn = Cast<AQuadPawn>(PC->GetPawn());
         if (AllDrones.IsValidIndex(SelectedDroneIndex))
         {
             AQuadPawn* SelectedPawn = AllDrones[SelectedDroneIndex].Get();
+            // If the user chooses a different drone, possess it
             if (SelectedPawn && SelectedPawn != CurrentPawn)
             {
                 PC->Possess(SelectedPawn);

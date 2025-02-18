@@ -501,7 +501,8 @@ void UQuadDroneController::DrawDebugVisuals(const FVector& currentPosition, cons
 void UQuadDroneController::SetDesiredVelocity(const FVector& NewVelocity)
 {
 	desiredNewVelocity = NewVelocity;
-	UE_LOG(LogTemp, Display, TEXT("SetDesiredVelocity called: %s"), *desiredNewVelocity.ToString());
+	UE_LOG(LogTemp, Display, TEXT("[QuadDroneController] SetDesiredVelocity called: X=%.2f, Y=%.2f, Z=%.2f"),
+			NewVelocity.X, NewVelocity.Y, NewVelocity.Z);
 }
 
 void UQuadDroneController::SetFlightMode(EFlightMode NewMode)

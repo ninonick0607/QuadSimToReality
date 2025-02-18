@@ -83,10 +83,21 @@ AQuadPawn::AQuadPawn()
 	
 	AutoPossessPlayer = EAutoReceiveInput::Player0;
 }
+
 void AQuadPawn::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	if (!IsValid(this))
+	{
+		UE_LOG(LogTemp, Error, TEXT("AQuadPawn::BeginPlay: 'this' is not valid?"));
+		return;
+	}
+	if (!QuadController)
+	{
+		QuadController = NewObject<UQuadDroneController>(this, TEXT("QuadDroneController"));
+		QuadController->Initialize(this);
+	}
 	if (ZMQController)
 	{
 		ZMQController->Initialize(this, QuadController, ZMQController->GetConfiguration());
@@ -94,34 +105,25 @@ void AQuadPawn::BeginPlay()
 		PawnLocalID = ZMQController->GetConfiguration().DroneID;
 	}
 	
+    UE_LOG(LogTemp, Display, TEXT("QuadPawn BeginPlay: Pawn=%p, Name=%s"), this, *GetName());
+
 	UDroneGlobalState::Get()->RegisterPawn(this);
 
-	// Initialize QuadController with this pawn.
-	if (!QuadController)
+	if (ZMQController)
 	{
-		QuadController = NewObject<UQuadDroneController>(this, TEXT("QuadDroneController"));
-		QuadController->Initialize(this);
+		UE_LOG(LogTemp, Display, TEXT("ZMQController updated to use unique DroneID: %s"), *PawnLocalID);
 	}
 
 	if (ImGuiUtil)
 	{
-		ImGuiUtil->Initialize(
-			  this,
-			  QuadController, 
-			  FVector::ZeroVector, // default desired velocity
-			  /* DebugDrawCollisionSphere */ true,
-			  /* DebugDrawWaypoint       */ true,
-			  /* maxPIDOutput           */ 100.0f,
-			  /* maxVelocity            */ 600.0f,
-			  /* maxAngle               */ 45.0f
-		  );
+		ImGuiUtil->Initialize(this, QuadController, FVector::ZeroVector,
+				true, true, 100.0f, 600.0f, 45.0f);
 	}
 
-
-    
-	// Reset PID controllers.
 	QuadController->ResetPID();
 }
+
+
 
 void AQuadPawn::Tick(float DeltaTime)
 {

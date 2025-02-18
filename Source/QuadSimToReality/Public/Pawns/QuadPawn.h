@@ -72,7 +72,7 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "ZMQ", meta = (AllowPrivateAccess = "true"))
     UZMQController* ZMQController;
 
-UPROPERTY(VisibleAnywhere)
+    UPROPERTY(VisibleAnywhere)
     FString PawnLocalID;
 
     void SwitchCamera() const;
@@ -81,7 +81,6 @@ UPROPERTY(VisibleAnywhere)
 
 protected:
     virtual void BeginPlay() override;
-
 private:
     // Helper functions
     void UpdateControl(float DeltaTime);
