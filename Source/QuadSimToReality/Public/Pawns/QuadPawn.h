@@ -1,6 +1,3 @@
-
-// QuadPawn.h
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -11,82 +8,100 @@
 #include "Core/ThrusterComponent.h"
 #include "UI/ImGuiUtil.h"
 #include "QuadPawn.generated.h"
+
 #define ACCEPTABLE_DIST 200
 
+// -- Waypoint Mode related types --
+// These are used for navigation / waypoint input. If you’re not implementing 
+// autonomous waypoint control right now, you could remove these.
 enum class EWaypointMode
 {
-    WaitingForModeSelection,
-    ManualWaypointInput,
-    ReadyToStart
+	WaitingForModeSelection,	
+	ManualWaypointInput,
+	ReadyToStart
 };
 
 UCLASS()
 class QUADSIMTOREALITY_API AQuadPawn : public APawn
 {
-    GENERATED_BODY()
+	GENERATED_BODY()
 
 public:
-    // Constructor
-    AQuadPawn();
+	// Constructor
+	AQuadPawn();
 
-    virtual void Tick(float DeltaTime) override;
-    virtual void SetupPlayerInputComponent(UInputComponent *PlayerInputComponent) override;
+	// Called every frame
+	virtual void Tick(float DeltaTime) override;
 
-    // Drone components
-    UPROPERTY(EditAnywhere, Category = "Drone Components")
-    UStaticMeshComponent *DroneBody;
+	// Called to bind functionality to input
+	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
-    UPROPERTY(EditAnywhere, Category = "Drone Components")
-    UStaticMeshComponent *DroneCamMesh;
+	// Exposed function to set propeller RPM (used by the controller)
+	UFUNCTION(BlueprintCallable)
+	void SetPropellerRPM(int32 MotorIndex, float RPM);
 
-    // Camera components
-    UPROPERTY(VisibleAnywhere, Category = "Camera")
-    USpringArmComponent *SpringArm;
+	// --- Drone Components ---
+	UPROPERTY(VisibleAnywhere)
+	USkeletalMeshComponent* DroneBody;
 
-    UPROPERTY(VisibleAnywhere, Category = "Camera")
-    UCameraComponent *Camera;
+	UPROPERTY(EditAnywhere, Category = "Drone Components")
+	UStaticMeshComponent* DroneCamMesh;
 
-    UPROPERTY(VisibleAnywhere, Category = "Camera")
-    UCameraComponent *CameraFPV;
-    
-    EWaypointMode WaypointMode;
-    TArray<FVector> ManualWaypoints;
-    FVector NewWaypoint;
-   
-    // Thruster and Meshes
-    UPROPERTY(VisibleAnywhere, Category = "Components")
-    TArray<UStaticMeshComponent*> Propellers;
-    UPROPERTY(VisibleAnywhere, Category = "Components")
-    TArray<UThrusterComponent*> Thrusters;
+	// --- Camera Components ---
+	UPROPERTY(VisibleAnywhere, Category = "Camera")
+	USpringArmComponent* SpringArm;
 
-    UPROPERTY(EditDefaultsOnly, Category = "Drone Configuration")
-    TArray<bool> MotorClockwiseDirections = {false, true, true, false};
+	UPROPERTY(VisibleAnywhere, Category = "Camera")
+	UCameraComponent* Camera;
 
-    // Controllers
-    UPROPERTY(VisibleAnywhere, Category = "Controller")
-    UQuadDroneController* QuadController;
+	UPROPERTY(VisibleAnywhere, Category = "Camera")
+	UCameraComponent* CameraFPV;
+	
+	// --- Thruster Components ---
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TArray<UStaticMeshComponent*> Propellers;
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TArray<UThrusterComponent*> Thrusters;
 
-    UPROPERTY()
-    UImGuiUtil* ImGuiUtil;
-    
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "ZMQ", meta = (AllowPrivateAccess = "true"))
-    UZMQController* ZMQController;
+	// --- Drone Configuration ---
+	// Array to specify motor rotation directions.
+	UPROPERTY(EditDefaultsOnly, Category = "Drone Configuration")
+	TArray<bool> MotorClockwiseDirections = { false, true, true, false };
 
-    UPROPERTY(VisibleAnywhere)
-    FString PawnLocalID;
+	// Propeller RPM values (used to visually animate the propellers)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Drone Components")
+	TArray<float> PropellerRPMs;
+	
+	// --- Controller Components ---
+	UPROPERTY(VisibleAnywhere, Category = "Controller")
+	class UQuadDroneController* QuadController;
 
-    void SwitchCamera() const;
-    void ToggleImguiInput();
-    float GetMass(){return DroneBody->GetMass();};
+	UPROPERTY()
+	class UImGuiUtil* ImGuiUtil;
+	
+	// --- Identification ---
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	FString DroneID;
+	
+	UPROPERTY(VisibleAnywhere)
+	FString PawnLocalID;
+
+	// --- Helper Functions ---
+	void SwitchCamera() const;
+	void ToggleImguiInput();
+	
+	// This helper is used by the controller to get the drone’s mass.
+	float GetMass() { return DroneBody->GetMass(); };
 
 protected:
-    virtual void BeginPlay() override;
-private:
-    // Helper functions
-    void UpdateControl(float DeltaTime);
+	// Called when the game starts or when spawned
+	virtual void BeginPlay() override;
 
-    bool bWaypointModeSelected;
-    // Input components
-    UPROPERTY(VisibleAnywhere)
-    UInputComponent *Input_ToggleImguiInput;
+private:
+	// Updates control each tick.
+	void UpdateControl(float DeltaTime);
+	
+
+	UPROPERTY(VisibleAnywhere)
+	UInputComponent* Input_ToggleImguiInput;
 };

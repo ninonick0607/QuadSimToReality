@@ -4,10 +4,11 @@
 #include "Controllers/QuadDroneController.h"
 #include "Pawns/QuadPawn.h"
 #include "DrawDebugHelpers.h"
-#include "imgui.h"
 #include "Core/DroneGlobalState.h"
 #include "UI/ImGuiUtil.h"
 #include "Core/DroneJSONConfig.h"
+#include "Core/DroneManager.h"
+#include "Kismet/GameplayStatics.h"
 #include "Math/UnrealMathUtility.h"
 
 
@@ -18,23 +19,13 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	: dronePawn(nullptr)
 	, Thrusts({0, 0, 0, 0})
 	, desiredYaw(0.f)
-	, bDesiredYawInitialized(false)
 	, desiredAltitude(0.0f)
-	, bDesiredAltitudeInitialized(false)
 	, currentFlightMode(EFlightMode::None)
-	, currentNav(nullptr)
-	, curPos(0)
 	, desiredNewVelocity(FVector::ZeroVector)
 	, initialTakeoff(true)
 	, altitudeReached(false)
 	, Debug_DrawDroneCollisionSphere(true)
 	, Debug_DrawDroneWaypoint(true)
-	, thrustInput(0.0f)
-	, yawInput(0.0f)
-	, pitchInput(0.0f)
-	, rollInput(0.0f)
-	, hoverThrust(0.0f)
-	, bHoverThrustInitialized(false)
 	, MaxAngularVelocity(180.0)  
 	, YawTorqueForce(2.0)       
 	, LastYawTorqueApplied(0.0)
@@ -76,13 +67,15 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	PIDMap.Add(EFlightMode::VelocityControl, MoveTemp(VelocitySet));
 
 	
-	UDroneGlobalState::Get()->BindController(this);
+	DroneGlobalState::Get().BindController(this);
 }
 
 UQuadDroneController::~UQuadDroneController()
 {
-	UDroneGlobalState::Get()->UnbindController();
+	DroneGlobalState::Get().UnbindController();
 }
+
+// ---------------------- Initialization ------------------------
 
 void UQuadDroneController::Initialize(AQuadPawn* InPawn)
 {
@@ -102,46 +95,6 @@ void UQuadDroneController::Initialize(AQuadPawn* InPawn)
 
 }
 
-
-
-
-// ---------------------- Reset PIDs ------------------------
-
-void UQuadDroneController::ResetPID()
-{
-	for (auto& Elem : PIDMap)
-	{
-		FFullPIDSet& ThisSet = Elem.Value;
-
-		ThisSet.XPID->Reset();
-		ThisSet.YPID->Reset();
-		ThisSet.ZPID->Reset();
-		ThisSet.RollPID->Reset();
-		ThisSet.PitchPID->Reset();
-		ThisSet.YawPID->Reset();
-	}
-
-	curPos = 0;
-	altitudeReached = false;
-}
-void UQuadDroneController::ResetDroneIntegral()
-{
-	FFullPIDSet* CurrentSet = PIDMap.Find(currentFlightMode);
-	if (!CurrentSet)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("ResetDroneIntegral: No PID set found for current flight mode %d"), (int32)currentFlightMode);
-		return;
-	}
-
-	CurrentSet->XPID->ResetIntegral();
-	CurrentSet->YPID->ResetIntegral();
-	CurrentSet->ZPID->ResetIntegral();
-	CurrentSet->RollPID->ResetIntegral();
-	CurrentSet->PitchPID->ResetIntegral();
-	CurrentSet->YawPID->ResetIntegral();
-}
-
-
 // ---------------------- Update ------------------------
 
 void UQuadDroneController::Update(double a_deltaTime)
@@ -156,27 +109,35 @@ void UQuadDroneController::Update(double a_deltaTime)
 	case EFlightMode::VelocityControl:
 		break;
 	}
+    UpdatePropellerRPMs();
 
-
-	if (dronePawn && dronePawn->ZMQController)
+	AZMQController* ZMQActor = nullptr;
+	TArray<AActor*> FoundActors;
+	UGameplayStatics::GetAllActorsOfClass(dronePawn->GetWorld(), AZMQController::StaticClass(), FoundActors);
+	if (FoundActors.Num() > 0)
 	{
-		FString DroneID = dronePawn->ZMQController->GetConfiguration().DroneID;
+		ZMQActor = Cast<AZMQController>(FoundActors[0]);
+	}
+
+	if (ZMQActor)
+	{
+		FString DroneID = ZMQActor->GetConfiguration().DroneID;
 		FVector DroneLocation = dronePawn->GetActorLocation();
-        
 		FVector Offset(0, 0, dronePawn->DroneBody->Bounds.BoxExtent.Z + 20.f);
 		FVector DebugLocation = DroneLocation + Offset;
 
 		DrawDebugString(
-			dronePawn->GetWorld(),   
-			DebugLocation,           
-			DroneID,                 
-			nullptr,                 
-			FColor::Green,           
-			0.f,                     
-			true,                    
-			1.2f                     
+			dronePawn->GetWorld(),
+			DebugLocation,
+			DroneID,
+			nullptr,
+			FColor::Green,
+			0.f,
+			true,
+			1.2f
 		);
 	}
+
 }
 
 void UQuadDroneController::VelocityControl(double a_deltaTime)
@@ -188,93 +149,72 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
     FVector currentPosition = dronePawn->GetActorLocation();
     FVector currentVelocity = dronePawn->GetVelocity();
     FRotator currentRotation = dronePawn->GetActorRotation();
-
-	FVector horizontalVelocity = desiredNewVelocity;
-	horizontalVelocity.Z = 0;
-	
-    // Safety check: if dangerous orientation, reset.
-    bool needsReset = false;
-    if (currentPosition.Z && (FMath::Abs(currentRotation.Roll) > 60.0f || FMath::Abs(currentRotation.Pitch) > 60.0f))
+    FVector horizontalVelocity = desiredNewVelocity;
+    horizontalVelocity.Z = 0;
+    
+    SafetyReset();
+    
+    float x_output = 0.f, y_output = 0.f, z_output = 0.f;
+    float roll_output = 0.f, pitch_output = 0.f;
+    
+    if (!bManualThrustMode)
     {
-        needsReset = true;
-        UE_LOG(LogTemp, Warning, TEXT("Safety Reset: Dangerous orientation - Roll: %f, Pitch: %f"), currentRotation.Roll, currentRotation.Pitch);
-    }
-    if (needsReset)
-    {
-        if (dronePawn->DroneBody)
+        // Calculate PID outputs
+        FVector velocityError = desiredNewVelocity - currentVelocity;
+        x_output = CurrentSet->XPID->Calculate(velocityError.X, a_deltaTime);
+        y_output = CurrentSet->YPID->Calculate(velocityError.Y, a_deltaTime);
+        z_output = CurrentSet->ZPID->Calculate(velocityError.Z, a_deltaTime);
+    
+        float roll_error = -currentRotation.Roll;
+        float pitch_error = -currentRotation.Pitch;
+        roll_output = CurrentSet->RollPID->Calculate(roll_error, a_deltaTime);
+        pitch_output = CurrentSet->PitchPID->Calculate(pitch_error, a_deltaTime);
+    
+        // Yaw control, etc.
+        static constexpr float MIN_VELOCITY_FOR_YAW = 10.0f;
+        if (horizontalVelocity.SizeSquared() > MIN_VELOCITY_FOR_YAW * MIN_VELOCITY_FOR_YAW)
         {
-            FRotator safeRotation = FRotator(0.0f, currentRotation.Yaw, 0.0f);
-            dronePawn->SetActorRotation(safeRotation, ETeleportType::TeleportPhysics);
-            dronePawn->DroneBody->SetPhysicsLinearVelocity(FVector::ZeroVector);
-            dronePawn->DroneBody->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
-            ResetDroneIntegral();
+            desiredYaw = FMath::RadiansToDegrees(FMath::Atan2(horizontalVelocity.Y, horizontalVelocity.X));
         }
+        else
+        {
+            desiredYaw = currentRotation.Yaw;
+        }
+    
+        ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
     }
-
-    // --- Middle Loop: Velocity Controller ---
-    FVector velocityError = desiredNewVelocity - currentVelocity;  
-	float x_output = CurrentSet->XPID->Calculate(velocityError.X, a_deltaTime);
-    float y_output = CurrentSet->YPID->Calculate(velocityError.Y, a_deltaTime);
-    float z_output = CurrentSet->ZPID->Calculate(velocityError.Z, a_deltaTime);
-	
-	float roll_error = -currentRotation.Roll;
-	float pitch_error = -currentRotation.Pitch;
-
-    float roll_output = CurrentSet->RollPID->Calculate(roll_error, a_deltaTime);
-    float pitch_output = CurrentSet->PitchPID->Calculate(pitch_error, a_deltaTime);
-
-    // --- Yaw Control using PID ---
-	static constexpr float MIN_VELOCITY_FOR_YAW = 10.0f;
-	if (horizontalVelocity.SizeSquared() > MIN_VELOCITY_FOR_YAW * MIN_VELOCITY_FOR_YAW)
-	{
-		desiredYaw = FMath::RadiansToDegrees(FMath::Atan2(horizontalVelocity.Y, horizontalVelocity.X));
-	}
-	else
-	{
-		desiredYaw = currentRotation.Yaw;
-	}
-
-
-	//desiredYaw = FMath::Fmod(desiredYaw + 180.0f, 360.0f) - 180.0f;
-	//YawStabilization(a_deltaTime);
-	
-    ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
-
-    // Debug visualization (unchanged)
+    else
+    {
+        ApplyManualThrusts();
+    }
+    
+    // Debug visualization, etc.
     if (Debug_DrawDroneWaypoint)
     {
         FVector dronePos = dronePawn->GetActorLocation();
         FVector velocityDirection = desiredNewVelocity.GetSafeNormal() * 200.0f;
-
-        DrawDebugLine(
-            dronePawn->GetWorld(),
-            dronePos,
-            dronePos + velocityDirection,
-            FColor::Yellow,
-            false,
-            -1.0f,
-            0,
-            2.0f
-        );
+        DrawDebugLine(dronePawn->GetWorld(), dronePos, dronePos + velocityDirection, FColor::Yellow, false, -1.0f, 0, 2.0f);
     }
-	if (dronePawn && dronePawn->ImGuiUtil)
-	{
-		auto& DroneArray = UDroneGlobalState::Get()->GetAllDrones();
-		int32 idx = UDroneGlobalState::Get()->SelectedDroneIndex;
-
-		AQuadPawn* selectedPawn = nullptr;
-		if (DroneArray.IsValidIndex(idx))
-		{
-			selectedPawn = DroneArray[idx].Get();
-		}
-
-		if (dronePawn == selectedPawn)
-		{
-			dronePawn->ImGuiUtil->VelocityHud(Thrusts,roll_output,pitch_output,currentRotation,FVector::ZeroVector,currentPosition,FVector::ZeroVector,currentVelocity,x_output,y_output,z_output,a_deltaTime);
-		}
-	}
-
+    
+    if (dronePawn && dronePawn->ImGuiUtil)
+    {
+        ADroneManager* Manager = Cast<ADroneManager>(UGameplayStatics::GetActorOfClass(dronePawn->GetWorld(), ADroneManager::StaticClass()));
+        if (Manager)
+        {
+            TArray<AQuadPawn*> DroneList = Manager->GetDroneList();
+            int32 idx = Manager->SelectedDroneIndex;
+            AQuadPawn* selectedPawn = (DroneList.IsValidIndex(idx)) ? DroneList[idx] : nullptr;
+            if (dronePawn == selectedPawn)
+            {
+                dronePawn->ImGuiUtil->VelocityHud(Thrusts, roll_output, pitch_output, currentRotation,
+                                                    FVector::ZeroVector, currentPosition, FVector::ZeroVector,
+                                                    currentVelocity, x_output, y_output, z_output, a_deltaTime);
+            }
+        }
+    }
 }
+
+// ---------------------- Thrust Functions ------------------------
 
 void UQuadDroneController::ThrustMixer(float xOutput, float yOutput, float zOutput,
 										 float rollOutput, float pitchOutput)
@@ -377,7 +317,39 @@ void UQuadDroneController::YawStabilization(double DeltaTime)
 }
 
 
-// ---------------------- Helper Functions ------------------------
+// ---------------------- Reset Functions ------------------------
+
+void UQuadDroneController::ResetPID()
+{
+	for (auto& Elem : PIDMap)
+	{
+		FFullPIDSet& ThisSet = Elem.Value;
+
+		ThisSet.XPID->Reset();
+		ThisSet.YPID->Reset();
+		ThisSet.ZPID->Reset();
+		ThisSet.RollPID->Reset();
+		ThisSet.PitchPID->Reset();
+		ThisSet.YawPID->Reset();
+	}
+	altitudeReached = false;
+}
+void UQuadDroneController::ResetDroneIntegral()
+{
+	FFullPIDSet* CurrentSet = PIDMap.Find(currentFlightMode);
+	if (!CurrentSet)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ResetDroneIntegral: No PID set found for current flight mode %d"), (int32)currentFlightMode);
+		return;
+	}
+
+	CurrentSet->XPID->ResetIntegral();
+	CurrentSet->YPID->ResetIntegral();
+	CurrentSet->ZPID->ResetIntegral();
+	CurrentSet->RollPID->ResetIntegral();
+	CurrentSet->PitchPID->ResetIntegral();
+	CurrentSet->YawPID->ResetIntegral();
+}
 
 void UQuadDroneController::ResetDroneHigh()
 {
@@ -450,6 +422,8 @@ void UQuadDroneController::ResetDroneOrigin()
 }
 
 
+// ---------------------- Helper Functions ------------------------
+
 
 void UQuadDroneController::DrawDebugVisuals(const FVector& currentPosition, const FVector& setPoint) const
 {
@@ -497,6 +471,66 @@ void UQuadDroneController::DrawDebugVisuals(const FVector& currentPosition, cons
 	}
 }
 
+void UQuadDroneController::SafetyReset()
+{
+
+	FRotator currentRotation = dronePawn->GetActorRotation();
+	FVector currentPosition = dronePawn->GetActorLocation();
+
+	// Safety check: if dangerous orientation, reset.
+	bool needsReset = false;
+	if (currentPosition.Z && (FMath::Abs(currentRotation.Roll) > 60.0f || FMath::Abs(currentRotation.Pitch) > 60.0f))
+	{
+		needsReset = true;
+		UE_LOG(LogTemp, Warning, TEXT("Safety Reset: Dangerous orientation - Roll: %f, Pitch: %f"), currentRotation.Roll, currentRotation.Pitch);
+	}
+	if (needsReset)
+	{
+		if (dronePawn->DroneBody)
+		{
+			FRotator safeRotation = FRotator(0.0f, currentRotation.Yaw, 0.0f);
+			dronePawn->SetActorRotation(safeRotation, ETeleportType::TeleportPhysics);
+			dronePawn->DroneBody->SetPhysicsLinearVelocity(FVector::ZeroVector);
+			dronePawn->DroneBody->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+			ResetDroneIntegral();
+		}
+	}
+}
+
+void UQuadDroneController::ApplyManualThrusts()
+{
+	if (!dronePawn)
+		return;
+    
+	float droneMass = dronePawn->DroneBody->GetMass();
+	const float mult = 0.5f; // same multiplier as before
+	// Iterate over your thrust array and apply the user-defined thrust values
+	for (int i = 0; i < Thrusts.Num(); i++)
+	{
+		Thrusts[i] = FMath::Clamp(Thrusts[i], 0.0f, 700.0f);
+		if (!dronePawn->Thrusters.IsValidIndex(i))
+			continue;
+		float force = droneMass * mult * Thrusts[i];
+		dronePawn->Thrusters[i]->ApplyForce(force);
+	}
+}
+
+void UQuadDroneController::UpdatePropellerRPMs()
+{
+
+	for (int i = 0; i < Thrusts.Num(); i++)
+	{
+		// Calculate RPM from thrust
+		float RPM = FMath::Sqrt(Thrusts[i]/T_k);
+
+		if (dronePawn)
+		{
+			dronePawn->SetPropellerRPM(i, RPM);
+		}
+	}
+}
+
+
 // ------------ Setter and Getter -------------------
 void UQuadDroneController::SetDesiredVelocity(const FVector& NewVelocity)
 {
@@ -516,42 +550,16 @@ EFlightMode UQuadDroneController::GetFlightMode() const
 }
 
 
-void UQuadDroneController::bufferDebug(FFullPIDSet* PID_Set)
+void UQuadDroneController::SetManualThrustMode(bool bEnable)
 {
-	// In AutoWaypointControl (and similarly in VelocityControl)
-	if (ImGui::CollapsingHeader("PID Debug Info"))
+	bManualThrustMode = bEnable;
+	if (bManualThrustMode)
 	{
-		// Position Controllers
-		ImGui::Text("Position Controllers:");
-		ImGui::Text("X PID - Buffer Size: %d, Sum: %.4f", 
-			PID_Set->XPID->GetBufferSize(), 
-			PID_Set->XPID->GetCurrentBufferSum());
-		ImGui::Text("Y PID - Buffer Size: %d, Sum: %.4f", 
-			PID_Set->YPID->GetBufferSize(), 
-			PID_Set->YPID->GetCurrentBufferSum());
-		ImGui::Text("Z PID - Buffer Size: %d, Sum: %.4f", 
-			PID_Set->ZPID->GetBufferSize(), 
-			PID_Set->ZPID->GetCurrentBufferSum());
-
-		// Attitude Controllers
-		ImGui::Text("\nAttitude Controllers:");
-		ImGui::Text("Roll PID - Buffer Size: %d, Sum: %.4f", 
-			PID_Set->RollPID->GetBufferSize(), 
-			PID_Set->RollPID->GetCurrentBufferSum());
-		ImGui::Text("Pitch PID - Buffer Size: %d, Sum: %.4f", 
-			PID_Set->PitchPID->GetBufferSize(), 
-			PID_Set->PitchPID->GetCurrentBufferSum());
-		ImGui::Text("Yaw PID - Buffer Size: %d, Sum: %.4f", 
-			PID_Set->YawPID->GetBufferSize(), 
-			PID_Set->YawPID->GetCurrentBufferSum());
-
-		// Time Window Info
-		ImGui::Text("\nIntegral Window Duration: %.1f seconds", 2);
-    
-		// Add a button to manually reset integrals for testing
-		if (ImGui::Button("Reset All Integrals"))
-		{
-			ResetDroneIntegral();
-		}
+		UE_LOG(LogTemp, Display, TEXT("Manual Thrust Mode ENABLED"));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Display, TEXT("Manual Thrust Mode DISABLED"));
 	}
 }
+

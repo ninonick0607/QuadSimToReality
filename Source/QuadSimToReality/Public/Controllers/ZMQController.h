@@ -1,19 +1,16 @@
 #pragma once
+
 #include <zmq.hpp>
 #include <zmq_addon.hpp>
-#include "HAL/ThreadSafeBool.h"
 #include "CoreMinimal.h"
-#include "Components/ActorComponent.h"
+#include "GameFramework/Actor.h"
 #include "ZMQController.generated.h"
-
-namespace zmq { class context_t; }
 
 // Forward declarations
 class AQuadPawn;
 class UQuadDroneController;
 class USceneCaptureComponent2D;
 class UTextureRenderTarget2D;
-class AActor;
 enum class EFlightMode : uint8;
 
 USTRUCT(BlueprintType)
@@ -34,21 +31,23 @@ struct FZMQConfiguration
     FIntPoint ImageResolution = FIntPoint(128, 128);
 
     UPROPERTY(EditAnywhere, Category = "Image Capture")
-    float CaptureInterval = 0.0001f;
+    float CaptureInterval = 0.1f;  // A more reasonable interval (e.g., 0.1 sec ~ 10 FPS)
 
     UPROPERTY(EditAnywhere, Category = "Communication")
     FString DroneID = TEXT("drone1");
 };
 
-UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
-class QUADSIMTOREALITY_API UZMQController : public UActorComponent
+UCLASS(Blueprintable)
+class QUADSIMTOREALITY_API AZMQController : public AActor
 {
     GENERATED_BODY()
-
+    
 public:
-    UZMQController();
-    virtual ~UZMQController();
+    AZMQController();
+    virtual ~AZMQController();
 
+    // Call this to initialize the controller with a target pawn and its drone controller
+    UFUNCTION(BlueprintCallable, Category = "ZMQ")
     void Initialize(AQuadPawn* InPawn, UQuadDroneController* InDroneController, const FZMQConfiguration& Config);
 
     UFUNCTION(BlueprintCallable, Category = "ZMQ")
@@ -57,14 +56,20 @@ public:
     UFUNCTION(BlueprintCallable, Category = "ZMQ")
     const FZMQConfiguration& GetConfiguration() const { return Configuration; }
 
+    UFUNCTION(BlueprintCallable, Category = "ZMQ")
     FVector GetCurrentGoalPosition() const { return CurrentGoalPosition; }
+
+    UFUNCTION(BlueprintCallable, Category = "ZMQ")
     void SetDroneID(const FString& NewID);
+
+    // Set this property in the blueprint to point to the pawn you wish to control.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="ZMQ")
+    AQuadPawn* TargetPawn;
 
 protected:
     virtual void BeginPlay() override;
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-    virtual void TickComponent(float DeltaTime, ELevelTick TickType, 
-                             FActorComponentTickFunction* ThisTickFunction) override;
+    virtual void Tick(float DeltaTime) override;
 
 private:
     void InitializeImageCapture();
@@ -76,11 +81,7 @@ private:
     void ProcessCommands();
     TArray<uint8> CompressImageData(const TArray<FColor>& ImageData);
 
-    FRunnableThread* ZMQThread;
-    FThreadSafeBool bRunZMQ;
-    TQueue<TArray<uint8>, EQueueMode::Mpsc> ImageQueue;
-    FCriticalSection CommandMutex;
-    
+    // ZMQ and image capture members
     zmq::context_t Context;
     TSharedPtr<zmq::socket_t> PublishSocket;
     TSharedPtr<zmq::socket_t> CommandSocket;
@@ -92,18 +93,19 @@ private:
     FTimerHandle ImageCaptureTimerHandle;
     TAtomic<bool> bIsCapturing;
     TAtomic<bool> bIsProcessingCommand;
-    
+
+    // These will be set during Initialize()
     UPROPERTY()
-    TObjectPtr<AQuadPawn> DronePawn;
+    AQuadPawn* DronePawn;
 
     UPROPERTY()
-    TObjectPtr<UQuadDroneController> DroneController;
+    UQuadDroneController* DroneController;
 
     UPROPERTY()
-    TObjectPtr<USceneCaptureComponent2D> CaptureComponent;
+    USceneCaptureComponent2D* CaptureComponent;
 
     UPROPERTY()
-    TObjectPtr<UTextureRenderTarget2D> RenderTarget;
+    UTextureRenderTarget2D* RenderTarget;
 
     FVector CurrentGoalPosition;
 };

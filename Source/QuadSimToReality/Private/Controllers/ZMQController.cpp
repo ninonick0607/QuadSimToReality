@@ -10,29 +10,23 @@
 #include "HAL/RunnableThread.h"
 #include "Async/Async.h"
 
-UZMQController::UZMQController()
+AZMQController::AZMQController()
     : bIsCapturing(false)
     , bIsProcessingCommand(false)
-    , ZMQThread(nullptr)
-    , bRunZMQ(false)
     , DronePawn(nullptr)
     , DroneController(nullptr)
     , CaptureComponent(nullptr)
     , RenderTarget(nullptr)
-    , PublishSocket(nullptr)
-    , CommandSocket(nullptr)
-    , ControlSocket(nullptr)
     , CurrentGoalPosition(FVector(0.0f, 0.0f, 1000.0f))
 {
-    PrimaryComponentTick.bCanEverTick = true;
-    PrimaryComponentTick.TickInterval = 0.0f;
+    PrimaryActorTick.bCanEverTick = true;
 }
 
-UZMQController::~UZMQController()
+AZMQController::~AZMQController()
 {
 }
 
-void UZMQController::Initialize(AQuadPawn* InPawn, UQuadDroneController* InDroneController, const FZMQConfiguration& Config)
+void AZMQController::Initialize(AQuadPawn* InPawn, UQuadDroneController* InDroneController, const FZMQConfiguration& Config)
 {
     UE_LOG(LogTemp, Display, TEXT("UZMQController::Initialize called with Pawn=%s, Controller=%s"),
        InPawn ? *InPawn->GetName() : TEXT("nullptr"),
@@ -41,29 +35,49 @@ void UZMQController::Initialize(AQuadPawn* InPawn, UQuadDroneController* InDrone
     Configuration = Config;
     DronePawn = InPawn;
     DroneController = InDroneController;
+    UE_LOG(LogTemp, Display, TEXT("UZMQController initialized with DroneID: %s"), *Configuration.DroneID);
+
     InitializeZMQ();
+    InitializeImageCapture();
+
 }
 
-void UZMQController::BeginPlay()
+void AZMQController::BeginPlay()
 {
     Super::BeginPlay();
-    UE_LOG(LogTemp, Display, TEXT("Initial goal position set to: X=%f, Y=%f, Z=%f"), 
+    
+    // If TargetPawn is set in Blueprint, use it:
+    if (TargetPawn && !DronePawn)
+    {
+        DronePawn = TargetPawn;
+        DroneController = DronePawn->QuadController;
+        if (DroneController)
+        {
+            Initialize(DronePawn, DroneController, Configuration);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("AZMQController: No QuadDroneController found on TargetPawn."));
+        }
+    }
+
+    UE_LOG(LogTemp, Display, TEXT("Initial goal position set to: X=%f, Y=%f, Z=%f"),
            CurrentGoalPosition.X, CurrentGoalPosition.Y, CurrentGoalPosition.Z);
 
-    // // Start image capture timer
-    // if (Configuration.CaptureInterval > 0.0f)
-    // {
-    //     GetWorld()->GetTimerManager().SetTimer(
-    //         ImageCaptureTimerHandle,
-    //         this,
-    //         &UZMQController::ProcessImageCapture,
-    //         Configuration.CaptureInterval,
-    //         true
-    //     );
-    // }
+    // Start image capture timer
+    if (Configuration.CaptureInterval > 0.0f)
+    {
+        GetWorld()->GetTimerManager().SetTimer(
+            ImageCaptureTimerHandle,
+            this,
+            &AZMQController::ProcessImageCapture,
+            Configuration.CaptureInterval,
+            true
+        );
+    }
 }
 
-void UZMQController::EndPlay(const EEndPlayReason::Type EndPlayReason)
+void AZMQController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
     GetWorld()->GetTimerManager().ClearTimer(ImageCaptureTimerHandle);
     PublishSocket.Reset();
@@ -72,7 +86,17 @@ void UZMQController::EndPlay(const EEndPlayReason::Type EndPlayReason)
     Super::EndPlay(EndPlayReason);
 }
 
-void UZMQController::InitializeZMQ()
+void AZMQController::Tick(float DeltaTime)
+{
+    Super::Tick(DeltaTime);
+
+    // Process incoming commands
+    ProcessCommands();
+    // Send state data
+    SendStateData();
+}
+
+void AZMQController::InitializeZMQ()
 {
     try 
     {
@@ -100,18 +124,8 @@ void UZMQController::InitializeZMQ()
 
 
 
-void UZMQController::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
-{
-    Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-    // Process incoming commands
-    ProcessCommands();
-
-    // Send state data
-    SendStateData();
-}
-
-void UZMQController::ProcessCommands()
+void AZMQController::ProcessCommands()
 {
     if (!CommandSocket || bIsProcessingCommand) return;
 
@@ -151,24 +165,18 @@ void UZMQController::ProcessCommands()
     bIsProcessingCommand = false;
 }
 
-void UZMQController::HandleResetCommand()
+void AZMQController::HandleResetCommand()
 {
     if (!DroneController) return;
 
-    // Set new goal position (only varying Z height)
-    CurrentGoalPosition = FVector(
-        0.0f,  // Keep X at 0
-        0.0f,  // Keep Y at 0
-        FMath::RandRange(500.0f, 1500.0f)  // Random high Z goal
-    );
+    // Set new goal position (varying only Z height)
+    CurrentGoalPosition = FVector(0.0f, 0.0f, FMath::RandRange(500.0f, 1500.0f));
 
-    UE_LOG(LogTemp, Warning, TEXT("New goal height set to: Z=%f"), CurrentGoalPosition.Z);
-
-    // Reset drone
+    UE_LOG(LogTemp, Warning, TEXT("AZMQController: New goal height set to: Z=%f"), CurrentGoalPosition.Z);
     DroneController->ResetDroneOrigin();
 }
 
-void UZMQController::HandleVelocityCommand(zmq::multipart_t& Message)
+void AZMQController::HandleVelocityCommand(zmq::multipart_t& Message)
 {
     if (!DroneController || Message.empty()) return;
 
@@ -182,7 +190,6 @@ void UZMQController::HandleVelocityCommand(zmq::multipart_t& Message)
             VelocityArray[0], VelocityArray[1], VelocityArray[2]);
 
         FVector DesiredVelocity(VelocityArray[0], VelocityArray[1], VelocityArray[2]);
-
         DroneController->SetDesiredVelocity(DesiredVelocity);
         DroneController->SetFlightMode(EFlightMode::VelocityControl);
     }
@@ -193,7 +200,7 @@ void UZMQController::HandleVelocityCommand(zmq::multipart_t& Message)
 }
 
 
-void UZMQController::SendStateData()
+void AZMQController::SendStateData()
 {
     if (!ControlSocket || !DronePawn) return;
 
@@ -223,7 +230,7 @@ void UZMQController::SendStateData()
     }
 }
 
-void UZMQController::InitializeImageCapture()
+void AZMQController::InitializeImageCapture()
 {
     if (!DronePawn || !DronePawn->CameraFPV) return;
 
@@ -248,7 +255,7 @@ void UZMQController::InitializeImageCapture()
     CaptureComponent->bCaptureOnMovement = false;
     CaptureComponent->PrimitiveRenderMode = ESceneCapturePrimitiveRenderMode::PRM_LegacySceneCapture;
 }
-void UZMQController::ProcessImageCapture()
+void AZMQController::ProcessImageCapture()
 {
     if (bIsCapturing || !CaptureComponent || !RenderTarget) return;
     
@@ -302,7 +309,7 @@ void UZMQController::ProcessImageCapture()
     });
 }
 
-TArray<uint8> UZMQController::CompressImageData(const TArray<FColor>& ImageData)
+TArray<uint8> AZMQController::CompressImageData(const TArray<FColor>& ImageData)
 {
     TArray<FColor> ResizedData;
     FImageUtils::ImageResize(
@@ -327,7 +334,7 @@ TArray<uint8> UZMQController::CompressImageData(const TArray<FColor>& ImageData)
 }
 
 
-void UZMQController::SetConfiguration(const FZMQConfiguration& NewConfig)
+void AZMQController::SetConfiguration(const FZMQConfiguration& NewConfig)
 {
     // Update configuration
     Configuration = NewConfig;
@@ -338,7 +345,7 @@ void UZMQController::SetConfiguration(const FZMQConfiguration& NewConfig)
         GetWorld()->GetTimerManager().SetTimer(
             ImageCaptureTimerHandle,
             this,
-            &UZMQController::ProcessImageCapture,
+            &AZMQController::ProcessImageCapture,
             Configuration.CaptureInterval,
             true
         );
@@ -349,7 +356,9 @@ void UZMQController::SetConfiguration(const FZMQConfiguration& NewConfig)
     }
 }
 
-void UZMQController::SetDroneID(const FString& NewID)
+void AZMQController::SetDroneID(const FString& NewID)
 {
     Configuration.DroneID = NewID;
+    UE_LOG(LogTemp, Display, TEXT("ZMQController DroneID set to: %s"), *Configuration.DroneID);
+
 }

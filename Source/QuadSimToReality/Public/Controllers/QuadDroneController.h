@@ -19,7 +19,6 @@ struct FFullPIDSet
 {
     GENERATED_BODY()
 
-    // Raw pointers
     QuadPIDController* XPID;
     QuadPIDController* YPID;
     QuadPIDController* ZPID;
@@ -66,38 +65,24 @@ public:
     void ResetDroneOrigin();
     
     void DrawDebugVisuals(const FVector& currentPosition, const FVector& setPoint)const;
-    void bufferDebug(FFullPIDSet* PID_Set);
-    
-    const FVector& GetInitialPosition() const { return initialDronePosition; }
     void SetDesiredVelocity(const FVector& NewVelocity);
     void SetFlightMode(EFlightMode NewMode);
     EFlightMode GetFlightMode() const;
     FFullPIDSet* GetPIDSet(EFlightMode Mode) { return PIDMap.Find(Mode); }
 
-
+    bool bManualThrustMode = false;  // defaults to false
+    void SetManualThrustMode(bool bEnable);
+    void SafetyReset();
+    void ApplyManualThrusts();
+    void UpdatePropellerRPMs();
 private:
     
     UPROPERTY()
     TMap<EFlightMode, FFullPIDSet> PIDMap;
 
     float desiredYaw;
-    bool bDesiredYawInitialized;
     float desiredAltitude;
-    bool bDesiredAltitudeInitialized;
-
     EFlightMode currentFlightMode;
-    
-
-    struct NavPlan
-    {
-       TArray<FVector> waypoints;
-       FString name;
-    };
-
-    TArray<NavPlan> setPointNavigation;
-    NavPlan* currentNav;
-    int32 curPos;
-    
     FVector desiredNewVelocity;
 
     float maxVelocity;
@@ -106,17 +91,13 @@ private:
     float altitudeThresh; 
     float minAltitudeLocal;
     float acceptableDistance;
+    
     bool initialTakeoff;
     bool altitudeReached;
     bool Debug_DrawDroneCollisionSphere;
     bool Debug_DrawDroneWaypoint;
-    float thrustInput;
-    float yawInput;
-    float pitchInput;
-    float rollInput;
-    float hoverThrust;
-    bool bHoverThrustInitialized;
-
+    
+    float T_k =.001f;
 
     double MaxAngularVelocity;
     double YawTorqueForce;

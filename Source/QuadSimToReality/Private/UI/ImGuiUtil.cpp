@@ -7,6 +7,7 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "HAL/PlatformFilemanager.h"
+#include "Kismet/GameplayStatics.h"
 #include "Misc/DateTime.h"
 
 UImGuiUtil::UImGuiUtil()
@@ -14,7 +15,7 @@ UImGuiUtil::UImGuiUtil()
     , Controller(nullptr)
     , Debug_DrawDroneCollisionSphere(true)
     , Debug_DrawDroneWaypoint(true)
-    , maxPIDOutput(100.0f)
+    , maxPIDOutput(700.0f)
     , maxVelocity(600.0f)
     , maxAngle(45.0f)
     , desiredNewVelocity(FVector::ZeroVector)
@@ -61,15 +62,22 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 	ImGui::SetNextWindowPos(ImVec2(420, 10), ImGuiCond_FirstUseEver);
 	ImGui::SetNextWindowSize(ImVec2(500, 500), ImGuiCond_FirstUseEver);
 
-	UZMQController* zmqControllerCurrent = DronePawn ? DronePawn->FindComponentByClass<UZMQController>() : nullptr;
+	// Instead of looking for a component on the pawn, we search the world for our dedicated actor.
+	AZMQController* zmqControllerCurrent = nullptr;
+	TArray<AActor*> FoundActors;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AZMQController::StaticClass(), FoundActors);
+	if (FoundActors.Num() > 0)
+	{
+		zmqControllerCurrent = Cast<AZMQController>(FoundActors[0]);
+	}
+
 	FVector currentGoalState = FVector::ZeroVector;
+	FString droneID = FString("Unknown");
 	if (zmqControllerCurrent && zmqControllerCurrent->IsValidLowLevel())
 	{
 		currentGoalState = zmqControllerCurrent->GetCurrentGoalPosition();
+		droneID = zmqControllerCurrent->GetConfiguration().DroneID;
 	}
-	FString droneID = (zmqControllerCurrent) 
-		? zmqControllerCurrent->GetConfiguration().DroneID 
-		: FString("Unknown");
 
 	// Use ## to give ImGui a hidden unique identifier
 	FString WindowName = FString::Printf(TEXT("Drone Controller##%s"), *droneID);
@@ -77,7 +85,14 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 	ImGui::Begin(TCHAR_TO_UTF8(*WindowName), nullptr, ImGuiWindowFlags_AlwaysVerticalScrollbar);
 	
 	ImGui::Text("Drone ID: %s", TCHAR_TO_UTF8(*droneID));
-	
+	static bool bLocalManualMode = false;
+	if (ImGui::Checkbox("Manual Thrust Mode", &bLocalManualMode))
+	{
+		if (Controller)
+		{
+			Controller->SetManualThrustMode(bLocalManualMode);
+		}
+	}
 	// Display drone info and various UI elements
 	DisplayDroneInfo();
 	ImGui::SliderFloat("Max velocity", &maxVelocity, 0.0f, 600.0f);
@@ -87,7 +102,7 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 	DisplayDebugOptions();
 
 	static float AllThrustValue = 0.0f;
-	if (ImGui::SliderFloat("All Thrusts", &AllThrustValue, 0, maxPIDOutput))
+	if (ImGui::SliderFloat("All Thrusts", &AllThrustValue, 0, 700.0f))
 	{
 		for (int i = 0; i < ThrustsVal.Num(); i++)
 		{
@@ -114,7 +129,7 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 		ImGui::Indent();
 		if (synchronizeDiagonal1)
 		{
-			if (ImGui::SliderFloat("FL & BR Thrust", &ThrustsVal[0], 0, maxPIDOutput))
+			if (ImGui::SliderFloat("FL & BR Thrust", &ThrustsVal[0], 0, 700.0f))
 			{
 				ThrustsVal[3] = ThrustsVal[0];
 			}
@@ -123,8 +138,8 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 		else
 		{
 			// "Front Left" is effectively "Diag1/Front Left"
-			ImGui::SliderFloat("Front Left", &ThrustsVal[0], 0, maxPIDOutput);
-			ImGui::SliderFloat("Back Right", &ThrustsVal[3], 0, maxPIDOutput);
+			ImGui::SliderFloat("Front Left", &ThrustsVal[0], 0, 700.0f);
+			ImGui::SliderFloat("Back Right", &ThrustsVal[3], 0, 700.0f);
 		}
 		ImGui::Unindent();
 		ImGui::PopID();  // pop "Diag1"
@@ -136,7 +151,7 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 		ImGui::Indent();
 		if (synchronizeDiagonal2)
 		{
-			if (ImGui::SliderFloat("FR & BL Thrust", &ThrustsVal[1], 0, maxPIDOutput))
+			if (ImGui::SliderFloat("FR & BL Thrust", &ThrustsVal[1], 0, 700.0f))
 			{
 				ThrustsVal[2] = ThrustsVal[1];
 			}
@@ -144,8 +159,8 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 		}
 		else
 		{
-			ImGui::SliderFloat("Front Right", &ThrustsVal[1], 0, maxPIDOutput);
-			ImGui::SliderFloat("Back Left", &ThrustsVal[2], 0, maxPIDOutput);
+			ImGui::SliderFloat("Front Right", &ThrustsVal[1], 0, 700.0f);
+			ImGui::SliderFloat("Back Left", &ThrustsVal[2], 0, 700.0f);
 		}
 		ImGui::Unindent();
 		ImGui::PopID(); // pop "Diag2"
@@ -530,23 +545,72 @@ void UImGuiUtil::DisplayResetDroneButtons()
 
 void UImGuiUtil::DisplayDesiredVelocities()
 {
-	ImGui::Text("Desired Velocities");
-	float tempVx = desiredNewVelocity.X;
-	float tempVy = desiredNewVelocity.Y;
-	float tempVz = desiredNewVelocity.Z;
-	bool velocityChanged = false;
-	velocityChanged |= ImGui::SliderFloat("Desired Velocity X", &tempVx, -maxVelocity, maxVelocity);
-	velocityChanged |= ImGui::SliderFloat("Desired Velocity Y", &tempVy, -maxVelocity, maxVelocity);
-	velocityChanged |= ImGui::SliderFloat("Desired Velocity Z", &tempVz, -maxVelocity, maxVelocity);
-	if (velocityChanged)
-	{
-		desiredNewVelocity.X = tempVx;
-		desiredNewVelocity.Y = tempVy;
-		desiredNewVelocity.Z = tempVz;
-		if (Controller)
-		{
-			Controller->SetDesiredVelocity(desiredNewVelocity);
-		}
-	}
-	ImGui::Separator();
+    ImGui::Text("Desired Velocities");
+
+    static bool hoverMode = false;
+    ImGui::Checkbox("Hover Mode", &hoverMode);
+
+    // Static variables to hold previous slider values.
+    static float prevVx = 0.0f;
+    static float prevVy = 0.0f;
+    static float prevVz = 0.0f;
+    static bool firstRun = true;
+
+    // If hover mode is active, lock desired velocity to hover value.
+    if (hoverMode)
+    {
+        desiredNewVelocity = FVector(0.0f, 0.0f, 70.0f);
+    }
+    
+    ImGui::BeginDisabled(hoverMode);
+
+    float tempVx = desiredNewVelocity.X;
+    float tempVy = desiredNewVelocity.Y;
+    float tempVz = desiredNewVelocity.Z;
+    bool velocityChanged = false;
+
+    // Show sliders and update temporary values.
+    velocityChanged |= ImGui::SliderFloat("Desired Velocity X", &tempVx, -maxVelocity, maxVelocity);
+    velocityChanged |= ImGui::SliderFloat("Desired Velocity Y", &tempVy, -maxVelocity, maxVelocity);
+    velocityChanged |= ImGui::SliderFloat("Desired Velocity Z", &tempVz, -maxVelocity, maxVelocity);
+
+    ImGui::EndDisabled();
+
+    // On first run, initialize previous values.
+    if (firstRun)
+    {
+        prevVx = tempVx;
+        prevVy = tempVy;
+        prevVz = tempVz;
+        firstRun = false;
+    }
+
+    // Set a deadzone threshold (adjust as needed)
+    const float threshold = 0.01f;
+    bool significantChange = (FMath::Abs(tempVx - prevVx) > threshold) ||
+                             (FMath::Abs(tempVy - prevVy) > threshold) ||
+                             (FMath::Abs(tempVz - prevVz) > threshold);
+
+    // If hover mode, always update to hover value.
+    if (hoverMode)
+    {
+        desiredNewVelocity = FVector(0.0f, 0.0f, 70.0f);
+        significantChange = true;
+    }
+
+    // Only update the desired velocity (and call SetDesiredVelocity) if there is a significant change.
+    if (significantChange)
+    {
+        desiredNewVelocity = FVector(tempVx, tempVy, tempVz);
+        if (Controller)
+        {
+            Controller->SetDesiredVelocity(desiredNewVelocity);
+        }
+        // Update previous values so that subsequent small changes are ignored.
+        prevVx = tempVx;
+        prevVy = tempVy;
+        prevVz = tempVz;
+    }
+
+    ImGui::Separator();
 }

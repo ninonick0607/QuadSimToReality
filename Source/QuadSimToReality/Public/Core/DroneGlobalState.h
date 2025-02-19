@@ -1,61 +1,36 @@
+// DroneGlobalState.h
 #pragma once
-
 #include "CoreMinimal.h"
-#include "UObject/WeakObjectPtr.h"
-#include "DroneGlobalState.generated.h"
 
 class UQuadDroneController;
-class AQuadPawn;
-UCLASS()
-class QUADSIMTOREALITY_API UDroneGlobalState : public UObject
+
+class QUADSIMTOREALITY_API DroneGlobalState
 {
-    GENERATED_BODY()
-
 public:
-    /** Returns the global singleton instance (creates if not existing yet). */
-    UFUNCTION(BlueprintCallable, Category="GlobalState")
-    static UDroneGlobalState* Get();
+    // Remove the public constructor declaration since it's private
+    static DroneGlobalState& Get()
+    {
+        static DroneGlobalState instance;
+        return instance;
+    }
 
-    // --- Existing usage from your old class ---
-    
-    UFUNCTION(BlueprintCallable, Category="GlobalState")
-    void SetDesiredVelocity(const FVector& NewVelocity);
-
-    UFUNCTION(BlueprintCallable, Category="GlobalState")
-    void BindController(UQuadDroneController* Controller);
-    
-    UFUNCTION(BlueprintCallable, Category="GlobalState")
-    void UnbindController();
-
-    UFUNCTION(BlueprintCallable, Category="GlobalState")
+    // Getter for velocity
     const FVector& GetDesiredVelocity() const { return DesiredVelocity; }
 
-    UFUNCTION(BlueprintCallable, Category="GlobalState")
-    void RegisterPawn(AQuadPawn* InPawn);
-
-    TArray<TWeakObjectPtr<AQuadPawn>>& GetAllDrones() { return AllDrones; }
-
-    /** Which drone's UI do we show in ImGui? */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="GlobalState")
-    int32 SelectedDroneIndex = 0;
-    
-    UFUNCTION(BlueprintCallable, Category="GlobalState")
-    void DrawDroneManagerWindow(UWorld* InWorld, const FString& InDroneID);
+    // Declare these functions here, define them in the cpp file
+    void SetDesiredVelocity(const FVector& NewVelocity);
+    void BindController(UQuadDroneController* Controller);
+    void UnbindController();
 
 private:
-    /** Holds the single instance pointer. */
-    static UDroneGlobalState* SingletonInstance;
+    // Private constructor declaration only
+    DroneGlobalState();
+    ~DroneGlobalState();
 
-private:
-    /** Standard UObject-style constructor. */
-    UDroneGlobalState();
+    // Prevent copying
+    DroneGlobalState(const DroneGlobalState&) = delete;
+    DroneGlobalState& operator=(const DroneGlobalState&) = delete;
 
     FVector DesiredVelocity;
     UQuadDroneController* BoundController;
-
-    /** List of all spawned Pawns (kept as weak pointers). */
-    TArray<TWeakObjectPtr<AQuadPawn>> AllDrones;
-
-    int32 DroneCounter;
-    TMap<AQuadPawn*, FString> PawnIDMap;
 };
