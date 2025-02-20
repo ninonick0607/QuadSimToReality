@@ -9,6 +9,8 @@
 #include "Camera/CameraComponent.h"
 #include "HAL/RunnableThread.h"
 #include "Async/Async.h"
+#include "Core/DroneManager.h"
+#include "Kismet/GameplayStatics.h"
 
 AZMQController::AZMQController()
     : bIsCapturing(false)
@@ -18,6 +20,7 @@ AZMQController::AZMQController()
     , CaptureComponent(nullptr)
     , RenderTarget(nullptr)
     , CurrentGoalPosition(FVector(0.0f, 0.0f, 1000.0f))
+    , TargetPawn(nullptr)  // Initialize TargetPawn to nullptr
 {
     PrimaryActorTick.bCanEverTick = true;
 }
@@ -28,36 +31,50 @@ AZMQController::~AZMQController()
 
 void AZMQController::Initialize(AQuadPawn* InPawn, UQuadDroneController* InDroneController, const FZMQConfiguration& Config)
 {
-    UE_LOG(LogTemp, Display, TEXT("UZMQController::Initialize called with Pawn=%s, Controller=%s"),
-       InPawn ? *InPawn->GetName() : TEXT("nullptr"),
-       InDroneController ? *InDroneController->GetName() : TEXT("nullptr"));    
+    UE_LOG(LogTemp, Display, TEXT("ZMQController::Initialize called with Pawn=%s, Controller=%s"),
+           InPawn ? *InPawn->GetName() : TEXT("nullptr"),
+           InDroneController ? *InDroneController->GetName() : TEXT("nullptr"));    
 
     Configuration = Config;
+    // Overwrite the DroneID with the unique name from the pawn
+    if (InPawn)
+    {
+        Configuration.DroneID = InPawn->GetName();
+    }
+
     DronePawn = InPawn;
     DroneController = InDroneController;
-    UE_LOG(LogTemp, Display, TEXT("UZMQController initialized with DroneID: %s"), *Configuration.DroneID);
+    TargetPawn = InPawn;
+
+    UE_LOG(LogTemp, Display, TEXT("ZMQController initialized with DroneID: %s"), *Configuration.DroneID);
 
     InitializeZMQ();
-    InitializeImageCapture();
-
+    //InitializeImageCapture();
 }
+
 
 void AZMQController::BeginPlay()
 {
     Super::BeginPlay();
-    
-    // If TargetPawn is set in Blueprint, use it:
-    if (TargetPawn && !DronePawn)
+
+    // In case TargetPawn was set in Blueprint and not via Initialize(),
+    // try to initialize from it.
+    if (TargetPawn)
     {
-        DronePawn = TargetPawn;
-        DroneController = DronePawn->QuadController;
-        if (DroneController)
+        if (!TargetPawn->QuadController)
         {
-            Initialize(DronePawn, DroneController, Configuration);
+            // Delay initialization by 0.1 seconds (adjust as needed)
+            GetWorld()->GetTimerManager().SetTimerForNextTick([this]()
+            {
+                this->CheckAndInitialize();
+            });
         }
         else
         {
-            UE_LOG(LogTemp, Warning, TEXT("AZMQController: No QuadDroneController found on TargetPawn."));
+            // If the controller is already available, initialize immediately.
+            DronePawn = TargetPawn;
+            DroneController = TargetPawn->QuadController;
+            Initialize(DronePawn, DroneController, Configuration);
         }
     }
 
@@ -74,6 +91,18 @@ void AZMQController::BeginPlay()
             Configuration.CaptureInterval,
             true
         );
+    }
+
+    // --- Registration with DroneManager ---
+    // Find the DroneManager in the world and register this controller.
+    ADroneManager* Manager = Cast<ADroneManager>(UGameplayStatics::GetActorOfClass(GetWorld(), ADroneManager::StaticClass()));
+    if (Manager)
+    {
+        Manager->RegisterZMQController(this);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("ZMQController: No DroneManager found in the level."));
     }
 }
 
@@ -122,9 +151,6 @@ void AZMQController::InitializeZMQ()
     }
 }
 
-
-
-
 void AZMQController::ProcessCommands()
 {
     if (!CommandSocket || bIsProcessingCommand) return;
@@ -172,7 +198,7 @@ void AZMQController::HandleResetCommand()
     // Set new goal position (varying only Z height)
     CurrentGoalPosition = FVector(0.0f, 0.0f, FMath::RandRange(500.0f, 1500.0f));
 
-    UE_LOG(LogTemp, Warning, TEXT("AZMQController: New goal height set to: Z=%f"), CurrentGoalPosition.Z);
+    UE_LOG(LogTemp, Warning, TEXT("ZMQController: New goal height set to: Z=%f"), CurrentGoalPosition.Z);
     DroneController->ResetDroneOrigin();
 }
 
@@ -185,7 +211,6 @@ void AZMQController::HandleVelocityCommand(zmq::multipart_t& Message)
     {
         float* VelocityArray = reinterpret_cast<float*>(VelocityData.data());
 
-        // Add a log so you know exactly what values you got
         UE_LOG(LogTemp, Display, TEXT("[ZMQController] Velocity array from Python: %f, %f, %f"),
             VelocityArray[0], VelocityArray[1], VelocityArray[2]);
 
@@ -198,7 +223,6 @@ void AZMQController::HandleVelocityCommand(zmq::multipart_t& Message)
         UE_LOG(LogTemp, Warning, TEXT("Invalid velocity data size in ZMQ message."));
     }
 }
-
 
 void AZMQController::SendStateData()
 {
@@ -255,6 +279,7 @@ void AZMQController::InitializeImageCapture()
     CaptureComponent->bCaptureOnMovement = false;
     CaptureComponent->PrimitiveRenderMode = ESceneCapturePrimitiveRenderMode::PRM_LegacySceneCapture;
 }
+
 void AZMQController::ProcessImageCapture()
 {
     if (bIsCapturing || !CaptureComponent || !RenderTarget) return;
@@ -282,13 +307,11 @@ void AZMQController::ProcessImageCapture()
         return;
     }
     
-    // Move the compression and sending to background thread
+    // Move the compression and sending to a background thread
     AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [this, ImageData]()
     {
-        // Compress image data
         TArray<uint8> CompressedData = CompressImageData(ImageData);
         
-        // Send compressed data
         if (PublishSocket)
         {
             try
@@ -333,13 +356,10 @@ TArray<uint8> AZMQController::CompressImageData(const TArray<FColor>& ImageData)
     return TArray<uint8>(CompressedData.GetData(), CompressedData.Num());
 }
 
-
 void AZMQController::SetConfiguration(const FZMQConfiguration& NewConfig)
 {
-    // Update configuration
     Configuration = NewConfig;
 
-    // Update image capture timer if needed
     if (Configuration.CaptureInterval > 0.0f)
     {
         GetWorld()->GetTimerManager().SetTimer(
@@ -360,5 +380,19 @@ void AZMQController::SetDroneID(const FString& NewID)
 {
     Configuration.DroneID = NewID;
     UE_LOG(LogTemp, Display, TEXT("ZMQController DroneID set to: %s"), *Configuration.DroneID);
+}
 
+void AZMQController::CheckAndInitialize()
+{
+    if (TargetPawn && TargetPawn->QuadController)
+    {
+        DronePawn = TargetPawn;
+        DroneController = TargetPawn->QuadController;
+        Configuration.DroneID = TargetPawn->GetName();
+        Initialize(DronePawn, DroneController, Configuration);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("ZMQController: Still no QuadDroneController found on TargetPawn after delay."));
+    }
 }

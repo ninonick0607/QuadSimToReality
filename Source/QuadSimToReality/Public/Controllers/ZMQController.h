@@ -31,7 +31,7 @@ struct FZMQConfiguration
     FIntPoint ImageResolution = FIntPoint(128, 128);
 
     UPROPERTY(EditAnywhere, Category = "Image Capture")
-    float CaptureInterval = 0.1f;  // A more reasonable interval (e.g., 0.1 sec ~ 10 FPS)
+    float CaptureInterval = 0.1f;  // e.g., 0.1 sec ~ 10 FPS
 
     UPROPERTY(EditAnywhere, Category = "Communication")
     FString DroneID = TEXT("drone1");
@@ -46,7 +46,7 @@ public:
     AZMQController();
     virtual ~AZMQController();
 
-    // Call this to initialize the controller with a target pawn and its drone controller
+    // Call this to initialize the controller with a target pawn and its drone controller.
     UFUNCTION(BlueprintCallable, Category = "ZMQ")
     void Initialize(AQuadPawn* InPawn, UQuadDroneController* InDroneController, const FZMQConfiguration& Config);
 
@@ -62,7 +62,7 @@ public:
     UFUNCTION(BlueprintCallable, Category = "ZMQ")
     void SetDroneID(const FString& NewID);
 
-    // Set this property in the blueprint to point to the pawn you wish to control.
+    // This property is used to point to the drone this controller is responsible for.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="ZMQ")
     AQuadPawn* TargetPawn;
 
@@ -79,6 +79,7 @@ private:
     void HandleVelocityCommand(zmq::multipart_t& Message);
     void SendStateData();
     void ProcessCommands();
+    void CheckAndInitialize();
     TArray<uint8> CompressImageData(const TArray<FColor>& ImageData);
 
     // ZMQ and image capture members
