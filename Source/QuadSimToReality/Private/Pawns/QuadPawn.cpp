@@ -20,7 +20,7 @@ AQuadPawn::AQuadPawn()
 	PrimaryActorTick.bCanEverTick = true;
 
 	// Create and configure DroneBody
-	DroneBody = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("DroneBody"));
+	DroneBody = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("DroneBody"));
     RootComponent = DroneBody;
 	DroneBody->SetSimulatePhysics(true);
 
@@ -49,9 +49,13 @@ AQuadPawn::AQuadPawn()
 
 	}
 
-	// Create camera components
+	CameraFPV = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraFPV"));
+	CameraFPV->SetupAttachment(DroneBody,TEXT("FPVCam"));
+	CameraFPV->SetRelativeScale3D(FVector(0.1f));
+	
 	DroneCamMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CamMesh"));
 	DroneCamMesh->SetupAttachment(DroneBody);
+	CameraFPV->SetupAttachment(DroneBody,TEXT("FPVCam"));
 
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(DroneBody);
@@ -59,10 +63,6 @@ AQuadPawn::AQuadPawn()
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(SpringArm);
 
-	CameraFPV = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraFPV"));
-	CameraFPV->SetupAttachment(DroneBody);
-	CameraFPV->SetRelativeLocation(FVector(5.5f, 0.f, -6.0f));
-	CameraFPV->SetRelativeScale3D(FVector(0.1f));
 
 	// Configure SpringArm
 	SpringArm->TargetArmLength = 200.f;

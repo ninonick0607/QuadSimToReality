@@ -4,8 +4,9 @@
 #include <zmq_addon.hpp>
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "ZMQController.generated.h"
+class SZMQImageWidget;
 
+#include "ZMQController.generated.h"
 // Forward declarations
 class AQuadPawn;
 class UQuadDroneController;
@@ -109,4 +110,8 @@ private:
     UTextureRenderTarget2D* RenderTarget;
 
     FVector CurrentGoalPosition;
+
+    TSharedPtr<SZMQImageWidget> ZMQWidget; // Reference to the widget
+    double LastCaptureTime;
+    float CaptureFPS;
 };

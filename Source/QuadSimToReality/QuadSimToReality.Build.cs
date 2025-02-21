@@ -15,7 +15,7 @@ public class QuadSimToReality : ModuleRules
             "InputCore",
             "EnhancedInput",
             "ChaosVehicles",
-            "PhysicsCore",
+            "PhysicsCore", 
             "RenderCore",
             "RHI",
             "Sockets",

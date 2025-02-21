@@ -190,9 +190,9 @@ void ADroneManager::Tick(float DeltaTime)
 
 AQuadPawn* ADroneManager::SpawnDrone(const FVector& SpawnLocation, const FRotator& SpawnRotation)
 {
-    if (!QuadPawnClass)
+    if (!QuadPawnClass || !ZMQControllerClass)
     {
-        UE_LOG(LogTemp, Warning, TEXT("QuadPawnClass not set in DroneManager!"));
+        UE_LOG(LogTemp, Warning, TEXT("QuadPawnClass or ZMQControllerClass not set in DroneManager!"));
         return nullptr;
     }
 
@@ -205,28 +205,32 @@ AQuadPawn* ADroneManager::SpawnDrone(const FVector& SpawnLocation, const FRotato
         
         // Spawn the drone.
         AQuadPawn* NewDrone = World->SpawnActor<AQuadPawn>(QuadPawnClass, SpawnLocation, SpawnRotation, SpawnParams);
-        
-        // Delay spawning the ZMQController slightly (e.g., 0.2 seconds)
-        FTimerHandle TimerHandle;
-        World->GetTimerManager().SetTimer(TimerHandle, [this, NewDrone, SpawnLocation, SpawnRotation, SpawnParams]()
+        if (NewDrone)
         {
-            if (NewDrone && ZMQControllerClass)
+            // Calculate a unique offset based o    n the current number of drones.
+            int32 DroneIndex = AllDrones.Num();
+            FZMQConfiguration Config;
+            Config.PublishPort = 5557 + DroneIndex;
+            Config.CommandPort = 5556 + DroneIndex;
+            Config.ControlPort = 5558 + DroneIndex;
+            Config.DroneID = NewDrone->GetName();
+            
+            // Spawn the dedicated ZMQController for this drone after a short delay.
+            FTimerHandle TimerHandle;
+            World->GetTimerManager().SetTimer(TimerHandle, [this, NewDrone, SpawnLocation, SpawnRotation, SpawnParams, Config]()
             {
                 AZMQController* NewZMQController = GetWorld()->SpawnActor<AZMQController>(ZMQControllerClass, SpawnLocation, SpawnRotation, SpawnParams);
                 if (NewZMQController)
                 {
-                    // Now update the config DroneID with the unique name from the drone.
-                    FZMQConfiguration Config;
-                    Config.DroneID = NewDrone->GetName();
                     NewZMQController->Initialize(NewDrone, NewDrone->QuadController, Config);
                 }
-            }
-        }, 0.2f, false);
-
+            }, 0.2f, false);
+        }
         return NewDrone;
     }
     return nullptr;
 }
+
 
 
 TArray<AQuadPawn*> ADroneManager::GetDroneList() const

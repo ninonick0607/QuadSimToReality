@@ -11,6 +11,8 @@
 #include "Async/Async.h"
 #include "Core/DroneManager.h"
 #include "Kismet/GameplayStatics.h"
+#include "UI/SZMQImageWidget.h"
+#include "Widgets/SWeakWidget.h"
 
 AZMQController::AZMQController()
     : bIsCapturing(false)
@@ -49,21 +51,26 @@ void AZMQController::Initialize(AQuadPawn* InPawn, UQuadDroneController* InDrone
     UE_LOG(LogTemp, Display, TEXT("ZMQController initialized with DroneID: %s"), *Configuration.DroneID);
 
     InitializeZMQ();
-    //InitializeImageCapture();
+    InitializeImageCapture();
+    
+    if (RenderTarget && GEngine && GEngine->GameViewport)
+    {
+        ZMQWidget = SNew(SZMQImageWidget).RenderTarget(RenderTarget);
+        GEngine->GameViewport->AddViewportWidgetContent(ZMQWidget.ToSharedRef());
+    }
 }
+
 
 
 void AZMQController::BeginPlay()
 {
     Super::BeginPlay();
 
-    // In case TargetPawn was set in Blueprint and not via Initialize(),
-    // try to initialize from it.
+    // If TargetPawn is set in Blueprint but not via Initialize(), try to set it up.
     if (TargetPawn)
     {
         if (!TargetPawn->QuadController)
         {
-            // Delay initialization by 0.1 seconds (adjust as needed)
             GetWorld()->GetTimerManager().SetTimerForNextTick([this]()
             {
                 this->CheckAndInitialize();
@@ -71,7 +78,6 @@ void AZMQController::BeginPlay()
         }
         else
         {
-            // If the controller is already available, initialize immediately.
             DronePawn = TargetPawn;
             DroneController = TargetPawn->QuadController;
             Initialize(DronePawn, DroneController, Configuration);
@@ -81,7 +87,6 @@ void AZMQController::BeginPlay()
     UE_LOG(LogTemp, Display, TEXT("Initial goal position set to: X=%f, Y=%f, Z=%f"),
            CurrentGoalPosition.X, CurrentGoalPosition.Y, CurrentGoalPosition.Z);
 
-    // Start image capture timer
     if (Configuration.CaptureInterval > 0.0f)
     {
         GetWorld()->GetTimerManager().SetTimer(
@@ -93,8 +98,7 @@ void AZMQController::BeginPlay()
         );
     }
 
-    // --- Registration with DroneManager ---
-    // Find the DroneManager in the world and register this controller.
+    // Register with DroneManager
     ADroneManager* Manager = Cast<ADroneManager>(UGameplayStatics::GetActorOfClass(GetWorld(), ADroneManager::StaticClass()));
     if (Manager)
     {
@@ -104,7 +108,16 @@ void AZMQController::BeginPlay()
     {
         UE_LOG(LogTemp, Warning, TEXT("ZMQController: No DroneManager found in the level."));
     }
+
+    if (RenderTarget && GEngine && GEngine->GameViewport)
+    {
+        ZMQWidget = SNew(SZMQImageWidget).RenderTarget(RenderTarget);
+        GEngine->GameViewport->AddViewportWidgetContent(ZMQWidget.ToSharedRef());
+    }
+
+
 }
+
 
 void AZMQController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
@@ -285,7 +298,8 @@ void AZMQController::ProcessImageCapture()
     if (bIsCapturing || !CaptureComponent || !RenderTarget) return;
     
     bIsCapturing = true;
-    
+    CaptureComponent->CaptureScene();
+
     // Capture frame
     CaptureComponent->CaptureScene();
     
