@@ -154,8 +154,8 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
     
     SafetyReset();
     
-    float x_output = 0.f, y_output = 0.f, z_output = 0.f;
-    float roll_output = 0.f, pitch_output = 0.f;
+    double x_output = 0.f, y_output = 0.f, z_output = 0.f;
+    double roll_output = 0.f, pitch_output = 0.f;
     
     if (!bManualThrustMode)
     {
@@ -216,8 +216,8 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
 
 // ---------------------- Thrust Functions ------------------------
 
-void UQuadDroneController::ThrustMixer(float xOutput, float yOutput, float zOutput,
-										 float rollOutput, float pitchOutput)
+void UQuadDroneController::ThrustMixer(double xOutput, double yOutput, double zOutput,
+										 double rollOutput, double pitchOutput)
 {
 	float droneMass = dronePawn->DroneBody->GetMass();
 	const float mult = 0.5f;
@@ -236,7 +236,7 @@ void UQuadDroneController::ThrustMixer(float xOutput, float yOutput, float zOutp
 	{
 		if (!dronePawn || !dronePawn->Thrusters.IsValidIndex(i))
 			continue;
-		float force = droneMass * mult * Thrusts[i];
+		double force = droneMass * mult * Thrusts[i];
 		dronePawn->Thrusters[i]->ApplyForce(force);
 	}
 }

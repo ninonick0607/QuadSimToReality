@@ -13,7 +13,7 @@ public:
 	void Reset();
 	void ResetIntegral();
 
-	float Calculate(float error, float dt);
+	double Calculate(float error, float dt);
     
 	// Getters for buffer info
 	int32 GetBufferSize() const { return integralBuffer.Num(); }

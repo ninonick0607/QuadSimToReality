@@ -111,9 +111,6 @@ private:
 
     FVector CurrentGoalPosition;
 
-    TSharedPtr<SZMQImageWidget> ZMQWidget; // Reference to the widget
-    TSharedPtr<SWindow> ZMQImageWindow;
-
     double LastCaptureTime;
     float CaptureFPS;
 };

@@ -11,7 +11,6 @@
 #include "Async/Async.h"
 #include "Core/DroneManager.h"
 #include "Kismet/GameplayStatics.h"
-#include "UI/SZMQImageWidget.h"
 
 AZMQController::AZMQController()
     : bIsCapturing(false)
@@ -51,22 +50,7 @@ void AZMQController::Initialize(AQuadPawn* InPawn, UQuadDroneController* InDrone
 
     InitializeZMQ();
     InitializeImageCapture();
-
-    // // Now that RenderTarget is created, create the separate window:
-    // if (RenderTarget)
-    // {
-    //     ZMQImageWindow = SNew(SWindow)
-    //         .Title(FText::FromString(TEXT("ZMQ Image Window")))
-    //         .ClientSize(FVector2D(800, 600))
-    //         .SupportsMinimize(false)
-    //         .SupportsMaximize(false)
-    //         [
-    //             SNew(SZMQImageWidget).RenderTarget(RenderTarget)
-    //         ];
-    //
-    //     FSlateApplication::Get().AddWindow(ZMQImageWindow.ToSharedRef());
-    //     UE_LOG(LogTemp, Display, TEXT("Separate window added via Slate."));
-    // }
+    
 }
 
 void AZMQController::BeginPlay()
@@ -123,12 +107,6 @@ void AZMQController::BeginPlay()
 void AZMQController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
     GetWorld()->GetTimerManager().ClearTimer(ImageCaptureTimerHandle);
-    
-    if (ZMQImageWindow.IsValid())
-    {
-        FSlateApplication::Get().RequestDestroyWindow(ZMQImageWindow.ToSharedRef());
-        ZMQImageWindow.Reset();
-    }
     
     PublishSocket.Reset();
     CommandSocket.Reset();
@@ -332,9 +310,12 @@ void AZMQController::ProcessImageCapture()
     TArray<FColor> ImageData;
     if (!RenderTargetResource->ReadPixels(ImageData))
     {
+        UE_LOG(LogTemp, Warning, TEXT("Failed to read pixels from render target."));
         bIsCapturing = false;
         return;
     }
+    UE_LOG(LogTemp, Display, TEXT("Captured image: %d pixels"), ImageData.Num());
+
     
     // Compress and send on a background thread
     AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [this, ImageData]()

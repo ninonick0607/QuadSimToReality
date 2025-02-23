@@ -37,7 +37,7 @@ void QuadPIDController::RemoveExpiredPoints()
     }
 }
 
-float QuadPIDController::Calculate(float error, float dt)
+double QuadPIDController::Calculate(float error, float dt)
 {
     if (dt <= KINDA_SMALL_NUMBER)
     {
@@ -51,7 +51,7 @@ float QuadPIDController::Calculate(float error, float dt)
     RemoveExpiredPoints();
 
     // Proportional term
-    float p_term = ProportionalGain * error;
+    double p_term = ProportionalGain * error;
 
     // Add new integral point
     IntegralPoint newPoint;
@@ -62,13 +62,13 @@ float QuadPIDController::Calculate(float error, float dt)
     currentBufferSum += newPoint.value;
 
     // Integral term with sliding window
-    float i_term = IntegralGain * currentBufferSum;
+    double i_term = IntegralGain * currentBufferSum;
 
     // Derivative term
-    float d_term = DerivativeGain * (error - prevError) / dt;
+    double d_term = DerivativeGain * (error - prevError) / dt;
 
     // Combine terms and clamp output
-    float output = p_term + i_term + d_term;
+    double output = p_term + i_term + d_term;
     output = FMath::Clamp(output, minOutput, maxOutput);
     
     prevError = error;

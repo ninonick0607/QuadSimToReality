@@ -15,7 +15,7 @@ class QUADSIMTOREALITY_API UThrusterComponent : public USceneComponent
 public:
     UThrusterComponent();
 
-    void ApplyForce(float Force);
+    void ApplyForce(double Force);
     void ApplyTorque(const FVector& Torque, bool bIsDegrees);
     void ApplyTorque(float TorqueValue, bool bIsDegrees = true);
 

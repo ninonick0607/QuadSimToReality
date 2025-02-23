@@ -56,7 +56,7 @@ public:
     void Update(double DeltaTime);
     
     void VelocityControl(double a_deltaTime);
-    void ThrustMixer(float xOutput, float yOutput, float zOutput, float rollOutput, float pitchOutput);
+    void ThrustMixer(double xOutput, double yOutput, double zOutput, double rollOutput, double pitchOutput);
     void YawStabilization(double DeltaTime);
 
     void ResetPID();

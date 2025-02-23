@@ -15,7 +15,7 @@ void UThrusterComponent::BeginPlay()
     Super::BeginPlay();
 }
 
-void UThrusterComponent::ApplyForce(float Force)
+void UThrusterComponent::ApplyForce(double Force)
 {
     AActor* Owner = GetOwner();
     if (!Owner)
