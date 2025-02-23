@@ -252,8 +252,8 @@ def display_captured_images():
   
 if __name__ == "__main__":
 
-    display_thread = threading.Thread(target=display_captured_images, daemon=True)
-    display_thread.start()
+    # display_thread = threading.Thread(target=display_captured_images, daemon=True)
+    # display_thread.start()
 
 
     rl_dir = "./RL_training"

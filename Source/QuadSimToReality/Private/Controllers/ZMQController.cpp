@@ -12,7 +12,6 @@
 #include "Core/DroneManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "UI/SZMQImageWidget.h"
-#include "Widgets/SWeakWidget.h"
 
 AZMQController::AZMQController()
     : bIsCapturing(false)
@@ -22,7 +21,7 @@ AZMQController::AZMQController()
     , CaptureComponent(nullptr)
     , RenderTarget(nullptr)
     , CurrentGoalPosition(FVector(0.0f, 0.0f, 1000.0f))
-    , TargetPawn(nullptr)  // Initialize TargetPawn to nullptr
+    , TargetPawn(nullptr)  
 {
     PrimaryActorTick.bCanEverTick = true;
 }
@@ -52,21 +51,28 @@ void AZMQController::Initialize(AQuadPawn* InPawn, UQuadDroneController* InDrone
 
     InitializeZMQ();
     InitializeImageCapture();
-    
-    if (RenderTarget && GEngine && GEngine->GameViewport)
-    {
-        ZMQWidget = SNew(SZMQImageWidget).RenderTarget(RenderTarget);
-        GEngine->GameViewport->AddViewportWidgetContent(ZMQWidget.ToSharedRef());
-    }
+
+    // // Now that RenderTarget is created, create the separate window:
+    // if (RenderTarget)
+    // {
+    //     ZMQImageWindow = SNew(SWindow)
+    //         .Title(FText::FromString(TEXT("ZMQ Image Window")))
+    //         .ClientSize(FVector2D(800, 600))
+    //         .SupportsMinimize(false)
+    //         .SupportsMaximize(false)
+    //         [
+    //             SNew(SZMQImageWidget).RenderTarget(RenderTarget)
+    //         ];
+    //
+    //     FSlateApplication::Get().AddWindow(ZMQImageWindow.ToSharedRef());
+    //     UE_LOG(LogTemp, Display, TEXT("Separate window added via Slate."));
+    // }
 }
-
-
 
 void AZMQController::BeginPlay()
 {
     Super::BeginPlay();
-
-    // If TargetPawn is set in Blueprint but not via Initialize(), try to set it up.
+    UE_LOG(LogTemp, Display, TEXT("AZMQController BeginPlay: Creating separate window..."));
     if (TargetPawn)
     {
         if (!TargetPawn->QuadController)
@@ -109,19 +115,21 @@ void AZMQController::BeginPlay()
         UE_LOG(LogTemp, Warning, TEXT("ZMQController: No DroneManager found in the level."));
     }
 
-    if (RenderTarget && GEngine && GEngine->GameViewport)
-    {
-        ZMQWidget = SNew(SZMQImageWidget).RenderTarget(RenderTarget);
-        GEngine->GameViewport->AddViewportWidgetContent(ZMQWidget.ToSharedRef());
-    }
-
 
 }
+
 
 
 void AZMQController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
     GetWorld()->GetTimerManager().ClearTimer(ImageCaptureTimerHandle);
+    
+    if (ZMQImageWindow.IsValid())
+    {
+        FSlateApplication::Get().RequestDestroyWindow(ZMQImageWindow.ToSharedRef());
+        ZMQImageWindow.Reset();
+    }
+    
     PublishSocket.Reset();
     CommandSocket.Reset();
     ControlSocket.Reset();
@@ -286,7 +294,15 @@ void AZMQController::InitializeImageCapture()
     CaptureComponent->SetupAttachment(DronePawn->CameraFPV);
     CaptureComponent->RegisterComponent();
     CaptureComponent->TextureTarget = RenderTarget;
-    
+    if (DronePawn->CameraFPV)
+    {
+        UE_LOG(LogTemp, Display, TEXT("CameraFPV is valid: %s"), *DronePawn->CameraFPV->GetName());
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("CameraFPV is null!"));
+    }
+
     // Optimize capture settings
     CaptureComponent->bCaptureEveryFrame = false;
     CaptureComponent->bCaptureOnMovement = false;
@@ -298,15 +314,14 @@ void AZMQController::ProcessImageCapture()
     if (bIsCapturing || !CaptureComponent || !RenderTarget) return;
     
     bIsCapturing = true;
+    
+    // Capture the scene once
     CaptureComponent->CaptureScene();
-
-    // Capture frame
-    CaptureComponent->CaptureScene();
+    // Optionally force an immediate update:
+    RenderTarget->UpdateResourceImmediate(false);
     
     // Get render target resource
-    FTextureRenderTargetResource* RenderTargetResource = 
-        RenderTarget->GameThread_GetRenderTargetResource();
-    
+    FTextureRenderTargetResource* RenderTargetResource = RenderTarget->GameThread_GetRenderTargetResource();
     if (!RenderTargetResource)
     {
         bIsCapturing = false;
@@ -321,7 +336,7 @@ void AZMQController::ProcessImageCapture()
         return;
     }
     
-    // Move the compression and sending to a background thread
+    // Compress and send on a background thread
     AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [this, ImageData]()
     {
         TArray<uint8> CompressedData = CompressImageData(ImageData);
@@ -345,6 +360,7 @@ void AZMQController::ProcessImageCapture()
         bIsCapturing = false;
     });
 }
+
 
 TArray<uint8> AZMQController::CompressImageData(const TArray<FColor>& ImageData)
 {
