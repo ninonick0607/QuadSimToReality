@@ -10,6 +10,7 @@
 #include "HAL/RunnableThread.h"
 #include "Async/Async.h"
 #include "Core/DroneManager.h"
+
 #include "Kismet/GameplayStatics.h"
 
 AZMQController::AZMQController()
@@ -49,7 +50,7 @@ void AZMQController::Initialize(AQuadPawn* InPawn, UQuadDroneController* InDrone
     UE_LOG(LogTemp, Display, TEXT("ZMQController initialized with DroneID: %s"), *Configuration.DroneID);
 
     InitializeZMQ();
-    InitializeImageCapture();
+    //InitializeImageCapture();
     
 }
 
@@ -289,58 +290,78 @@ void AZMQController::InitializeImageCapture()
 
 void AZMQController::ProcessImageCapture()
 {
-    if (bIsCapturing || !CaptureComponent || !RenderTarget) return;
+    if (bIsCapturing || !CaptureComponent || !RenderTarget)
+    {
+        return;
+    }
     
     bIsCapturing = true;
     
-    // Capture the scene once
+    // Capture the scene and update the render target
     CaptureComponent->CaptureScene();
-    // Optionally force an immediate update:
     RenderTarget->UpdateResourceImmediate(false);
     
-    // Get render target resource
+    // Get the render target resource
     FTextureRenderTargetResource* RenderTargetResource = RenderTarget->GameThread_GetRenderTargetResource();
     if (!RenderTargetResource)
     {
         bIsCapturing = false;
         return;
     }
-
-    // Read pixels on game thread
-    TArray<FColor> ImageData;
-    if (!RenderTargetResource->ReadPixels(ImageData))
-    {
-        UE_LOG(LogTemp, Warning, TEXT("Failed to read pixels from render target."));
-        bIsCapturing = false;
-        return;
-    }
-    UE_LOG(LogTemp, Display, TEXT("Captured image: %d pixels"), ImageData.Num());
-
     
-    // Compress and send on a background thread
-    AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [this, ImageData]()
-    {
-        TArray<uint8> CompressedData = CompressImageData(ImageData);
-        
-        if (PublishSocket)
+    // Define the region to read back (the entire 128x128 target)
+    FIntRect Rect(0, 0, Configuration.ImageResolution.X, Configuration.ImageResolution.Y);
+    
+    // Allocate a dynamic array to hold the image data; we'll pass ownership to the lambda.
+    TArray<FColor>* ImageDataPtr = new TArray<FColor>();
+    
+    // Enqueue a render command to perform the readback on the render thread.
+    ENQUEUE_RENDER_COMMAND(AsyncReadPixelsCommand)(
+        [this, RenderTargetResource, Rect, ImageDataPtr](FRHICommandListImmediate& RHICmdList)
         {
-            try
+            // Read the pixel data from the render target
+            RHICmdList.ReadSurfaceData(
+                RenderTargetResource->GetRenderTargetTexture(),
+                Rect,
+                *ImageDataPtr,
+                FReadSurfaceDataFlags(RCM_UNorm)
+            );
+            
+            // Once readback is complete, post a task back to the game thread.
+            AsyncTask(ENamedThreads::GameThread, [this, ImageDataPtr]()
             {
-                zmq::multipart_t Message;
-                Message.addstr(TCHAR_TO_UTF8(*Configuration.DroneID));
-                Message.addmem(CompressedData.GetData(), CompressedData.Num());
-                Message.send(*PublishSocket, static_cast<int>(zmq::send_flags::none));
-            }
-            catch (const zmq::error_t& Error)
-            {
-                UE_LOG(LogTemp, Warning, TEXT("Failed to send image data: %s"),
-                       *FString(UTF8_TO_TCHAR(Error.what())));
-            }
+                UE_LOG(LogTemp, Display, TEXT("Captured image via render command: %d pixels"), ImageDataPtr->Num());
+                
+                // Offload PNG compression and network sending to a background thread.
+                AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [this, ImageDataPtr]()
+                {
+                    TArray<uint8> CompressedData = CompressImageData(*ImageDataPtr);
+                    
+                    if (PublishSocket)
+                    {
+                        try
+                        {
+                            zmq::multipart_t Message;
+                            Message.addstr(TCHAR_TO_UTF8(*Configuration.DroneID));
+                            Message.addmem(CompressedData.GetData(), CompressedData.Num());
+                            Message.send(*PublishSocket, static_cast<int>(zmq::send_flags::none));
+                        }
+                        catch (const zmq::error_t& Error)
+                        {
+                            UE_LOG(LogTemp, Warning, TEXT("Failed to send image data: %s"),
+                                   *FString(UTF8_TO_TCHAR(Error.what())));
+                        }
+                    }
+                    
+                    // Clean up the allocated image data and reset capture flag.
+                    delete ImageDataPtr;
+                    bIsCapturing = false;
+                });
+            });
         }
-        
-        bIsCapturing = false;
-    });
+    );
 }
+
 
 
 TArray<uint8> AZMQController::CompressImageData(const TArray<FColor>& ImageData)

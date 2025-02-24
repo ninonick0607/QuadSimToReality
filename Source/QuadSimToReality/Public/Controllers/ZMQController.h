@@ -111,6 +111,4 @@ private:
 
     FVector CurrentGoalPosition;
 
-    double LastCaptureTime;
-    float CaptureFPS;
 };

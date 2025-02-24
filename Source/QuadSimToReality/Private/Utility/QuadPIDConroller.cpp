@@ -33,9 +33,10 @@ void QuadPIDController::RemoveExpiredPoints()
     while (!integralBuffer.IsEmpty() && integralBuffer[0].timestamp < windowStart)
     {
         currentBufferSum -= integralBuffer[0].value;
-        integralBuffer.RemoveAt(0, 1, false); // false = don't shrink array
+        integralBuffer.RemoveAt(0, 1, EAllowShrinking::No);
     }
 }
+
 
 double QuadPIDController::Calculate(float error, float dt)
 {

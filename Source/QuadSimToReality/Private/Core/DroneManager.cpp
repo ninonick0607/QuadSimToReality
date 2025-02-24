@@ -70,7 +70,7 @@
     {
         Super::Tick(DeltaTime);
 
-        // Clean up any invalid entries.
+        // Clean up any invalid drone entries.
         for (int32 i = AllDrones.Num() - 1; i >= 0; i--)
         {
             if (!AllDrones[i].IsValid())
@@ -79,6 +79,29 @@
             }
         }
 
+        // Clean up any invalid ZMQ controller entries.
+        for (int32 i = AllZMQControllers.Num() - 1; i >= 0; i--)
+        {
+            if (!AllZMQControllers[i].IsValid())
+            {
+                AllZMQControllers.RemoveAt(i);
+            }
+        }
+
+        // Build a quick lookup map from drone (AQuadPawn*) to its ZMQ controller.
+        TMap<AQuadPawn*, AZMQController*> DroneToZMQMap;
+        for (const TWeakObjectPtr<AZMQController>& ControllerWeak : AllZMQControllers)
+        {
+            if (AZMQController* Controller = ControllerWeak.Get())
+            {
+                if (Controller->TargetPawn)
+                {
+                    DroneToZMQMap.Add(Controller->TargetPawn, Controller);
+                }
+            }
+        }
+
+        // Prepare the drone labels for the ImGui interface.
         ImGui::Begin("Global Drone Manager");
         ImGui::Text("Select which drone to possess:");
 
@@ -89,21 +112,11 @@
         {
             AQuadPawn* Drone = AllDrones[i].Get();
             FString DroneID;
+
             if (Drone)
             {
-                // Look for the dedicated ZMQController for this drone.
-                AZMQController* ZMQControllerForDrone = nullptr;
-                TArray<AActor*> FoundControllers;
-                UGameplayStatics::GetAllActorsOfClass(GetWorld(), AZMQController::StaticClass(), FoundControllers);
-                for (AActor* Actor : FoundControllers)
-                {
-                    AZMQController* ZMQ = Cast<AZMQController>(Actor);
-                    if (ZMQ && ZMQ->TargetPawn == Drone)
-                    {
-                        ZMQControllerForDrone = ZMQ;
-                        break;
-                    }
-                }
+                // Look up the dedicated ZMQ controller for this drone using our map.
+                AZMQController* ZMQControllerForDrone = DroneToZMQMap.FindRef(Drone);
                 if (ZMQControllerForDrone)
                 {
                     DroneID = ZMQControllerForDrone->GetConfiguration().DroneID;
