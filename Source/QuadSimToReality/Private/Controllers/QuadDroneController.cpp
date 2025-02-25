@@ -111,33 +111,6 @@ void UQuadDroneController::Update(double a_deltaTime)
 	}
     UpdatePropellerRPMs();
 
-	AZMQController* ZMQActor = nullptr;
-	TArray<AActor*> FoundActors;
-	UGameplayStatics::GetAllActorsOfClass(dronePawn->GetWorld(), AZMQController::StaticClass(), FoundActors);
-	if (FoundActors.Num() > 0)
-	{
-		ZMQActor = Cast<AZMQController>(FoundActors[0]);
-	}
-
-	if (ZMQActor)
-	{
-		FString DroneID = ZMQActor->GetConfiguration().DroneID;
-		FVector DroneLocation = dronePawn->GetActorLocation();
-		FVector Offset(0, 0, dronePawn->DroneBody->Bounds.BoxExtent.Z + 20.f);
-		FVector DebugLocation = DroneLocation + Offset;
-
-		DrawDebugString(
-			dronePawn->GetWorld(),
-			DebugLocation,
-			DroneID,
-			nullptr,
-			FColor::Green,
-			0.f,
-			true,
-			1.2f
-		);
-	}
-
 }
 
 void UQuadDroneController::VelocityControl(double a_deltaTime)
