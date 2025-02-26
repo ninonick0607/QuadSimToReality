@@ -55,15 +55,15 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 
     VelocitySet.RollPID = new QuadPIDController();
     VelocitySet.RollPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-    VelocitySet.RollPID->SetGains(8.f, 0.3f, 3.7f);
+    VelocitySet.RollPID->SetGains(11.0f, 6.0f, 3.3f);
 
     VelocitySet.PitchPID = new QuadPIDController();
     VelocitySet.PitchPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-    VelocitySet.PitchPID->SetGains(8.f, 0.3f, 3.7f);
+    VelocitySet.PitchPID->SetGains(11.0f, 6.0f, 3.3f);
 
     VelocitySet.YawPID = new QuadPIDController();
     VelocitySet.YawPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-    VelocitySet.YawPID->SetGains(1.8f, 0.15f, 1.5f);
+    VelocitySet.YawPID->SetGains(1.8f, 0.4f, .7f);
 	PIDMap.Add(EFlightMode::VelocityControl, MoveTemp(VelocitySet));
 
 	

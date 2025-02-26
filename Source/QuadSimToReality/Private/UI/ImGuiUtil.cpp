@@ -110,6 +110,52 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 		}
 	}
 
+	if (ImGui::Button("Set Hover Thrust", ImVec2(200, 50)))
+	{
+		float hoverThrust = 0.0f;
+		if (DronePawn && DronePawn->DroneBody)
+		{
+			float droneMass = DronePawn->GetMass();
+
+			const float GravityAccel = 980.0f; // cm/s^2
+			const float ScaleFactor = 0.7f;    // Adjustment for simulation
+
+			hoverThrust = (droneMass * GravityAccel * ScaleFactor) / 4.0f;
+
+			// Clamp to reasonable values for the simulation
+			hoverThrust = FMath::Clamp(hoverThrust, 0.0f, 700.0f);
+
+			// Set all motors to the calculated hover thrust
+			for (int i = 0; i < ThrustsVal.Num() && i < 4; i++)
+			{
+				ThrustsVal[i] = hoverThrust;
+			}
+
+			// Update the slider value
+			AllThrustValue = hoverThrust;
+
+			// Display the calculated thrust
+			ImGui::SameLine();
+			ImGui::Text("Calculated: %.2f", hoverThrust);
+		}
+		else
+		{
+			ImGui::SameLine();
+			ImGui::Text("Error: Drone reference invalid");
+		}
+	}
+	else if (DronePawn && DronePawn->DroneBody)
+	{
+		// Always show the theoretical hover thrust
+		float droneMass = DronePawn->GetMass();
+		const float GravityAccel = 980.0f;
+		const float ScaleFactor = 0.7f;
+		float theoreticalHoverThrust = (droneMass * GravityAccel * ScaleFactor) / 4.0f;
+
+		ImGui::SameLine();
+		ImGui::Text("Theoretical hover: %.2f", theoreticalHoverThrust);
+	}
+
 	ImGui::Separator();
 	ImGui::Text("Thruster Power");
 
