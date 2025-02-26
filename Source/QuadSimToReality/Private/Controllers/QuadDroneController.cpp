@@ -161,6 +161,8 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
         ApplyManualThrusts();
     }
     
+	YawStabilization(a_deltaTime);
+
     // Debug visualization, etc.
     if (Debug_DrawDroneWaypoint)
     {
@@ -220,22 +222,36 @@ void UQuadDroneController::YawStabilization(double DeltaTime)
 {
 	if (!dronePawn || !dronePawn->DroneBody) return;
 
-	// Calculate yaw error
 	FRotator CurrentRot = dronePawn->GetActorRotation();
 	float CurrentYaw = CurrentRot.Yaw;
 	float YawError = FMath::FindDeltaAngleDegrees(CurrentYaw, desiredYaw);
-	
-	static constexpr float YAW_ERROR_THRESHOLD = 1.0f; 
+
+	static constexpr float YAW_ERROR_THRESHOLD = 1.0f;
 	if (FMath::Abs(YawError) < YAW_ERROR_THRESHOLD)
 	{
 		return;
 	}
+
 	FFullPIDSet* CurrentSet = PIDMap.Find(EFlightMode::VelocityControl);
 	if (!CurrentSet) return;
+
+	FVector CurrentAngularVelocity = dronePawn->DroneBody->GetPhysicsAngularVelocityInDegrees();
+	float CurrentYawRate = CurrentAngularVelocity.Z; 
+
 	float PIDOutput = CurrentSet->YawPID->Calculate(YawError, DeltaTime);
 
+	float MaxYawTorque = 2.0f; 
+	PIDOutput = FMath::Clamp(PIDOutput, -MaxYawTorque, MaxYawTorque);
+
+
+	float YawDamping = -CurrentYawRate * 0.05f; 
+
+	float FinalYawTorque = PIDOutput + YawDamping;
+
 	FVector UpVector = dronePawn->DroneBody->GetUpVector();
-	FVector TorqueVector = UpVector * PIDOutput * YawTorqueForce;
+	FVector TorqueVector = UpVector * FinalYawTorque * YawTorqueForce;
+
+	LastYawTorqueApplied = FinalYawTorque * YawTorqueForce;
 
 	for (UThrusterComponent* Thruster : dronePawn->Thrusters)
 	{
@@ -245,6 +261,7 @@ void UQuadDroneController::YawStabilization(double DeltaTime)
 		}
 	}
 
+	// Debug visualizatio
 	FVector DroneLocation = dronePawn->GetActorLocation();
 	DrawDebugDirectionalArrow(
 		GetWorld(),
@@ -257,7 +274,7 @@ void UQuadDroneController::YawStabilization(double DeltaTime)
 		0,
 		3.f
 	);
-    
+
 	FVector ForwardVector = dronePawn->DroneBody->GetForwardVector();
 	DrawDebugDirectionalArrow(
 		GetWorld(),
@@ -271,23 +288,35 @@ void UQuadDroneController::YawStabilization(double DeltaTime)
 		3.f
 	);
 
-	for(int i = 0; i < dronePawn->Thrusters.Num(); i++)
+	// Display yaw debugging info
+	DrawDebugString(
+		GetWorld(),
+		DroneLocation + FVector(0, 0, 150),
+		FString::Printf(TEXT("Yaw Error: %.2f°\nTorque: %.2f"), YawError, FinalYawTorque),
+		nullptr,
+		FColor::Yellow,
+		0.0f,
+		true,
+		1.0f
+	);
+
+	for (int i = 0; i < dronePawn->Thrusters.Num(); i++)
 	{
 		FVector MotorPos = dronePawn->Thrusters[i]->GetComponentLocation();
 		FString DirText = dronePawn->MotorClockwiseDirections[i] ? TEXT("CW") : TEXT("CCW");
 		DrawDebugString(
 			GetWorld(),
-			MotorPos + FVector(0,0,15),
+			MotorPos + FVector(0, 0, 15),
 			FString::Printf(TEXT("M%d\n%s"), i, *DirText),
 			nullptr,
 			FColor::White,
-			0.f,
+			0.0f,
 			true,
 			1.2f
 		);
 	}
-	
 }
+
 
 
 // ---------------------- Reset Functions ------------------------
