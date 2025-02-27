@@ -84,14 +84,6 @@ void AQuadPawn::BeginPlay()
 	DroneID = GetName();
 	UE_LOG(LogTemp, Display, TEXT("QuadPawn BeginPlay: DroneID set to %s"), *DroneID);
 	
-	for (int i = 0; i < Propellers.Num(); i++)
-	{
-		if (Propellers[i])
-		{
-			Propellers[i]->SetMassOverrideInKg(NAME_None, 0.0f, true);
-		}
-	}
-
 	if (!QuadController)
 	{
 		QuadController = NewObject<UQuadDroneController>(this, TEXT("QuadDroneController"));

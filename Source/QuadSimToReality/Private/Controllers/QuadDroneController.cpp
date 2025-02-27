@@ -42,27 +42,27 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	
     FFullPIDSet VelocitySet;
     VelocitySet.XPID = new QuadPIDController();
-    //VelocitySet.XPID->SetLimits(-maxPIDOutput, maxPIDOutput);
+    VelocitySet.XPID->SetLimits(-maxPIDOutput, maxPIDOutput);
     VelocitySet.XPID->SetGains(1.f, 0.f, 0.1f);
 
     VelocitySet.YPID = new QuadPIDController();
-    //VelocitySet.YPID->SetLimits(-maxPIDOutput, maxPIDOutput);
+    VelocitySet.YPID->SetLimits(-maxPIDOutput, maxPIDOutput);
     VelocitySet.YPID->SetGains(1.f, 0.f, 0.1f);
 
     VelocitySet.ZPID = new QuadPIDController();
-    //VelocitySet.ZPID->SetLimits(-maxPIDOutput, maxPIDOutput);
+    VelocitySet.ZPID->SetLimits(-maxPIDOutput, maxPIDOutput);
     VelocitySet.ZPID->SetGains(5.f, 1.f, 0.1f);
 
     VelocitySet.RollPID = new QuadPIDController();
-    //VelocitySet.RollPID->SetLimits(-maxPIDOutput, maxPIDOutput);
+    VelocitySet.RollPID->SetLimits(-maxPIDOutput, maxPIDOutput);
     VelocitySet.RollPID->SetGains(11.0f, 6.0f, 3.3f);
 
     VelocitySet.PitchPID = new QuadPIDController();
-    //VelocitySet.PitchPID->SetLimits(-maxPIDOutput, maxPIDOutput);
+    VelocitySet.PitchPID->SetLimits(-maxPIDOutput, maxPIDOutput);
     VelocitySet.PitchPID->SetGains(11.0f, 6.0f, 3.3f);
 
     VelocitySet.YawPID = new QuadPIDController();
-    //VelocitySet.YawPID->SetLimits(-maxPIDOutput, maxPIDOutput);
+    VelocitySet.YawPID->SetLimits(-maxPIDOutput, maxPIDOutput);
     VelocitySet.YawPID->SetGains(1.8f, 0.4f, .7f);
 	PIDMap.Add(EFlightMode::VelocityControl, MoveTemp(VelocitySet));
 
@@ -196,24 +196,23 @@ void UQuadDroneController::ThrustMixer(double xOutput, double yOutput, double zO
 {
 	float droneMass = dronePawn->DroneBody->GetMass();
 	const float mult = 0.5f;
-	UE_LOG(LogTemp, Warning, TEXT("Drone mass: %.2f, Thrust[0]: %.2f, Force applied: %.2f"),
-		droneMass, Thrusts[0], droneMass * mult * Thrusts[0]);
+	
 	Thrusts[0] = zOutput - xOutput + yOutput + rollOutput + pitchOutput;
 	Thrusts[1] = zOutput - xOutput - yOutput - rollOutput + pitchOutput;
 	Thrusts[2] = zOutput + xOutput + yOutput + rollOutput - pitchOutput;
 	Thrusts[3] = zOutput + xOutput - yOutput - rollOutput - pitchOutput;
     
-	//for (int i = 0; i < Thrusts.Num(); i++)
-	//{
-	//	Thrusts[i] = FMath::Clamp(Thrusts[i], 0.0f, 700.0f);
-	//}
+	for (int i = 0; i < Thrusts.Num(); i++)
+	{
+		Thrusts[i] = FMath::Clamp(Thrusts[i], 0.0f, 700.0f);
+	}
     
 	for (int i = 0; i < Thrusts.Num(); i++)
 	{
 		if (!dronePawn || !dronePawn->Thrusters.IsValidIndex(i))
 			continue;
 		double force = droneMass * mult * Thrusts[i];
-		dronePawn->Thrusters[i]->ApplyForce(droneMass * mult * Thrusts[i]);
+		dronePawn->Thrusters[i]->ApplyForce(force);
 	}
 }
 
@@ -510,7 +509,7 @@ void UQuadDroneController::ApplyManualThrusts()
 	// Iterate over your thrust array and apply the user-defined thrust values
 	for (int i = 0; i < Thrusts.Num(); i++)
 	{
-		//Thrusts[i] = FMath::Clamp(Thrusts[i], 0.0f, 700.0f);
+		Thrusts[i] = FMath::Clamp(Thrusts[i], 0.0f, 700.0f);
 		if (!dronePawn->Thrusters.IsValidIndex(i))
 			continue;
 		float force = droneMass * mult * Thrusts[i];

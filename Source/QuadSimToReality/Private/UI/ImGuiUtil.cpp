@@ -100,118 +100,6 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 	DisplayDesiredVelocities();
 	DisplayDebugOptions();
 
-	static float AllThrustValue = 0.0f;
-	if (ImGui::SliderFloat("All Thrusts", &AllThrustValue, 0, 700.0f))
-	{
-		for (int i = 0; i < ThrustsVal.Num(); i++)
-		{
-			ThrustsVal[i] = AllThrustValue;
-		}
-	}
-	
-	ImGui::Separator();
-
-	// Add Hover Mode button with a distinct style to make it noticeable
-	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.7f, 0.2f, 1.0f)); // Green button
-	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.8f, 0.3f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.6f, 0.1f, 1.0f));
-
-	if (ImGui::Button("HOVER MODE", ImVec2(200, 50)))
-	{
-		if (DronePawn && DronePawn->DroneBody)
-		{
-			float droneMass = DronePawn->GetMass();
-
-			const float GravityAccel = 980.0f; // cm/s^2
-
-			const float ScaleFactor = 0.7f;
-
-			float totalHoverForce = droneMass * GravityAccel * ScaleFactor;
-
-			float hoverThrust = totalHoverForce /8;
-
-			hoverThrust = FMath::Clamp(hoverThrust, 0.0f, 700.0f);
-
-			for (int i = 0; i < ThrustsVal.Num(); i++)
-			{
-				ThrustsVal[i] = hoverThrust;
-			}
-
-			AllThrustValue = hoverThrust;
-
-			if (Controller && bLocalManualMode)
-			{
-				Controller->SetManualThrustMode(true);
-			}
-		}
-	}
-
-	ImGui::PopStyleColor(3);
-
-	ImGui::SameLine();
-	if (DronePawn && DronePawn->DroneBody)
-	{
-		// Always show the theoretical hover thrust
-		float droneMass = DronePawn->GetMass();
-		const float GravityAccel = 980.0f;
-		const float ScaleFactor = 0.7f;
-		float theoreticalHoverThrust = (droneMass * GravityAccel * ScaleFactor) / 4.0f;
-
-		ImGui::Text("Hover Thrust: %.2f N per motor", theoreticalHoverThrust);
-	}
-	else
-	{
-		ImGui::Text("Drone reference invalid");
-	}
-
-	ImGui::Separator();
-
-	if (ImGui::Button("Set Hover Thrust", ImVec2(200, 50)))
-	{
-		float hoverThrust = 0.0f;
-		if (DronePawn && DronePawn->DroneBody)
-		{
-			float droneMass = DronePawn->GetMass();
-
-			const float GravityAccel = 980.0f; // cm/s^2
-			const float ScaleFactor = 0.7f;    // Adjustment for simulation
-
-			hoverThrust = (droneMass * GravityAccel * ScaleFactor) / 4.0f;
-
-			// Clamp to reasonable values for the simulation
-			hoverThrust = FMath::Clamp(hoverThrust, 0.0f, 700.0f);
-
-			// Set all motors to the calculated hover thrust
-			for (int i = 0; i < ThrustsVal.Num() && i < 4; i++)
-			{
-				ThrustsVal[i] = hoverThrust;
-			}
-
-			// Update the slider value
-			AllThrustValue = hoverThrust;
-
-			// Display the calculated thrust
-			ImGui::SameLine();
-			ImGui::Text("Calculated: %.2f", hoverThrust);
-		}
-		else
-		{
-			ImGui::SameLine();
-			ImGui::Text("Error: Drone reference invalid");
-		}
-	}
-	else if (DronePawn && DronePawn->DroneBody)
-	{
-		// Always show the theoretical hover thrust
-		float droneMass = DronePawn->GetMass();
-		const float GravityAccel = 980.0f;
-		const float ScaleFactor = 0.7f;
-		float theoreticalHoverThrust = (droneMass * GravityAccel * ScaleFactor) / 4.0f;
-
-		ImGui::SameLine();
-		ImGui::Text("Theoretical hover: %.2f", theoreticalHoverThrust);
-	}
-
 	ImGui::Separator();
 	ImGui::Text("Thruster Power");
 
@@ -647,52 +535,52 @@ void UImGuiUtil::DisplayResetDroneButtons()
 
 void UImGuiUtil::DisplayDesiredVelocities()
 {
-	ImGui::Text("Desired Velocities");
+    ImGui::Text("Desired Velocities");
 
-	// Static variables to hold previous slider values.
-	static float prevVx = 0.0f;
-	static float prevVy = 0.0f;
-	static float prevVz = 0.0f;
-	static bool firstRun = true;
+    // Static variables to hold previous slider values.
+    static float prevVx = 0.0f;
+    static float prevVy = 0.0f;
+    static float prevVz = 0.0f;
+    static bool firstRun = true;
+    
+    float tempVx = desiredNewVelocity.X;
+    float tempVy = desiredNewVelocity.Y;
+    float tempVz = desiredNewVelocity.Z;
+    bool velocityChanged = false;
 
-	float tempVx = desiredNewVelocity.X;
-	float tempVy = desiredNewVelocity.Y;
-	float tempVz = desiredNewVelocity.Z;
-	bool velocityChanged = false;
+    // Show sliders and update temporary values.
+    velocityChanged |= ImGui::SliderFloat("Desired Velocity X", &tempVx, -maxVelocity, maxVelocity);
+    velocityChanged |= ImGui::SliderFloat("Desired Velocity Y", &tempVy, -maxVelocity, maxVelocity);
+    velocityChanged |= ImGui::SliderFloat("Desired Velocity Z", &tempVz, -maxVelocity, maxVelocity);
 
-	// Show sliders and update temporary values.
-	velocityChanged |= ImGui::SliderFloat("Desired Velocity X", &tempVx, -maxVelocity, maxVelocity);
-	velocityChanged |= ImGui::SliderFloat("Desired Velocity Y", &tempVy, -maxVelocity, maxVelocity);
-	velocityChanged |= ImGui::SliderFloat("Desired Velocity Z", &tempVz, -maxVelocity, maxVelocity);
+    // On first run, initialize previous values.
+    if (firstRun)
+    {
+        prevVx = tempVx;
+        prevVy = tempVy;
+        prevVz = tempVz;
+        firstRun = false;
+    }
 
-	// On first run, initialize previous values.
-	if (firstRun)
-	{
-		prevVx = tempVx;
-		prevVy = tempVy;
-		prevVz = tempVz;
-		firstRun = false;
-	}
+    // Set a deadzone threshold (adjust as needed)
+    const float threshold = 0.01f;
+    bool significantChange = (FMath::Abs(tempVx - prevVx) > threshold) ||
+                             (FMath::Abs(tempVy - prevVy) > threshold) ||
+                             (FMath::Abs(tempVz - prevVz) > threshold);
 
-	// Set a deadzone threshold (adjust as needed)
-	const float threshold = 0.01f;
-	bool significantChange = (FMath::Abs(tempVx - prevVx) > threshold) ||
-		(FMath::Abs(tempVy - prevVy) > threshold) ||
-		(FMath::Abs(tempVz - prevVz) > threshold);
+    // Only update the desired velocity (and call SetDesiredVelocity) if there is a significant change.
+    if (significantChange)
+    {
+        desiredNewVelocity = FVector(tempVx, tempVy, tempVz);
+        if (Controller)
+        {
+            Controller->SetDesiredVelocity(desiredNewVelocity);
+        }
+        // Update previous values so that subsequent small changes are ignored.
+        prevVx = tempVx;
+        prevVy = tempVy;
+        prevVz = tempVz;
+    }
 
-	// Only update the desired velocity (and call SetDesiredVelocity) if there is a significant change.
-	if (significantChange)
-	{
-		desiredNewVelocity = FVector(tempVx, tempVy, tempVz);
-		if (Controller)
-		{
-			Controller->SetDesiredVelocity(desiredNewVelocity);
-		}
-		// Update previous values so that subsequent small changes are ignored.
-		prevVx = tempVx;
-		prevVy = tempVy;
-		prevVz = tempVz;
-	}
-
-	ImGui::Separator();
+    ImGui::Separator();
 }

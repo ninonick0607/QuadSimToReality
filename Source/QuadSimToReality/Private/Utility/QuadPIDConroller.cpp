@@ -70,7 +70,7 @@ double QuadPIDController::Calculate(float error, float dt)
 
     // Combine terms and clamp output
     double output = p_term + i_term + d_term;
-    //output = FMath::Clamp(output, minOutput, maxOutput);
+    output = FMath::Clamp(output, minOutput, maxOutput);
     
     prevError = error;
     lastOutput = output;
