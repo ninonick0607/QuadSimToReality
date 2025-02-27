@@ -44,9 +44,6 @@ public:
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* DroneBody;
 
-	UPROPERTY(EditAnywhere, Category = "Drone Components")
-	UStaticMeshComponent* DroneCamMesh;
-
 	// --- Camera Components ---
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
 	USpringArmComponent* SpringArm;

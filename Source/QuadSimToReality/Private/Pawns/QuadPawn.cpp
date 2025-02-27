@@ -10,7 +10,6 @@
 
 AQuadPawn::AQuadPawn()
 	: DroneBody(nullptr)
-	, DroneCamMesh(nullptr)
 	, SpringArm(nullptr)
 	, Camera(nullptr)
 	, CameraFPV(nullptr)
@@ -24,6 +23,23 @@ AQuadPawn::AQuadPawn()
     RootComponent = DroneBody;
 	DroneBody->SetSimulatePhysics(true);
 
+	CameraFPV = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraFPV"));
+	CameraFPV->SetupAttachment(DroneBody,TEXT("FPVCam"));
+	CameraFPV->SetRelativeScale3D(FVector(0.1f));
+
+	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
+	SpringArm->SetupAttachment(DroneBody);
+
+	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
+	Camera->SetupAttachment(SpringArm);
+
+	// Configure SpringArm
+	SpringArm->TargetArmLength = 200.f;
+	SpringArm->SetRelativeRotation(FRotator(-20.f, 0.f, 0.f));
+	SpringArm->bDoCollisionTest = false;
+	SpringArm->bInheritPitch = false;
+	SpringArm->bInheritRoll = false;
+
 	// Setup propellers and thrusters
 	const FString propellerNames[] = { TEXT("MotorFL"), TEXT("MotorFR"), TEXT("MotorBL"), TEXT("MotorBR") };
 	const FString socketNames[] = { TEXT("MotorSocketFL"), TEXT("MotorSocketFR"), TEXT("MotorSocketBL"), TEXT("MotorSocketBR") };
@@ -31,7 +47,7 @@ AQuadPawn::AQuadPawn()
 	Propellers.SetNum(4);
 	Thrusters.SetNum(4);
 	PropellerRPMs.SetNum(4);
-	
+
 	for (int i = 0; i < 4; i++)
 	{
 		Propellers[i] = CreateDefaultSubobject<UStaticMeshComponent>(*propellerNames[i]);
@@ -48,28 +64,6 @@ AQuadPawn::AQuadPawn()
 		PropellerRPMs[i] = 0.f;
 
 	}
-
-	CameraFPV = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraFPV"));
-	CameraFPV->SetupAttachment(DroneBody,TEXT("FPVCam"));
-	CameraFPV->SetRelativeScale3D(FVector(0.1f));
-	
-	DroneCamMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CamMesh"));
-	DroneCamMesh->SetupAttachment(DroneBody);
-	CameraFPV->SetupAttachment(DroneBody,TEXT("FPVCam"));
-
-	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
-	SpringArm->SetupAttachment(DroneBody);
-
-	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
-	Camera->SetupAttachment(SpringArm);
-
-
-	// Configure SpringArm
-	SpringArm->TargetArmLength = 200.f;
-	SpringArm->SetRelativeRotation(FRotator(-20.f, 0.f, 0.f));
-	SpringArm->bDoCollisionTest = false;
-	SpringArm->bInheritPitch = false;
-	SpringArm->bInheritRoll = false;
 
 	// Create additional components
 	ImGuiUtil = CreateDefaultSubobject<UImGuiUtil>(TEXT("DroneImGuiUtil"));
@@ -143,14 +137,12 @@ void AQuadPawn::SwitchCamera() const
 		// Switch to third-person view.
 		CameraFPV->SetActive(false);
 		Camera->SetActive(true);
-		DroneCamMesh->SetHiddenInGame(false);
 	}
 	else
 	{
 		// Switch to first-person view.
 		CameraFPV->SetActive(true);
 		Camera->SetActive(false);
-		DroneCamMesh->SetHiddenInGame(true);
 	}
 }
 

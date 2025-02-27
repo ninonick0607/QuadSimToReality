@@ -103,6 +103,18 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 	ImGui::Separator();
 	ImGui::Text("Thruster Power");
 
+	static float AllThrustValue = 0.0f;
+	if (ImGui::SliderFloat("All Thrusts", &AllThrustValue, 0, 700.0f))
+	{
+		for (int i = 0; i < ThrustsVal.Num(); i++)
+		{
+			ThrustsVal[i] = AllThrustValue;
+		}
+	}
+
+	ImGui::Separator();
+	ImGui::Text("Thruster Power");
+
 	static bool synchronizeDiagonal1 = false;
 	static bool synchronizeDiagonal2 = false;
 	ImGui::Checkbox("Synchronize Diagonal Motors FL & BR", &synchronizeDiagonal1);
@@ -535,52 +547,134 @@ void UImGuiUtil::DisplayResetDroneButtons()
 
 void UImGuiUtil::DisplayDesiredVelocities()
 {
-    ImGui::Text("Desired Velocities");
+	ImGui::Text("Desired Velocities");
 
-    // Static variables to hold previous slider values.
-    static float prevVx = 0.0f;
-    static float prevVy = 0.0f;
-    static float prevVz = 0.0f;
-    static bool firstRun = true;
-    
-    float tempVx = desiredNewVelocity.X;
-    float tempVy = desiredNewVelocity.Y;
-    float tempVz = desiredNewVelocity.Z;
-    bool velocityChanged = false;
+	// Static variables to hold previous slider values.
+	static float prevVx = 0.0f;
+	static float prevVy = 0.0f;
+	static float prevVz = 0.0f;
+	static bool firstRun = true;
+	static bool hoverModeActive = false;  // Hover mode flag
 
-    // Show sliders and update temporary values.
-    velocityChanged |= ImGui::SliderFloat("Desired Velocity X", &tempVx, -maxVelocity, maxVelocity);
-    velocityChanged |= ImGui::SliderFloat("Desired Velocity Y", &tempVy, -maxVelocity, maxVelocity);
-    velocityChanged |= ImGui::SliderFloat("Desired Velocity Z", &tempVz, -maxVelocity, maxVelocity);
+	// Reset checkboxes states (we need separate variables for these)
+	static bool resetXChecked = false;
+	static bool resetYChecked = false;
+	static bool resetZChecked = false;
 
-    // On first run, initialize previous values.
-    if (firstRun)
-    {
-        prevVx = tempVx;
-        prevVy = tempVy;
-        prevVz = tempVz;
-        firstRun = false;
-    }
+	float tempVx = desiredNewVelocity.X;
+	float tempVy = desiredNewVelocity.Y;
+	float tempVz = desiredNewVelocity.Z;
+	bool velocityChanged = false;
 
-    // Set a deadzone threshold (adjust as needed)
-    const float threshold = 0.01f;
-    bool significantChange = (FMath::Abs(tempVx - prevVx) > threshold) ||
-                             (FMath::Abs(tempVy - prevVy) > threshold) ||
-                             (FMath::Abs(tempVz - prevVz) > threshold);
+	// Add hover mode button with distinctive styling
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.6f, 0.8f, 1.0f)); // Blue button
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.7f, 0.9f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.0f, 0.5f, 0.7f, 1.0f));
 
-    // Only update the desired velocity (and call SetDesiredVelocity) if there is a significant change.
-    if (significantChange)
-    {
-        desiredNewVelocity = FVector(tempVx, tempVy, tempVz);
-        if (Controller)
-        {
-            Controller->SetDesiredVelocity(desiredNewVelocity);
-        }
-        // Update previous values so that subsequent small changes are ignored.
-        prevVx = tempVx;
-        prevVy = tempVy;
-        prevVz = tempVz;
-    }
+	if (ImGui::Button(hoverModeActive ? "HOVER MODE ACTIVE" : "ACTIVATE HOVER MODE", ImVec2(200, 35)))
+	{
+		hoverModeActive = !hoverModeActive;
+		if (hoverModeActive)
+		{
+			// Set Z velocity to 70 when activating hover mode
+			tempVz = 70.0f;
+			velocityChanged = true;
+		}
+	}
+	ImGui::PopStyleColor(3);
 
-    ImGui::Separator();
+	if (hoverModeActive)
+	{
+		ImGui::SameLine();
+		ImGui::TextColored(ImVec4(0.1f, 0.6f, 0.8f, 1.0f), "Z-velocity locked at 70.0");
+	}
+
+	ImGui::Spacing();
+
+	// X velocity slider with reset checkbox
+	velocityChanged |= ImGui::SliderFloat("Desired Velocity X", &tempVx, -maxVelocity, maxVelocity);
+	ImGui::SameLine();
+	if (ImGui::Checkbox("Reset X to 0", &resetXChecked))
+	{
+		if (resetXChecked)
+		{
+			tempVx = 0.0f;
+			velocityChanged = true;
+		}
+		// Auto-uncheck after resetting
+		resetXChecked = false;
+	}
+
+	// Y velocity slider with reset checkbox
+	velocityChanged |= ImGui::SliderFloat("Desired Velocity Y", &tempVy, -maxVelocity, maxVelocity);
+	ImGui::SameLine();
+	if (ImGui::Checkbox("Reset Y to 0", &resetYChecked))
+	{
+		if (resetYChecked)
+		{
+			tempVy = 0.0f;
+			velocityChanged = true;
+		}
+		// Auto-uncheck after resetting
+		resetYChecked = false;
+	}
+
+	// Only show Z slider control if hover mode is not active
+	if (!hoverModeActive)
+	{
+		velocityChanged |= ImGui::SliderFloat("Desired Velocity Z", &tempVz, -maxVelocity, maxVelocity);
+		ImGui::SameLine();
+		if (ImGui::Checkbox("Reset Z to 0", &resetZChecked))
+		{
+			if (resetZChecked)
+			{
+				tempVz = 0.0f;
+				velocityChanged = true;
+			}
+			// Auto-uncheck after resetting
+			resetZChecked = false;
+		}
+	}
+	else
+	{
+		// Display a disabled slider for Z when in hover mode
+		ImGui::PushStyleColor(ImGuiCol_SliderGrab, ImVec4(0.1f, 0.6f, 0.8f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
+		ImGui::SliderFloat("Desired Velocity Z (Locked)", &tempVz, -maxVelocity, maxVelocity);
+		ImGui::PopStyleColor(2);
+
+		// In hover mode, Z velocity is always 70
+		tempVz = 70.0f;
+	}
+
+	// On first run, initialize previous values.
+	if (firstRun)
+	{
+		prevVx = tempVx;
+		prevVy = tempVy;
+		prevVz = tempVz;
+		firstRun = false;
+	}
+
+	// Set a deadzone threshold (adjust as needed)
+	const float threshold = 0.01f;
+	bool significantChange = (FMath::Abs(tempVx - prevVx) > threshold) ||
+		(FMath::Abs(tempVy - prevVy) > threshold) ||
+		(FMath::Abs(tempVz - prevVz) > threshold);
+
+	// Only update the desired velocity if there's a significant change or if we just entered hover mode
+	if (significantChange || velocityChanged)
+	{
+		desiredNewVelocity = FVector(tempVx, tempVy, tempVz);
+		if (Controller)
+		{
+			Controller->SetDesiredVelocity(desiredNewVelocity);
+		}
+		// Update previous values so that subsequent small changes are ignored.
+		prevVx = tempVx;
+		prevVy = tempVy;
+		prevVz = tempVz;
+	}
+
+	ImGui::Separator();
 }

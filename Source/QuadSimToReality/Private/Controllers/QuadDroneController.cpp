@@ -132,8 +132,8 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
     
     if (!bManualThrustMode)
     {
-        // Calculate PID outputs
-        FVector velocityError = desiredNewVelocity - currentVelocity;
+
+		FVector velocityError = desiredNewVelocity - currentVelocity;
         x_output = CurrentSet->XPID->Calculate(velocityError.X, a_deltaTime);
         y_output = CurrentSet->YPID->Calculate(velocityError.Y, a_deltaTime);
         z_output = CurrentSet->ZPID->Calculate(velocityError.Z, a_deltaTime);
@@ -144,15 +144,11 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
         pitch_output = CurrentSet->PitchPID->Calculate(pitch_error, a_deltaTime);
     
         // Yaw control, etc.
-        static constexpr float MIN_VELOCITY_FOR_YAW = 10.0f;
-        if (horizontalVelocity.SizeSquared() > MIN_VELOCITY_FOR_YAW * MIN_VELOCITY_FOR_YAW)
-        {
-            desiredYaw = FMath::RadiansToDegrees(FMath::Atan2(horizontalVelocity.Y, horizontalVelocity.X));
-        }
-        else
-        {
-            desiredYaw = currentRotation.Yaw;
-        }
+		if (horizontalVelocity.SizeSquared() > 10.0f) // Adjust threshold as needed
+		{
+			horizontalVelocity.Normalize();
+			desiredYaw = FMath::RadiansToDegrees(FMath::Atan2(horizontalVelocity.Y, horizontalVelocity.X));
+		}
     
         ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
     }
