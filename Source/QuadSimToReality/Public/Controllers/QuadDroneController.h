@@ -69,6 +69,7 @@ public:
     void SetFlightMode(EFlightMode NewMode);
     EFlightMode GetFlightMode() const;
     FFullPIDSet* GetPIDSet(EFlightMode Mode) { return PIDMap.Find(Mode); }
+    float GetDesiredYaw() const { return desiredYaw; }
 
     bool bManualThrustMode = false;  // defaults to false
     void SetManualThrustMode(bool bEnable);

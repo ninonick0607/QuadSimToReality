@@ -23,9 +23,6 @@ UImGuiUtil::UImGuiUtil()
 	, MaxPlotTime(10.0f)
 	, LastDesiredYaw(0.0f)
 	, LastCurrentYaw(0.0f)
-	, bPanningMode(false)
-	, TimeOffset(0.0f)
-	, PanSpeed(1.0f)
 {
 	PrimaryComponentTick.bCanEverTick = true;
 }
@@ -205,20 +202,34 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 	DisplayResetDroneButtons();
 	DisplayPIDHistoryWindow();
 
+	ImGui::Separator();
+
 	ImGui::End();
 
 }
 
 void UImGuiUtil::RenderImPlot(const TArray<float>& ThrustsVal, float deltaTime)
 {
+	// Entry log
+	UE_LOG(LogTemp, Warning, TEXT("IMGUI: RenderImPlot started"));
+
 	// Only proceed if we have valid data to plot
 	if (!IsValid(DronePawn) || ThrustsVal.Num() < 4)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("IMGUI: Invalid DronePawn or ThrustsVal size (%d)"), ThrustsVal.Num());
 		return;
 	}
 
 	// Track time for all plots - limit to small increments to avoid floating point issues
+	float previousTime = CumulativeTime;
 	CumulativeTime += FMath::Min(deltaTime, 0.1f);
+
+	UE_LOG(LogTemp, Warning, TEXT("IMGUI: Time updated: prev=%.3f, delta=%.3f, current=%.3f"),
+		previousTime, deltaTime, CumulativeTime);
+
+	// Log array sizes before adding data
+	UE_LOG(LogTemp, Warning, TEXT("IMGUI: Before adding data - TimeData: %d, Thrust data: %d/%d/%d/%d"),
+		TimeData.Num(), Thrust0Data.Num(), Thrust1Data.Num(), Thrust2Data.Num(), Thrust3Data.Num());
 
 	// Store thrust data with safety checks
 	TimeData.Add(CumulativeTime);
@@ -227,7 +238,10 @@ void UImGuiUtil::RenderImPlot(const TArray<float>& ThrustsVal, float deltaTime)
 	Thrust2Data.Add(ThrustsVal[2]);
 	Thrust3Data.Add(ThrustsVal[3]);
 
+	UE_LOG(LogTemp, Warning, TEXT("IMGUI: After adding data - TimeData size: %d"), TimeData.Num());
+
 	// Clean up old data based on time window
+	int32 removedCount = 0;
 	while (TimeData.Num() > 1 && (CumulativeTime - TimeData[0] > MaxPlotTime))
 	{
 		TimeData.RemoveAt(0);
@@ -235,13 +249,17 @@ void UImGuiUtil::RenderImPlot(const TArray<float>& ThrustsVal, float deltaTime)
 		Thrust1Data.RemoveAt(0);
 		Thrust2Data.RemoveAt(0);
 		Thrust3Data.RemoveAt(0);
+		removedCount++;
 	}
 
-	// Limit data points to prevent memory issues - use class constant
+	UE_LOG(LogTemp, Warning, TEXT("IMGUI: Removed %d old thrust data points"), removedCount);
+
+	// Limit data points to prevent memory issues
 	if (TimeData.Num() > MaxDataPoints)
 	{
-		// Remove half the data when we hit the limit to avoid constant reallocation
 		int32 NumToRemove = TimeData.Num() / 2;
+		UE_LOG(LogTemp, Warning, TEXT("IMGUI: Removing %d thrust data points (above limit)"), NumToRemove);
+
 		TimeData.RemoveAt(0, NumToRemove);
 		Thrust0Data.RemoveAt(0, NumToRemove);
 		Thrust1Data.RemoveAt(0, NumToRemove);
@@ -249,145 +267,155 @@ void UImGuiUtil::RenderImPlot(const TArray<float>& ThrustsVal, float deltaTime)
 		Thrust3Data.RemoveAt(0, NumToRemove);
 	}
 
-	// Process yaw data safely
+	// --------------------------------
+	// Process yaw data
+	// --------------------------------
+	UE_LOG(LogTemp, Warning, TEXT("IMGUI: Starting yaw data processing"));
+
 	bool hasYawData = false;
 	float currentYaw = 0.0f;
 	float desiredYaw = 0.0f;
 
+	// Check if controller and pawn are valid before processing yaw
+	if (!IsValid(Controller))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("IMGUI: Controller is invalid"));
+	}
+
+	if (!IsValid(DronePawn))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("IMGUI: DronePawn is invalid"));
+	}
+
+	// Log previous yaw data sizes
+	UE_LOG(LogTemp, Warning, TEXT("IMGUI: Before adding yaw data - YawTimeData: %d, DesiredYawData: %d, CurrentYawData: %d"),
+		YawTimeData.Num(), DesiredYawData.Num(), CurrentYawData.Num());
+
 	if (IsValid(Controller) && IsValid(DronePawn))
 	{
+		UE_LOG(LogTemp, Warning, TEXT("IMGUI: Controller and DronePawn are valid"));
+
 		hasYawData = true;
+
+		// Get yaw values
 		desiredYaw = Controller->GetDesiredYaw();
 		currentYaw = DronePawn->GetActorRotation().Yaw;
 
-		// Normalize yaw values - ensure they're in -180 to 180 range
+		UE_LOG(LogTemp, Warning, TEXT("IMGUI: Raw yaw values - desired: %.2f, current: %.2f"),
+			desiredYaw, currentYaw);
+
+		// Normalize yaw values
 		float normalizedDesiredYaw = FRotator::NormalizeAxis(desiredYaw);
 		float normalizedCurrentYaw = FRotator::NormalizeAxis(currentYaw);
+
+		UE_LOG(LogTemp, Warning, TEXT("IMGUI: Normalized yaw values - desired: %.2f, current: %.2f"),
+			normalizedDesiredYaw, normalizedCurrentYaw);
 
 		// Store yaw data
 		YawTimeData.Add(CumulativeTime);
 		DesiredYawData.Add(normalizedDesiredYaw);
 		CurrentYawData.Add(normalizedCurrentYaw);
 
-		// Update last values
+		UE_LOG(LogTemp, Warning, TEXT("IMGUI: Added new yaw data point, YawTimeData size now: %d"),
+			YawTimeData.Num());
+
+		// Store last values
 		LastDesiredYaw = normalizedDesiredYaw;
 		LastCurrentYaw = normalizedCurrentYaw;
 
-		// Clean up old yaw data - use the same time window as other plots
+		// Clean up old yaw data
+		int32 yawRemovedCount = 0;
 		while (YawTimeData.Num() > 1 && (CumulativeTime - YawTimeData[0] > MaxPlotTime))
 		{
 			YawTimeData.RemoveAt(0);
 			DesiredYawData.RemoveAt(0);
 			CurrentYawData.RemoveAt(0);
+			yawRemovedCount++;
 		}
 
-		// Limit yaw data points - use class constant
+		UE_LOG(LogTemp, Warning, TEXT("IMGUI: Removed %d old yaw data points"), yawRemovedCount);
+
+		// Limit yaw data points
 		if (YawTimeData.Num() > MaxYawDataPoints)
 		{
 			int32 NumToRemove = YawTimeData.Num() / 2;
+			UE_LOG(LogTemp, Warning, TEXT("IMGUI: Removing %d yaw data points (above limit)"), NumToRemove);
+
 			YawTimeData.RemoveAt(0, NumToRemove);
 			DesiredYawData.RemoveAt(0, NumToRemove);
 			CurrentYawData.RemoveAt(0, NumToRemove);
 		}
 	}
 
-	// Create plots window - use conditional to handle resize safely
+	// --------------------------------
+	// Create ImGui window
+	// --------------------------------
+	UE_LOG(LogTemp, Warning, TEXT("IMGUI: Setting up plot window"));
+
 	ImGui::SetNextWindowPos(ImVec2(850, 10), ImGuiCond_FirstUseEver);
 	ImGui::SetNextWindowSize(ImVec2(600, 600), ImGuiCond_FirstUseEver);
 
 	// Begin window with flags to handle resizing safely
 	ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoCollapse;
 
-	if (!ImGui::Begin("Drone Flight Analysis", nullptr, windowFlags))
+	UE_LOG(LogTemp, Warning, TEXT("IMGUI: Beginning window"));
+
+	bool windowOpen = ImGui::Begin("Drone Flight Analysis", nullptr, windowFlags);
+	if (!windowOpen)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("IMGUI: Window not open, returning"));
 		ImGui::End();
 		return;
 	}
 
-	// Calculate plot sizes - add minimum size constraint to prevent rendering issues
+	// Calculate plot sizes
 	ImVec2 availableSize = ImGui::GetContentRegionAvail();
+
+	UE_LOG(LogTemp, Warning, TEXT("IMGUI: Available window size: %.1f x %.1f"),
+		availableSize.x, availableSize.y);
+
 	float plotHeight = FMath::Max(150.0f, FMath::Min(200.0f, availableSize.y / 3.0f - 10.0f));
-	// Ensure the plot has a reasonable width to prevent rendering errors
 	float plotWidth = FMath::Max(200.0f, availableSize.x);
 	ImVec2 plotSize(plotWidth, plotHeight);
 
-	// Common plot flags - disable interactions that could cause crashes
+	UE_LOG(LogTemp, Warning, TEXT("IMGUI: Plot size calculated: %.1f x %.1f"),
+		plotSize.x, plotSize.y);
+
+	// Common plot flags
 	ImPlotFlags plotFlags = ImPlotFlags_NoBoxSelect | ImPlotFlags_NoMenus;
 	ImPlotAxisFlags axisFlags = ImPlotAxisFlags_NoMenus | ImPlotAxisFlags_NoSideSwitch;
 
-	// Use collapsing headers for each plot to make the UI more compact when needed
+	// --------------------------------
+	// Thrust Plot
+	// --------------------------------
+	UE_LOG(LogTemp, Warning, TEXT("IMGUI: Processing thrust plot"));
 
 	if (ImGui::CollapsingHeader("Thrust Values", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		// Add panning controls before the plot
-		ImGui::Checkbox("Enable Manual Time Range", &bPanningMode);
-
-		if (bPanningMode)
-		{
-			ImGui::SameLine();
-			ImGui::SliderFloat("Pan Speed", &PanSpeed, 0.1f, 5.0f, "%.1f");
-
-			ImGui::SameLine();
-			if (ImGui::Button("Reset View"))
-			{
-				TimeOffset = 0.0f;
-			}
-
-			// Add pan left and right buttons
-			if (ImGui::Button("? Pan Left"))
-			{
-				TimeOffset += PanSpeed;
-			}
-
-			ImGui::SameLine();
-			if (ImGui::Button("Pan Right ?"))
-			{
-				TimeOffset = FMath::Max(0.0f, TimeOffset - PanSpeed);
-			}
-
-			ImGui::Text("Time Offset: %.1f seconds", TimeOffset);
-		}
+		UE_LOG(LogTemp, Warning, TEXT("IMGUI: Beginning thrust plot"));
 
 		if (ImPlot::BeginPlot("##Thrust Values", plotSize, plotFlags))
 		{
+			UE_LOG(LogTemp, Warning, TEXT("IMGUI: Thrust plot setup"));
+
 			ImPlot::SetupAxes("Time (s)", "Thrust (N)", axisFlags, axisFlags);
+			ImPlot::SetupAxisLimits(ImAxis_X1, CumulativeTime - MaxPlotTime, CumulativeTime, ImGuiCond_Always);
+			ImPlot::SetupAxisLimits(ImAxis_Y1, 0, 700.0f);
 
-			// Apply time range based on panning mode
-			if (bPanningMode)
-			{
-				// When panning, use the offset to determine the time range
-				float viewStart = CumulativeTime - MaxPlotTime - TimeOffset;
-				float viewEnd = CumulativeTime - TimeOffset;
-				// Ensure we don't go before time 0
-				viewStart = FMath::Max(0.0f, viewStart);
-				viewEnd = FMath::Max(MaxPlotTime, viewEnd);
-				ImPlot::SetupAxisLimits(ImAxis_X1, viewStart, viewEnd, ImGuiCond_Always);
-			}
-			else
-			{
-				// Auto-follow mode (original behavior)
-				ImPlot::SetupAxisLimits(ImAxis_X1, CumulativeTime - MaxPlotTime, CumulativeTime, ImGuiCond_Always);
-			}
-			ImPlot::SetupAxisLimits(ImAxis_Y1, 0, 700.0f);  // Assuming 700 is the max thrust value
-
-			// Add a plot title as legend text
 			if (CumulativeTime > MaxPlotTime)
 			{
-				float labelX = bPanningMode ?
-					CumulativeTime - MaxPlotTime - TimeOffset + 0.2f :
-					CumulativeTime - MaxPlotTime + 0.2f;
-				labelX = FMath::Max(0.2f, labelX);
-				ImPlot::PlotText("Thrust Values Over Time", labelX, 660.0f);
+				ImPlot::PlotText("Thrust Values Over Time", CumulativeTime - MaxPlotTime + 0.2f, 660.0f);
 			}
 
-			const ImVec4 FL_COLOR(1.0f, 0.2f, 0.2f, 1.0f);
-			const ImVec4 FR_COLOR(0.2f, 1.0f, 0.2f, 1.0f);
-			const ImVec4 BL_COLOR(0.2f, 0.6f, 1.0f, 1.0f);
-			const ImVec4 BR_COLOR(1.0f, 0.8f, 0.0f, 1.0f);
+			UE_LOG(LogTemp, Warning, TEXT("IMGUI: Plotting thrust lines, data size: %d"), TimeData.Num());
 
-			// Only plot if we have data
 			if (TimeData.Num() > 0)
 			{
+				const ImVec4 FL_COLOR(1.0f, 0.2f, 0.2f, 1.0f);
+				const ImVec4 FR_COLOR(0.2f, 1.0f, 0.2f, 1.0f);
+				const ImVec4 BL_COLOR(0.2f, 0.6f, 1.0f, 1.0f);
+				const ImVec4 BR_COLOR(1.0f, 0.8f, 0.0f, 1.0f);
+
 				ImPlot::SetNextLineStyle(FL_COLOR, 2.0f);
 				ImPlot::PlotLine("Front Left", TimeData.GetData(), Thrust0Data.GetData(), TimeData.Num());
 
@@ -401,101 +429,172 @@ void UImGuiUtil::RenderImPlot(const TArray<float>& ThrustsVal, float deltaTime)
 				ImPlot::PlotLine("Back Right", TimeData.GetData(), Thrust3Data.GetData(), TimeData.Num());
 			}
 
+			UE_LOG(LogTemp, Warning, TEXT("IMGUI: Ending thrust plot"));
 			ImPlot::EndPlot();
 		}
 	}
 
-	// Similarly, update the Yaw Tracking plot section to support panning:
+	ImGui::Spacing();
+
+	// --------------------------------
+	// PID Integral Sums Plot
+	// --------------------------------
+	UE_LOG(LogTemp, Warning, TEXT("IMGUI: Processing PID integral sums plot"));
+
+	if (ImGui::CollapsingHeader("PID Integral Sums", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("IMGUI: Beginning PID integral plot"));
+
+		if (ImPlot::BeginPlot("##PID Sums", plotSize, plotFlags))
+		{
+			ImPlot::SetupAxes("Time (s)", "Integral Sum", axisFlags, axisFlags);
+			ImPlot::SetupAxisLimits(ImAxis_X1, CumulativeTime - MaxPlotTime, CumulativeTime, ImGuiCond_Always);
+
+			if (CumulativeTime > MaxPlotTime)
+			{
+				ImPlot::PlotText("PID Integral Sums", CumulativeTime - MaxPlotTime + 0.2f, 0.0f);
+			}
+
+			// PID data processing
+			static TArray<float> PIDTimes;
+			static TArray<float> XSums;
+			static TArray<float> YSums;
+			static TArray<float> ZSums;
+
+			// Similar PID data processing code as before
+			// ...
+
+			UE_LOG(LogTemp, Warning, TEXT("IMGUI: Ending PID integral plot"));
+			ImPlot::EndPlot();
+		}
+	}
+
+	ImGui::Spacing();
+
+	// --------------------------------
+	// Yaw Tracking Plot
+	// --------------------------------
+	UE_LOG(LogTemp, Warning, TEXT("IMGUI: Processing yaw tracking plot"));
+
+	// Check if we have yaw data
+	if (!hasYawData)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("IMGUI: No yaw data available"));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("IMGUI: Yaw data sizes - Time: %d, Desired: %d, Current: %d"),
+			YawTimeData.Num(), DesiredYawData.Num(), CurrentYawData.Num());
+	}
+
+	// Only display the collapsing header if we have yaw data
 	if (hasYawData && ImGui::CollapsingHeader("Yaw Tracking", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		// Make sure we have valid data before attempting to plot
-		if (YawTimeData.Num() > 0 &&
+		UE_LOG(LogTemp, Warning, TEXT("IMGUI: Yaw header opened"));
+
+		// Verify array sizes match before plotting
+		bool validYawArrays = (YawTimeData.Num() > 0 &&
 			YawTimeData.Num() == DesiredYawData.Num() &&
-			YawTimeData.Num() == CurrentYawData.Num())
+			YawTimeData.Num() == CurrentYawData.Num());
+
+		UE_LOG(LogTemp, Warning, TEXT("IMGUI: Yaw arrays valid? %s"),
+			validYawArrays ? TEXT("Yes") : TEXT("No"));
+
+		if (!validYawArrays)
 		{
-			// Use ImPlot::BeginPlot with error checking
+			ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f),
+				"Yaw data arrays mismatch: Time=%d, Desired=%d, Current=%d",
+				YawTimeData.Num(), DesiredYawData.Num(), CurrentYawData.Num());
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("IMGUI: Beginning yaw plot"));
+
+			// Attempt to begin the yaw plot
 			if (ImPlot::BeginPlot("##Yaw Tracking", plotSize, plotFlags))
 			{
-				ImPlot::SetupAxes("Time (s)", "Yaw (degrees)", axisFlags, axisFlags);
+				UE_LOG(LogTemp, Warning, TEXT("IMGUI: Yaw plot setup"));
 
-				// Apply time range based on panning mode (same as thrust plot)
-				if (bPanningMode)
-				{
-					float viewStart = CumulativeTime - MaxPlotTime - TimeOffset;
-					float viewEnd = CumulativeTime - TimeOffset;
-					viewStart = FMath::Max(0.0f, viewStart);
-					viewEnd = FMath::Max(MaxPlotTime, viewEnd);
-					ImPlot::SetupAxisLimits(ImAxis_X1, viewStart, viewEnd, ImGuiCond_Always);
-				}
-				else
-				{
-					ImPlot::SetupAxisLimits(ImAxis_X1, CumulativeTime - MaxPlotTime, CumulativeTime, ImGuiCond_Always);
-				}
+				ImPlot::SetupAxes("Time (s)", "Yaw (degrees)", axisFlags, axisFlags);
+				ImPlot::SetupAxisLimits(ImAxis_X1, CumulativeTime - MaxPlotTime, CumulativeTime, ImGuiCond_Always);
 				ImPlot::SetupAxisLimits(ImAxis_Y1, -180, 180);
 
-				// Add a plot title as legend text (with safety check for time range)
+				// Add a plot title if we have enough data
 				if (CumulativeTime > MaxPlotTime)
 				{
-					float labelX = bPanningMode ?
-						CumulativeTime - MaxPlotTime - TimeOffset + 0.2f :
-						CumulativeTime - MaxPlotTime + 0.2f;
-					labelX = FMath::Max(0.2f, labelX);
-					ImPlot::PlotText("Yaw Tracking Over Time", labelX, 160.0f);
+					UE_LOG(LogTemp, Warning, TEXT("IMGUI: Adding yaw plot title"));
+					ImPlot::PlotText("Yaw Tracking Over Time", CumulativeTime - MaxPlotTime + 0.2f, 160.0f);
 				}
 
-				// Plot desired yaw line
-				ImPlot::SetNextLineStyle(ImVec4(1.0f, 0.5f, 0.0f, 1.0f), 2.0f); // Orange line
+				UE_LOG(LogTemp, Warning, TEXT("IMGUI: Plotting desired yaw line, data size: %d"), YawTimeData.Num());
+
+				// Plot desired yaw line (orange)
+				ImPlot::SetNextLineStyle(ImVec4(1.0f, 0.5f, 0.0f, 1.0f), 2.0f);
 				ImPlot::PlotLine("Desired Yaw", YawTimeData.GetData(), DesiredYawData.GetData(), YawTimeData.Num());
 
-				// Plot current yaw line
-				ImPlot::SetNextLineStyle(ImVec4(0.0f, 0.8f, 0.8f, 1.0f), 2.0f); // Cyan line
+				UE_LOG(LogTemp, Warning, TEXT("IMGUI: Plotting current yaw line"));
+
+				// Plot current yaw line (cyan)
+				ImPlot::SetNextLineStyle(ImVec4(0.0f, 0.8f, 0.8f, 1.0f), 2.0f);
 				ImPlot::PlotLine("Current Yaw", YawTimeData.GetData(), CurrentYawData.GetData(), YawTimeData.Num());
 
 				// Calculate and display current error
 				float currentError = FMath::Abs(FMath::FindDeltaAngleDegrees(LastCurrentYaw, LastDesiredYaw));
 
-				// Add text annotation showing current error - with safety check to avoid rendering out of bounds
+				UE_LOG(LogTemp, Warning, TEXT("IMGUI: Current yaw error: %.2f"), currentError);
+
+				// Add text annotation showing current error
 				if (CumulativeTime > 0.5f)
 				{
+					UE_LOG(LogTemp, Warning, TEXT("IMGUI: Adding error annotation"));
+
 					char errorText[32];
 					snprintf(errorText, sizeof(errorText), "Error: %.2f°", currentError);
 
-					float annotationX = bPanningMode ?
-						CumulativeTime - 0.5f - TimeOffset :
-						CumulativeTime - 0.5f;
-					annotationX = FMath::Max(0.1f, annotationX);
+					// Safely clamp the Y position to avoid rendering out of bounds
+					float annotationY = FMath::Clamp(LastCurrentYaw + 10.0f, -170.0f, 170.0f);
 
-					ImPlot::PlotText(errorText, annotationX,
-						FMath::Clamp(LastCurrentYaw + 10.0f, -170.0f, 170.0f));
+					UE_LOG(LogTemp, Warning, TEXT("IMGUI: Error annotation position: time=%.2f, y=%.2f"),
+						CumulativeTime - 0.5f, annotationY);
+
+					ImPlot::PlotText(errorText, CumulativeTime - 0.5f, annotationY);
 				}
 
+				UE_LOG(LogTemp, Warning, TEXT("IMGUI: Ending yaw plot"));
 				ImPlot::EndPlot();
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("IMGUI: Failed to begin yaw plot"));
+				ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Failed to create yaw plot");
 			}
 
 			// Display error statistics outside of the plot
+			UE_LOG(LogTemp, Warning, TEXT("IMGUI: Displaying yaw statistics"));
+
 			float currentError = FMath::Abs(FMath::FindDeltaAngleDegrees(LastCurrentYaw, LastDesiredYaw));
 			ImGui::Text("Current Yaw Error: %.2f°", currentError);
 
 			if (YawTimeData.Num() > 1)
 			{
+				UE_LOG(LogTemp, Warning, TEXT("IMGUI: Calculating average yaw error"));
+
 				float totalError = 0.0f;
 				for (int32 i = 0; i < DesiredYawData.Num(); i++)
 				{
-					// Use FindDeltaAngleDegrees to properly handle angle wrap-around
 					totalError += FMath::Abs(FMath::FindDeltaAngleDegrees(CurrentYawData[i], DesiredYawData[i]));
 				}
 				float avgError = totalError / DesiredYawData.Num();
 				ImGui::Text("Average Yaw Error: %.2f°", avgError);
 			}
 		}
-		else
-		{
-			ImGui::Text("Waiting for sufficient yaw data to plot...");
-		}
 	}
 
+	UE_LOG(LogTemp, Warning, TEXT("IMGUI: Ending render window"));
 	ImGui::End();
+	UE_LOG(LogTemp, Warning, TEXT("IMGUI: RenderImPlot completed"));
 }
+
 
 void UImGuiUtil::DisplayDroneInfo()
 {

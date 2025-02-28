@@ -180,7 +180,9 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
                 dronePawn->ImGuiUtil->VelocityHud(Thrusts, roll_output, pitch_output, currentRotation,
                                                     FVector::ZeroVector, currentPosition, FVector::ZeroVector,
                                                     currentVelocity, x_output, y_output, z_output, a_deltaTime);
-            }
+
+				dronePawn->ImGuiUtil->RenderImPlot(Thrusts, a_deltaTime);
+			}
         }
     }
 }

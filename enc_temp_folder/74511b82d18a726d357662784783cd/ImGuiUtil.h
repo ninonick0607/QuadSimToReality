@@ -72,10 +72,6 @@ private:
     float CumulativeTime;
     float MaxPlotTime;
 
-    bool bPanningMode;
-    float TimeOffset;
-    float PanSpeed;
-
     // Yaw tracking data
     TArray<float> YawTimeData;
     TArray<float> DesiredYawData;
