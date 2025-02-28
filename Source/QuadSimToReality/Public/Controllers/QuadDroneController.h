@@ -63,8 +63,9 @@ public:
     void ResetDroneIntegral();
     void ResetDroneHigh();
     void ResetDroneOrigin();
-    
-    void DrawDebugVisuals(const FVector& currentPosition, const FVector& setPoint)const;
+
+
+    void DrawDebugVisuals(const FVector& horizontalVelocity) const;
     void SetDesiredVelocity(const FVector& NewVelocity);
     void SetFlightMode(EFlightMode NewMode);
     EFlightMode GetFlightMode() const;

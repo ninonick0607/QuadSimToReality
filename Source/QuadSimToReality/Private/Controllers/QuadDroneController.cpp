@@ -24,8 +24,6 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	, desiredNewVelocity(FVector::ZeroVector)
 	, initialTakeoff(true)
 	, altitudeReached(false)
-	, Debug_DrawDroneCollisionSphere(true)
-	, Debug_DrawDroneWaypoint(true)
 	, MaxAngularVelocity(180.0)  
 	, YawTorqueForce(2.0)       
 	, LastYawTorqueApplied(0.0)
@@ -132,8 +130,7 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
     
     if (!bManualThrustMode)
     {
-
-		FVector velocityError = desiredNewVelocity - currentVelocity;
+        FVector velocityError = desiredNewVelocity - currentVelocity;
         x_output = CurrentSet->XPID->Calculate(velocityError.X, a_deltaTime);
         y_output = CurrentSet->YPID->Calculate(velocityError.Y, a_deltaTime);
         z_output = CurrentSet->ZPID->Calculate(velocityError.Z, a_deltaTime);
@@ -143,12 +140,23 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
         roll_output = CurrentSet->RollPID->Calculate(roll_error, a_deltaTime);
         pitch_output = CurrentSet->PitchPID->Calculate(pitch_error, a_deltaTime);
     
-        // Yaw control, etc.
-		if (horizontalVelocity.SizeSquared() > 10.0f) // Adjust threshold as needed
-		{
-			horizontalVelocity.Normalize();
-			desiredYaw = FMath::RadiansToDegrees(FMath::Atan2(horizontalVelocity.Y, horizontalVelocity.X));
-		}
+        const float VELOCITY_YAW_THRESHOLD = 20.0f;
+        if (horizontalVelocity.SizeSquared() > VELOCITY_YAW_THRESHOLD)
+        {
+            horizontalVelocity.Normalize();
+            
+            // Calculate desired yaw from velocity direction
+            float rawDesiredYaw = FMath::RadiansToDegrees(FMath::Atan2(horizontalVelocity.X, -horizontalVelocity.Y));
+            
+            // Normalize to ensure consistent range for comparison
+            float normalizedDesiredYaw = FMath::UnwindDegrees(rawDesiredYaw);
+            desiredYaw = normalizedDesiredYaw;
+            
+            // Debug info
+            UE_LOG(LogTemp, Display, TEXT("Velocity Direction: X=%.2f, Y=%.2f, RawYaw=%.2f, NormalizedYaw=%.2f"),
+                  horizontalVelocity.X, horizontalVelocity.Y, rawDesiredYaw, normalizedDesiredYaw);
+                 
+        }
     
         ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
     }
@@ -157,16 +165,10 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
         ApplyManualThrusts();
     }
     
-	YawStabilization(a_deltaTime);
+    YawStabilization(a_deltaTime);
+	DrawDebugVisuals(horizontalVelocity);
 
-    // Debug visualization, etc.
-    if (Debug_DrawDroneWaypoint)
-    {
-        FVector dronePos = dronePawn->GetActorLocation();
-        FVector velocityDirection = desiredNewVelocity.GetSafeNormal() * 200.0f;
-        DrawDebugLine(dronePawn->GetWorld(), dronePos, dronePos + velocityDirection, FColor::Yellow, false, -1.0f, 0, 2.0f);
-    }
-    
+
     if (dronePawn && dronePawn->ImGuiUtil)
     {
         ADroneManager* Manager = Cast<ADroneManager>(UGameplayStatics::GetActorOfClass(dronePawn->GetWorld(), ADroneManager::StaticClass()));
@@ -177,10 +179,7 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
             AQuadPawn* selectedPawn = (DroneList.IsValidIndex(idx)) ? DroneList[idx] : nullptr;
             if (dronePawn == selectedPawn)
             {
-                dronePawn->ImGuiUtil->VelocityHud(Thrusts, roll_output, pitch_output, currentRotation,
-                                                    FVector::ZeroVector, currentPosition, FVector::ZeroVector,
-                                                    currentVelocity, x_output, y_output, z_output, a_deltaTime);
-
+                dronePawn->ImGuiUtil->VelocityHud(Thrusts, roll_output, pitch_output, currentRotation,FVector::ZeroVector, currentPosition, FVector::ZeroVector,currentVelocity, x_output, y_output, z_output, a_deltaTime);
 				dronePawn->ImGuiUtil->RenderImPlot(Thrusts, a_deltaTime);
 			}
         }
@@ -257,61 +256,6 @@ void UQuadDroneController::YawStabilization(double DeltaTime)
 		{
 			Thruster->ApplyTorque(TorqueVector, true);
 		}
-	}
-
-	// Debug visualizatio
-	FVector DroneLocation = dronePawn->GetActorLocation();
-	DrawDebugDirectionalArrow(
-		GetWorld(),
-		DroneLocation,
-		DroneLocation + UpVector * 100.f,
-		50.f,
-		FColor::Blue,
-		false,
-		0.1f,
-		0,
-		3.f
-	);
-
-	FVector ForwardVector = dronePawn->DroneBody->GetForwardVector();
-	DrawDebugDirectionalArrow(
-		GetWorld(),
-		DroneLocation,
-		DroneLocation + ForwardVector * 100.f,
-		50.f,
-		FColor::Red,
-		false,
-		-1.f,
-		0,
-		3.f
-	);
-
-	// Display yaw debugging info
-	DrawDebugString(
-		GetWorld(),
-		DroneLocation + FVector(0, 0, 150),
-		FString::Printf(TEXT("Yaw Error: %.2f°\nTorque: %.2f"), YawError, FinalYawTorque),
-		nullptr,
-		FColor::Yellow,
-		0.0f,
-		true,
-		1.0f
-	);
-
-	for (int i = 0; i < dronePawn->Thrusters.Num(); i++)
-	{
-		FVector MotorPos = dronePawn->Thrusters[i]->GetComponentLocation();
-		FString DirText = dronePawn->MotorClockwiseDirections[i] ? TEXT("CW") : TEXT("CCW");
-		DrawDebugString(
-			GetWorld(),
-			MotorPos + FVector(0, 0, 15),
-			FString::Printf(TEXT("M%d\n%s"), i, *DirText),
-			nullptr,
-			FColor::White,
-			0.0f,
-			true,
-			1.2f
-		);
 	}
 }
 
@@ -416,6 +360,7 @@ void UQuadDroneController::ResetDroneOrigin()
 		// Reset controller states
 		ResetPID();
 		desiredNewVelocity = FVector::ZeroVector;
+		desiredYaw = 0.0f; // Add this line to reset the desired yaw
 		initialTakeoff = true;
 		altitudeReached = false;
 	}
@@ -424,52 +369,35 @@ void UQuadDroneController::ResetDroneOrigin()
 
 // ---------------------- Helper Functions ------------------------
 
-
-void UQuadDroneController::DrawDebugVisuals(const FVector& currentPosition, const FVector& setPoint) const
+void UQuadDroneController::DrawDebugVisuals(const FVector& horizontalVelocity) const
 {
-	if (Debug_DrawDroneCollisionSphere)
-	{
-		// Get the mesh bounds to calculate the vertical offset
-		FBoxSphereBounds MeshBounds = dronePawn->DroneBody->CalcBounds(dronePawn->DroneBody->GetComponentTransform());
-		float VerticalOffset = MeshBounds.BoxExtent.Z;
+	if (!dronePawn || !dronePawn->DroneBody) return;
+	FVector dronePos = dronePawn->GetActorLocation();
+	const float scaleXYZ = .5f; 
+	const float scaleHorizontal = 100.0f;
 
-		// Adjust the position upwards
-		FVector AdjustedPosition = currentPosition + FVector(0.0f, 0.0f, VerticalOffset);
+	DrawDebugLine(dronePawn->GetWorld(), dronePos, dronePos + FVector(desiredNewVelocity.X, 0, 0) * scaleXYZ, FColor::Red, false, -1.0f, 0, 2.0f);
+	DrawDebugLine(dronePawn->GetWorld(), dronePos, dronePos + FVector(0, desiredNewVelocity.Y, 0) * scaleXYZ, FColor::Green, false, -1.0f, 0, 2.0f);
+	DrawDebugLine(dronePawn->GetWorld(), dronePos, dronePos + FVector(0, 0, desiredNewVelocity.Z) * scaleXYZ, FColor::Blue, false, -1.0f, 0, 2.0f);
+	DrawDebugLine(dronePawn->GetWorld(), dronePos, dronePos + FVector(horizontalVelocity.X, horizontalVelocity.Y, horizontalVelocity.Z) * scaleHorizontal, FColor::Yellow, false, -1.0f, 0, 3.0f);
+	
+	FVector ForwardVector = dronePawn->DroneBody->GetForwardVector();
+	DrawDebugDirectionalArrow(GetWorld(), dronePos, dronePos + ForwardVector * 100.f, 50.f, FColor::Red, false, -1.f, 0, 3.f);
 
-		// Draw the debug sphere at the adjusted position
-		DrawDebugSphere(
-			dronePawn->GetWorld(),
-			AdjustedPosition,
-			dronePawn->DroneBody->GetCollisionShape().GetSphereRadius(),
-			10,
-			FColor::Red,
-			false, // bPersistentLines
-			0.0f // LifeTime
-		);
+	if (Debug_DrawDroneWaypoint) 
+	{ 
+		FVector velocityDirection = desiredNewVelocity.GetSafeNormal() * 200.0f; 
+		DrawDebugLine(dronePawn->GetWorld(), dronePos, dronePos + velocityDirection, FColor::Magenta, false, -1.0f, 0, 3.0f); 
 	}
 
-	if (Debug_DrawDroneWaypoint)
-	{
-		// Existing code remains the same
-		DrawDebugSphere(
-			dronePawn->GetWorld(),
-			setPoint,
-			acceptableDistance,
-			10,
-			FColor::Red,
-			false, // bPersistentLines
-			0.0f // LifeTime
-		);
-		DrawDebugLine(
-			dronePawn->GetWorld(),
-			currentPosition,
-			setPoint,
-			FColor::Green,
-			false, // bPersistentLines
-			0.0f // LifeTime
-		);
+	for (int i = 0; i < dronePawn->Thrusters.Num(); i++) 
+	{ 
+		FVector MotorPos = dronePawn->Thrusters[i]->GetComponentLocation(); 
+		FString DirText = dronePawn->MotorClockwiseDirections[i] ? TEXT("CW") : TEXT("CCW"); 
+		DrawDebugString(GetWorld(), MotorPos + FVector(0, 0, 15), FString::Printf(TEXT("M%d\n%s"), i, *DirText), nullptr, FColor::White, 0.0f, true, 1.2f); 
 	}
 }
+
 
 void UQuadDroneController::SafetyReset()
 {
