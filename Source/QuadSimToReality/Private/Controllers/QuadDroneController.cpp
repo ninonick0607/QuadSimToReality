@@ -37,7 +37,7 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	altitudeThresh = Config.FlightParams.AltitudeThreshold;
 	minAltitudeLocal = Config.FlightParams.MinAltitudeLocal;
 	acceptableDistance = Config.FlightParams.AcceptableDistance;
-	
+			
     FFullPIDSet VelocitySet;
     VelocitySet.XPID = new QuadPIDController();
     VelocitySet.XPID->SetLimits(-maxPIDOutput, maxPIDOutput);

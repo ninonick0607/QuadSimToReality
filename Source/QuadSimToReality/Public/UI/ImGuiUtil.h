@@ -71,22 +71,10 @@ private:
     TArray<float> Thrust3Data;
     float CumulativeTime;
     float MaxPlotTime;
-
-    bool bPanningMode;
-    float TimeOffset;
-    float PanSpeed;
-
-    // Yaw tracking data
-    TArray<float> YawTimeData;
-    TArray<float> DesiredYawData;
-    TArray<float> CurrentYawData;
-    float LastDesiredYaw;
-    float LastCurrentYaw;
-    float MaxYawPlotTime;
+    
 
     // Helper method to load PID values from a CSV row
     void LoadPIDValues(const TArray<FString>& Values);
 
     static const int32 MaxDataPoints = 500;
-    static const int32 MaxYawDataPoints = 500;
 };
