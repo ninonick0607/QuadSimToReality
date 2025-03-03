@@ -58,8 +58,9 @@ class QuadSimEnv(gym.Env):
         time.sleep(0.1)
 
     def get_observation(self):
-        z_vel = self.state['velocity'][2] / 150.0  # Normalize velocity
-        z_to_goal = (self.goal_state[2] - self.state['position'][2]) / 5000.0  # Normalize distance
+        # MODIFIED: Changed normalization scaling to be more sensitive around the operating range
+        z_vel = self.state['velocity'][2] / 100.0  # More sensitive velocity normalization
+        z_to_goal = (self.goal_state[2] - self.state['position'][2]) / 2000.0  # More focused distance scaling
         return np.array([z_vel, z_to_goal])
 
     def reset(self, seed=None):
@@ -72,7 +73,8 @@ class QuadSimEnv(gym.Env):
         return abs(pos1[2] - pos2[2])
     
     def step(self, action):
-        self.prev_action = 0.7 * self.prev_action + 0.3 * action[0]
+        # MODIFIED: Slightly reduced action smoothing for more responsive control
+        self.prev_action = 0.8 * self.prev_action + 0.2 * action[0]
         full_action = np.array([0.0, 0.0, self.prev_action]) * 250.0
         
         for i in range(64):
@@ -84,46 +86,64 @@ class QuadSimEnv(gym.Env):
         image = self.get_data()
         if image is not None:
             self.state['image'] = image
-        # You could optionally log here to verify an image was received:
-        else:
-            print("No image received in this step.")
 
         current_z = self.state['position'][2]
         z_velocity = self.state['velocity'][2]
         z_distance = self.calculate_z_distance(self.state['position'], self.goal_state)
         
-
-        current_z = self.state['position'][2]
-        z_velocity = self.state['velocity'][2]
-        z_distance = self.calculate_z_distance(self.state['position'], self.goal_state)
-        
+        # MODIFIED: Improved reward function focused on altitude control
         reward = 0.0
-        distance_reward = -np.tanh(z_distance / 1000.0) 
-        reward += distance_reward * 2.0 
-
+        
+        # Base distance reward - stronger penalty for being far from target
+        distance_reward = -np.tanh(z_distance / 500.0) * 3.0  # Increased sensitivity and weight
+        reward += distance_reward
+        
+        # Target height is expected to be around 1000 based on ZMQController
+        target_height = self.goal_state[2]  # Using the received goal height
+        
+        # ADDED: Proximity bonus - gradually increases as drone gets closer to target height
+        proximity_factor = np.exp(-z_distance / 200.0)  # Exponential reward that peaks at target
+        reward += proximity_factor * 2.0
+        
+        # Safety height penalty
         min_safe_height = 100.0  
         if current_z < min_safe_height:
-            height_penalty = -2.0 * (min_safe_height - current_z) / min_safe_height
+            height_penalty = -3.0 * (min_safe_height - current_z) / min_safe_height
             reward += height_penalty
         
-        if z_distance > 0:
+        # Direction reward - encourage moving in the right direction
+        if z_distance > 50:  # Only apply when not very close to target
             correct_direction = np.sign(z_velocity) == np.sign(self.goal_state[2] - current_z)
-            reward += 1.0 if correct_direction else -1.0
+            reward += 1.5 if correct_direction else -1.5
         
-        if z_distance < 100.0:
-            hover_penalty = -abs(z_velocity) * 2.0
-            reward += hover_penalty
+        # MODIFIED: Refined hover behavior near goal
+        if z_distance < 50.0:
+            # Strong hover reward when close to target - encourage stability
+            hover_reward = 2.0 - abs(z_velocity) * 0.05
+            reward += hover_reward
         else:
-            optimal_velocity = np.clip(z_distance * 0.2, -500, 500)
-            velocity_efficiency = -abs(z_velocity - optimal_velocity) * 0.3
+            # Velocity efficiency - optimal speed is proportional to distance
+            optimal_velocity = np.clip(np.sign(self.goal_state[2] - current_z) * 
+                                      min(z_distance * 0.3, 300), -300, 300)
+            velocity_efficiency = -abs(z_velocity - optimal_velocity) * 0.004
             reward += velocity_efficiency
                 
         self.prev_velocity = z_velocity
-        energy_penalty = -abs(z_velocity) * 0.01
+        
+        # Small energy penalty to discourage excessive movements
+        energy_penalty = -abs(z_velocity) * 0.002
         reward += energy_penalty
+        
+        # ADDED: Completion bonus when very close to target
+        if z_distance < 30.0:
+            reward += 3.0 * (1.0 - z_distance/30.0)  # Up to +3 reward for perfect positioning
 
         done = self.steps >= 512
-        info = {}
+        info = {
+            'z_distance': z_distance,
+            'current_z': current_z,
+            'target_z': self.goal_state[2]
+        }
         self.steps += 1
         
         if done:
@@ -136,7 +156,6 @@ class QuadSimEnv(gym.Env):
     def send_velocity_command(self, velocity):
         command_topic = "VELOCITY"
         message = np.array(velocity, dtype=np.float32).tobytes()
-        #print(f"[Python] Sending velocity command: {velocity}")
         self.command_socket.send_multipart([command_topic.encode(), message])
  
     def send_reset_command(self):
@@ -167,6 +186,7 @@ class QuadSimEnv(gym.Env):
                     'position': np.array(parsed_data["POSITION"])
                 })
                 self.goal_state = np.array(parsed_data["GOAL"])
+                # We're keeping the goal as provided by ZMQController
                 
         except Exception as e:
             print(f"Data handling error: {str(e)}")
@@ -184,7 +204,6 @@ class QuadSimEnv(gym.Env):
                 print("Image decode failed.")
             return image if image is not None else None
         except (zmq.Again, Exception) as e:
-            print("No image received or error:", e)
             return None
 
 
@@ -254,23 +273,24 @@ if __name__ == "__main__":
         verbose=1
     )
     
-    # Create the image display callback (no threading needed now)
+    # Create the image display callback
     image_display_callback = ImageDisplayCallback(update_freq=10)
 
-    # Initialize the PPO model
+    # MODIFIED: Adjusted hyperparameters for better altitude learning
     model = PPO(
         "MlpPolicy", 
         env,
-        policy_kwargs=dict(net_arch=[64, 64]),
-        learning_rate=3e-4,
+        policy_kwargs=dict(net_arch=[128, 128]),  # Larger network for better capacity
+        learning_rate=2e-4,  # Slightly reduced learning rate for more stable learning
         n_steps=2048,
+        batch_size=64,  # Added explicit batch size
         gamma=0.99,
         verbose=1,
         tensorboard_log=logs_dir
     )
     
     try:
-        # Begin training; the image display callback updates the plot on every 'update_freq' steps
+        # Begin training with the modified environment and callbacks
         model.learn(
             total_timesteps=512 * 1000,
             callback=[checkpoint_callback, eval_callback, image_display_callback]

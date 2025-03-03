@@ -34,7 +34,7 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	const auto& Config = UDroneJSONConfig::Get().Config;
 	maxVelocity = Config.FlightParams.MaxVelocity;
 	maxAngle = Config.FlightParams.MaxAngle;
-	maxPIDOutput = Config.FlightParams.MaxPIDOutput;
+	maxPIDOutput = 350.f;//Config.FlightParams.MaxPIDOutput;
 	altitudeThresh = Config.FlightParams.AltitudeThreshold;
 	minAltitudeLocal = Config.FlightParams.MinAltitudeLocal;
 	acceptableDistance = Config.FlightParams.AcceptableDistance;
@@ -191,23 +191,38 @@ void UQuadDroneController::ThrustMixer(double xOutput, double yOutput, double zO
 										 double rollOutput, double pitchOutput)
 {
 	float droneMass = dronePawn->DroneBody->GetMass();
-	const float mult = 0.5f;
-	
-	Thrusts[0] = zOutput - xOutput + yOutput + rollOutput + pitchOutput;
-	Thrusts[1] = zOutput - xOutput - yOutput - rollOutput + pitchOutput;
-	Thrusts[2] = zOutput + xOutput + yOutput + rollOutput - pitchOutput;
-	Thrusts[3] = zOutput + xOutput - yOutput - rollOutput - pitchOutput;
+	const float gravity = 980.0f; // Approximate gravity in UE units
     
+	// Calculate hover thrust (force needed to counteract gravity)
+	const float hoverThrust = (droneMass * gravity) / 4.0f; // Divided among 4 motors
+    
+	// Map zOutput from PID range (-maxPIDOutput to +maxPIDOutput) 
+	// to thrust adjustment range (-hoverThrust*0.8 to +hoverThrust*0.8)
+	// This ensures we can descend but thrusts remain positive
+	float thrustAdjustmentFactor = 0.8f; // Max 80% reduction or increase from hover
+	float zThrustAdjustment = (zOutput / maxPIDOutput) * hoverThrust * thrustAdjustmentFactor;
+    
+	// Calculate base thrust for each motor (hover + z adjustment)
+	float baseThrust = hoverThrust + zThrustAdjustment;
+    
+	// Apply remaining PID adjustments for attitude control
+	Thrusts[0] = baseThrust - xOutput + yOutput + rollOutput + pitchOutput;
+	Thrusts[1] = baseThrust - xOutput - yOutput - rollOutput + pitchOutput;
+	Thrusts[2] = baseThrust + xOutput + yOutput + rollOutput - pitchOutput;
+	Thrusts[3] = baseThrust + xOutput - yOutput - rollOutput - pitchOutput;
+    
+	// Ensure thrusts remain positive but limited
 	for (int i = 0; i < Thrusts.Num(); i++)
 	{
 		Thrusts[i] = FMath::Clamp(Thrusts[i], 0.0f, 700.0f);
 	}
     
+	// Apply thrusts to motors
 	for (int i = 0; i < Thrusts.Num(); i++)
 	{
 		if (!dronePawn || !dronePawn->Thrusters.IsValidIndex(i))
 			continue;
-		double force = droneMass * mult * Thrusts[i];
+		double force = droneMass * 0.5f * Thrusts[i];
 		dronePawn->Thrusters[i]->ApplyForce(force);
 	}
 }

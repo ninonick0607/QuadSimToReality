@@ -19,9 +19,7 @@ public:
     UImGuiUtil();
 
     /** Call this once the owning controller and pawn are valid */
-    void Initialize(AQuadPawn* InPawn, UQuadDroneController* InController, const FVector& InDesiredNewVelocity,
-                    bool InDebug_DrawDroneCollisionSphere, bool InDebug_DrawDroneWaypoint,
-                    float InMaxPIDOutput, float InMaxVelocity, float InMaxAngle);
+    void Initialize(AQuadPawn* InPawn, UQuadDroneController* InController, float InMaxVelocity, float InMaxAngle);
 
     /** Main functions to draw the UI */
     void VelocityHud(TArray<float>& ThrustsVal,
@@ -36,7 +34,6 @@ public:
     void RenderImPlot(const TArray<float>& ThrustsVal, const FVector& desiredForwardVector, const FVector& currentForwardVector, float deltaTime);
 
     void DisplayDroneInfo();
-    void DisplayDebugOptions();
     void DisplayPIDSettings(EFlightMode Mode, const char* headerLabel, bool& synchronizeXYGains, bool& synchronizeGains);
     void DisplayCameraControls();
     void DisplayResetDroneButtons();
@@ -57,12 +54,8 @@ private:
     UQuadDroneController* Controller;
 
     // Parameters (stored by value now)
-    bool Debug_DrawDroneCollisionSphere;
-    bool Debug_DrawDroneWaypoint;
-    float maxPIDOutput;
     float maxVelocity;
     float maxAngle;
-    FVector desiredNewVelocity;
 
     // Data for plotting
     TArray<float> TimeData;

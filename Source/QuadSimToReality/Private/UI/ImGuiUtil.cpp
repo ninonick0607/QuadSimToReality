@@ -13,28 +13,19 @@
 UImGuiUtil::UImGuiUtil()
 	: DronePawn(nullptr)
 	, Controller(nullptr)
-	, Debug_DrawDroneCollisionSphere(true)
-	, Debug_DrawDroneWaypoint(true)
-	, maxPIDOutput(100.0f)
 	, maxVelocity(600.0f)
 	, maxAngle(45.0f)
-	, desiredNewVelocity(FVector::ZeroVector)
 	, CumulativeTime(0.0f)
 	, MaxPlotTime(10.0f)
 {
 	PrimaryComponentTick.bCanEverTick = true;
 }
 
-void UImGuiUtil::Initialize(AQuadPawn* InPawn, UQuadDroneController* InController, const FVector& InDesiredNewVelocity,
-								 bool InDebug_DrawDroneCollisionSphere, bool InDebug_DrawDroneWaypoint,
-								 float InMaxPIDOutput, float InMaxVelocity, float InMaxAngle)
+void UImGuiUtil::Initialize(AQuadPawn* InPawn, UQuadDroneController* InController,
+								 float InMaxVelocity, float InMaxAngle)
 { 
 	DronePawn = InPawn;
 	Controller = InController;
-	desiredNewVelocity = InDesiredNewVelocity;
-	Debug_DrawDroneCollisionSphere = InDebug_DrawDroneCollisionSphere;
-	Debug_DrawDroneWaypoint = InDebug_DrawDroneWaypoint;
-	maxPIDOutput = InMaxPIDOutput;
 	maxVelocity = InMaxVelocity;
 	maxAngle = InMaxAngle;
 }
@@ -98,7 +89,6 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 	ImGui::SliderFloat("Max tilt angle", &maxAngle, 0.0f, 45.0f);
 
 	DisplayDesiredVelocities();
-	DisplayDebugOptions();
 
 	ImGui::Separator();
 	ImGui::Text("Thruster Power");
@@ -167,6 +157,7 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 		ImGui::Unindent();
 		ImGui::PopID(); // pop "Diag2"
 	}
+    FVector currentDesiredVelocity = Controller->GetDesiredVelocity();
 
 	ImGui::Separator();
 	ImGui::Text("Desired Roll: %.2f", rollError);
@@ -181,7 +172,7 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 	ImGui::Text("Desired Position X, Y, Z: %.2f, %.2f, %.2f", waypoint.X, waypoint.Y, waypoint.Z);
 	ImGui::Text("Position Error X, Y, Z: %.2f, %.2f, %.2f", error.X, error.Y, error.Z);
 	ImGui::Spacing();
-	ImGui::Text("Velocity Command Received X, Y, Z: %.2f, %.2f, %.2f", desiredNewVelocity.X, desiredNewVelocity.Y, desiredNewVelocity.Z);
+	ImGui::Text("Velocity Command Received X, Y, Z: %.2f, %.2f, %.2f", currentDesiredVelocity.X, currentDesiredVelocity.Y, currentDesiredVelocity.Z);
 	ImGui::Text("Current Goal State X, Y, Z: %.2f, %.2f, %.2f", currentGoalState.X, currentGoalState.Y, currentGoalState.Z);
 	ImGui::Spacing();
 
@@ -346,15 +337,6 @@ void UImGuiUtil::DisplayDroneInfo()
 		ImGui::Text("Drone Pawn or Drone Body is null!");
 	}
 	ImGui::Separator();
-}
-
-void UImGuiUtil::DisplayDebugOptions()
-{
-    ImGui::Separator();
-    ImGui::Text("Debug Draw");
-    ImGui::Checkbox("Drone Collision Sphere", &Debug_DrawDroneCollisionSphere);
-    ImGui::Checkbox("Drone Waypoint", &Debug_DrawDroneWaypoint);
-    ImGui::Separator();
 }
 
 void UImGuiUtil::DisplayPIDSettings(EFlightMode Mode, const char* headerLabel, bool& synchronizeXYGains, bool& synchronizeGains)
@@ -589,10 +571,12 @@ void UImGuiUtil::DisplayDesiredVelocities()
 	static bool resetXChecked = false;
 	static bool resetYChecked = false;
 	static bool resetZChecked = false;
+	
+	FVector currentDesiredVelocity = Controller->GetDesiredVelocity();
 
-	float tempVx = desiredNewVelocity.X;
-	float tempVy = desiredNewVelocity.Y;
-	float tempVz = desiredNewVelocity.Z;
+	float tempVx = currentDesiredVelocity.X;
+	float tempVy = currentDesiredVelocity.Y;
+	float tempVz = currentDesiredVelocity.Z;
 	bool velocityChanged = false;
 
 	// Add hover mode button with distinctive styling
@@ -694,7 +678,7 @@ void UImGuiUtil::DisplayDesiredVelocities()
 	// Only update the desired velocity if there's a significant change or if we just entered hover mode
 	if (significantChange || velocityChanged)
 	{
-		desiredNewVelocity = FVector(tempVx, tempVy, tempVz);
+		FVector desiredNewVelocity = FVector(tempVx, tempVy, tempVz);
 		if (Controller)
 		{
 			Controller->SetDesiredVelocity(desiredNewVelocity);
