@@ -204,106 +204,133 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 
 }
 
-void UImGuiUtil::RenderImPlot(const TArray<float>& ThrustsVal, float deltaTime)
+void UImGuiUtil::RenderImPlot(const TArray<float>& ThrustsVal, const FVector& desiredForwardVector, const FVector& currentForwardVector, float deltaTime)
 {
-	if (ThrustsVal.Num() < 4)
-	{
-		return;
-	}
+    if (ThrustsVal.Num() < 4)
+    {
+        return;
+    }
 
-	CumulativeTime += deltaTime;
-	TimeData.Add(CumulativeTime);
-	Thrust0Data.Add(ThrustsVal[0]);
-	Thrust1Data.Add(ThrustsVal[1]);
-	Thrust2Data.Add(ThrustsVal[2]);
-	Thrust3Data.Add(ThrustsVal[3]);
+    CumulativeTime += deltaTime;
+    TimeData.Add(CumulativeTime);
+    
+    // Add thruster data
+    Thrust0Data.Add(ThrustsVal[0]);
+    Thrust1Data.Add(ThrustsVal[1]);
+    Thrust2Data.Add(ThrustsVal[2]);
+    Thrust3Data.Add(ThrustsVal[3]);
+    
+    // Extract heading angles from forward vectors (ignoring Z component)
+    // Using atan2 to get the yaw angle in degrees
+    FVector desiredFlat = desiredForwardVector;
+    desiredFlat.Z = 0;
+    desiredFlat.Normalize();
+    
+    FVector currentFlat = currentForwardVector;
+    currentFlat.Z = 0;
+    currentFlat.Normalize();
+    
+    // Calculate heading angles (converts from -180 to 180 range)
+    float desiredHeading = FMath::RadiansToDegrees(FMath::Atan2(desiredFlat.Y, desiredFlat.X));
+    float currentHeading = FMath::RadiansToDegrees(FMath::Atan2(currentFlat.Y, currentFlat.X));
+    
+    // For consistency when crossing the 180/-180 boundary
+    float rawErrorAngle = desiredHeading - currentHeading;
+    // Normalize to -180 to 180 range
+    while (rawErrorAngle > 180.0f) rawErrorAngle -= 360.0f;
+    while (rawErrorAngle < -180.0f) rawErrorAngle += 360.0f;
+    
+    // Add the heading data to our arrays
+    DesiredHeadingData.Add(desiredHeading);
+    CurrentHeadingData.Add(currentHeading);
+    VectorErrorData.Add(rawErrorAngle);
 
-	while (TimeData.Num() > 0 && (CumulativeTime - TimeData[0] > MaxPlotTime))
-	{
-		TimeData.RemoveAt(0);
-		Thrust0Data.RemoveAt(0);
-		Thrust1Data.RemoveAt(0);
-		Thrust2Data.RemoveAt(0);
-		Thrust3Data.RemoveAt(0);
-	}
+    // Clean up old data points for all arrays
+    while (TimeData.Num() > 0 && (CumulativeTime - TimeData[0] > MaxPlotTime))
+    {
+        TimeData.RemoveAt(0);
+        Thrust0Data.RemoveAt(0);
+        Thrust1Data.RemoveAt(0);
+        Thrust2Data.RemoveAt(0);
+        Thrust3Data.RemoveAt(0);
+        DesiredHeadingData.RemoveAt(0);
+        CurrentHeadingData.RemoveAt(0);
+        VectorErrorData.RemoveAt(0);
+    }
 
-	while (TimeData.Num() > MaxDataPoints)
-	{
-		TimeData.RemoveAt(0);
-		Thrust0Data.RemoveAt(0);
-		Thrust1Data.RemoveAt(0);
-		Thrust2Data.RemoveAt(0);
-		Thrust3Data.RemoveAt(0);
-	}
+    while (TimeData.Num() > MaxDataPoints)
+    {
+        TimeData.RemoveAt(0);
+        Thrust0Data.RemoveAt(0);
+        Thrust1Data.RemoveAt(0);
+        Thrust2Data.RemoveAt(0);
+        Thrust3Data.RemoveAt(0);
+        DesiredHeadingData.RemoveAt(0);
+        CurrentHeadingData.RemoveAt(0);
+        VectorErrorData.RemoveAt(0);
+    }
 
-	ImGui::SetNextWindowPos(ImVec2(850, 10), ImGuiCond_FirstUseEver);
-	ImGui::SetNextWindowSize(ImVec2(600, 400), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(850, 10), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(600, 600), ImGuiCond_FirstUseEver);
 
-	ImGui::Begin("Drone Thrust Analysis", nullptr, ImGuiWindowFlags_NoCollapse);
+    ImGui::Begin("Drone Analysis", nullptr, ImGuiWindowFlags_NoCollapse);
 
-	ImVec2 windowSize = ImGui::GetContentRegionAvail();
-	ImPlotFlags plotFlags = ImPlotFlags_None;
-	ImPlotAxisFlags axisFlags = ImPlotAxisFlags_None;
+    ImVec2 windowSize = ImGui::GetContentRegionAvail();
+    float plotHeight = windowSize.y * 0.5f;  // Split window for two plots
+    ImVec2 plotSize(windowSize.x, plotHeight - 10);
+    ImPlotFlags plotFlags = ImPlotFlags_None;
+    ImPlotAxisFlags axisFlags = ImPlotAxisFlags_None;
 
-	if (ImPlot::BeginPlot("Thrust Values Over Time", windowSize, plotFlags))
-	{
-		ImPlot::SetupAxes("Time (s)", "Thrust (N)", axisFlags, axisFlags);
+    // First plot for thrust values
+    if (ImPlot::BeginPlot("Thrust Values Over Time", plotSize, plotFlags))
+    {
+        ImPlot::SetupAxes("Time (s)", "Thrust (N)", axisFlags, axisFlags);
 
-		const ImVec4 FL_COLOR(1.0f, 0.2f, 0.2f, 1.0f);
-		const ImVec4 FR_COLOR(0.2f, 1.0f, 0.2f, 1.0f);
-		const ImVec4 BL_COLOR(0.2f, 0.6f, 1.0f, 1.0f);
-		const ImVec4 BR_COLOR(1.0f, 0.8f, 0.0f, 1.0f);
+        const ImVec4 FL_COLOR(1.0f, 0.2f, 0.2f, 1.0f);  // Red
+        const ImVec4 FR_COLOR(0.2f, 1.0f, 0.2f, 1.0f);  // Green
+        const ImVec4 BL_COLOR(0.2f, 0.6f, 1.0f, 1.0f);  // Blue
+        const ImVec4 BR_COLOR(1.0f, 0.8f, 0.0f, 1.0f);  // Yellow
 
-		ImPlot::SetNextLineStyle(FL_COLOR, 2.0f);
-		ImPlot::PlotLine("Front Left", TimeData.GetData(), Thrust0Data.GetData(), TimeData.Num());
+        ImPlot::SetNextLineStyle(FL_COLOR, 2.0f);
+        ImPlot::PlotLine("Front Left", TimeData.GetData(), Thrust0Data.GetData(), TimeData.Num());
 
-		ImPlot::SetNextLineStyle(FR_COLOR, 2.0f);
-		ImPlot::PlotLine("Front Right", TimeData.GetData(), Thrust1Data.GetData(), TimeData.Num());
+        ImPlot::SetNextLineStyle(FR_COLOR, 2.0f);
+        ImPlot::PlotLine("Front Right", TimeData.GetData(), Thrust1Data.GetData(), TimeData.Num());
 
-		ImPlot::SetNextLineStyle(BL_COLOR, 2.0f);
-		ImPlot::PlotLine("Back Left", TimeData.GetData(), Thrust2Data.GetData(), TimeData.Num());
+        ImPlot::SetNextLineStyle(BL_COLOR, 2.0f);
+        ImPlot::PlotLine("Back Left", TimeData.GetData(), Thrust2Data.GetData(), TimeData.Num());
 
-		ImPlot::SetNextLineStyle(BR_COLOR, 2.0f);
-		ImPlot::PlotLine("Back Right", TimeData.GetData(), Thrust3Data.GetData(), TimeData.Num());
+        ImPlot::SetNextLineStyle(BR_COLOR, 2.0f);
+        ImPlot::PlotLine("Back Right", TimeData.GetData(), Thrust3Data.GetData(), TimeData.Num());
 
-		ImPlot::EndPlot();
-	}
+        ImPlot::EndPlot();
+    }
 
-	if (ImPlot::BeginPlot("PID Integral Sums"))
-	{
-		ImPlot::SetupAxes("Time (s)", "Integral Sum");
+    ImGui::Spacing();
 
-		FFullPIDSet* CurrentSet = Controller ? Controller->GetPIDSet(Controller->GetFlightMode()) : nullptr;
-		if (CurrentSet)
-		{
-			static TArray<float> Times;
-			static TArray<float> XSums;
-			static TArray<float> YSums;
-			static TArray<float> ZSums;
+    // Second plot for heading comparison and error
+    if (ImPlot::BeginPlot("Heading Comparison", plotSize, plotFlags))
+    {
+        ImPlot::SetupAxes("Time (s)", "Heading (degrees)", axisFlags, axisFlags);
+        ImPlot::SetupAxisLimits(ImAxis_Y1, -180, 180, ImPlotCond_Once);
 
-			Times.Add(CumulativeTime);
-			XSums.Add(CurrentSet->XPID->GetCurrentBufferSum());
-			YSums.Add(CurrentSet->YPID->GetCurrentBufferSum());
-			ZSums.Add(CurrentSet->ZPID->GetCurrentBufferSum());
+        const ImVec4 DESIRED_COLOR(0.2f, 0.7f, 0.9f, 1.0f);  // Blue for desired
+        const ImVec4 CURRENT_COLOR(1.0f, 0.4f, 0.4f, 1.0f);  // Red for current
+        const ImVec4 ERROR_COLOR(0.8f, 0.4f, 0.9f, 1.0f);    // Purple for error
 
-			const int32 MaxPoints = 1000;
-			if (Times.Num() > MaxPoints)
-			{
-				Times.RemoveAt(0);
-				XSums.RemoveAt(0);
-				YSums.RemoveAt(0);
-				ZSums.RemoveAt(0);
-			}
+        ImPlot::SetNextLineStyle(DESIRED_COLOR, 2.0f);
+        ImPlot::PlotLine("Desired Heading", TimeData.GetData(), DesiredHeadingData.GetData(), TimeData.Num());
 
-			ImPlot::PlotLine("X Integral", Times.GetData(), XSums.GetData(), Times.Num());
-			ImPlot::PlotLine("Y Integral", Times.GetData(), YSums.GetData(), Times.Num());
-			ImPlot::PlotLine("Z Integral", Times.GetData(), ZSums.GetData(), Times.Num());
-		}
+        ImPlot::SetNextLineStyle(CURRENT_COLOR, 2.0f);
+        ImPlot::PlotLine("Current Heading", TimeData.GetData(), CurrentHeadingData.GetData(), TimeData.Num());
 
-		ImPlot::EndPlot();
-	}
+        ImPlot::SetNextLineStyle(ERROR_COLOR, 1.5f);
+        ImPlot::PlotLine("Heading Error", TimeData.GetData(), VectorErrorData.GetData(), TimeData.Num());
 
-	ImGui::End();
+        ImPlot::EndPlot();
+    }
+
+    ImGui::End();
 }
 
 void UImGuiUtil::DisplayDroneInfo()

@@ -32,7 +32,8 @@ public:
                      const FVector& currentVelocity,
                      float xOutput, float yOutput, float zOutput, float deltaTime);
 
-    void RenderImPlot(const TArray<float>& ThrustsVal, float deltaTime);
+
+    void RenderImPlot(const TArray<float>& ThrustsVal, const FVector& desiredForwardVector, const FVector& currentForwardVector, float deltaTime);
 
     void DisplayDroneInfo();
     void DisplayDebugOptions();
@@ -71,7 +72,12 @@ private:
     TArray<float> Thrust3Data;
     float CumulativeTime;
     float MaxPlotTime;
-    
+    TArray<float> DesiredYawData;
+    TArray<float> CurrentYawData;
+    TArray<float> DesiredHeadingData;  
+    TArray<float> CurrentHeadingData;  
+    TArray<float> VectorErrorData;     
+
 
     // Helper method to load PID values from a CSV row
     void LoadPIDValues(const TArray<FString>& Values);

@@ -8,7 +8,7 @@ class QUADSIMTOREALITY_API QuadPIDController
 public:
 	QuadPIDController();
 
-	void SetGains(float pGain, float iGain, float dGain);
+	void SetGains(float pGain, float iGain, float dGain, float filterAlpha = 0.2f);
 	void SetLimits(float min_output, float max_output);
 	void Reset();
 	void ResetIntegral();
@@ -18,6 +18,9 @@ public:
 	// Getters for buffer info
 	int32 GetBufferSize() const { return integralBuffer.Num(); }
 	float GetCurrentBufferSum() const { return currentBufferSum; }
+
+	// New method to set the derivative filter coefficient
+	void SetDerivativeFilterAlpha(float alpha);
 
 	// PID Gains
 	float ProportionalGain;
@@ -51,4 +54,8 @@ private:
     
 	// Previous error for derivative calculation
 	float prevError;
+
+	// For derivative low-pass filter
+	float filteredDerivative;
+	float derivativeFilterAlpha;
 };

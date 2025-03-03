@@ -19,6 +19,7 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	: dronePawn(nullptr)
 	, Thrusts({0, 0, 0, 0})
 	, desiredYaw(0.f)
+	, desiredForwardVector(FVector(1.0f, 0.0f, 0.0f)) // Initialize to forward direction
 	, desiredAltitude(0.0f)
 	, currentFlightMode(EFlightMode::None)
 	, desiredNewVelocity(FVector::ZeroVector)
@@ -37,7 +38,7 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	altitudeThresh = Config.FlightParams.AltitudeThreshold;
 	minAltitudeLocal = Config.FlightParams.MinAltitudeLocal;
 	acceptableDistance = Config.FlightParams.AcceptableDistance;
-			
+	
     FFullPIDSet VelocitySet;
     VelocitySet.XPID = new QuadPIDController();
     VelocitySet.XPID->SetLimits(-maxPIDOutput, maxPIDOutput);
@@ -140,23 +141,20 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
         roll_output = CurrentSet->RollPID->Calculate(roll_error, a_deltaTime);
         pitch_output = CurrentSet->PitchPID->Calculate(pitch_error, a_deltaTime);
     
-        const float VELOCITY_YAW_THRESHOLD = 20.0f;
-        if (horizontalVelocity.SizeSquared() > VELOCITY_YAW_THRESHOLD)
-        {
-            horizontalVelocity.Normalize();
-            
-            // Calculate desired yaw from velocity direction
-            float rawDesiredYaw = FMath::RadiansToDegrees(FMath::Atan2(horizontalVelocity.X, -horizontalVelocity.Y));
-            
-            // Normalize to ensure consistent range for comparison
-            float normalizedDesiredYaw = FMath::UnwindDegrees(rawDesiredYaw);
-            desiredYaw = normalizedDesiredYaw;
-            
-            // Debug info
-            UE_LOG(LogTemp, Display, TEXT("Velocity Direction: X=%.2f, Y=%.2f, RawYaw=%.2f, NormalizedYaw=%.2f"),
-                  horizontalVelocity.X, horizontalVelocity.Y, rawDesiredYaw, normalizedDesiredYaw);
-                 
-        }
+    	const float VELOCITY_YAW_THRESHOLD = 20.0f;
+    	if (horizontalVelocity.SizeSquared() > VELOCITY_YAW_THRESHOLD)
+    	{
+    		horizontalVelocity.Normalize();
+    		desiredForwardVector = FVector(horizontalVelocity.X, horizontalVelocity.Y, 0.0f).GetSafeNormal();
+
+    		float rawDesiredYaw = FMath::RadiansToDegrees(FMath::Atan2(horizontalVelocity.X, -horizontalVelocity.Y));
+    		float normalizedDesiredYaw = FMath::UnwindDegrees(rawDesiredYaw);
+    		desiredYaw = normalizedDesiredYaw;
+        
+    		// Debug info
+    		UE_LOG(LogTemp, Display, TEXT("Velocity Direction: X=%.2f, Y=%.2f, DesiredForward: X=%.2f, Y=%.2f"),
+				  horizontalVelocity.X, horizontalVelocity.Y, desiredForwardVector.X, desiredForwardVector.Y);
+    	}
     
         ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
     }
@@ -180,9 +178,10 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
             if (dronePawn == selectedPawn)
             {
                 dronePawn->ImGuiUtil->VelocityHud(Thrusts, roll_output, pitch_output, currentRotation,FVector::ZeroVector, currentPosition, FVector::ZeroVector,currentVelocity, x_output, y_output, z_output, a_deltaTime);
-				dronePawn->ImGuiUtil->RenderImPlot(Thrusts, a_deltaTime);
-			}
-        }
+            	FVector currentForwardVector = dronePawn->GetActorForwardVector();
+            	dronePawn->ImGuiUtil->RenderImPlot(Thrusts, desiredForwardVector, currentForwardVector, a_deltaTime);
+            }
+        }	
     }
 }
 
@@ -217,46 +216,73 @@ void UQuadDroneController::ThrustMixer(double xOutput, double yOutput, double zO
 
 void UQuadDroneController::YawStabilization(double DeltaTime)
 {
-	if (!dronePawn || !dronePawn->DroneBody) return;
+    if (!dronePawn || !dronePawn->DroneBody) return;
+	FVector CurrentForwardVector = dronePawn->GetActorForwardVector();
+    CurrentForwardVector.Z = 0.0f;
+    CurrentForwardVector.Normalize();
+    
+    FVector DesiredForwardVector = desiredForwardVector.GetSafeNormal();
+    
+    float DotProduct = FVector::DotProduct(CurrentForwardVector, DesiredForwardVector);
+	FVector CrossProduct = FVector::CrossProduct(CurrentForwardVector, DesiredForwardVector);
+    
+    float VectorError = FMath::Acos(FMath::Clamp(DotProduct, -1.0f, 1.0f));
+    VectorError = FMath::RadiansToDegrees(VectorError);
+    
+    FVector UpVector = dronePawn->DroneBody->GetUpVector();
+    float DirectionSign = FMath::Sign(FVector::DotProduct(CrossProduct, UpVector));
+    VectorError *= DirectionSign;
+    
+    static constexpr float YAW_ERROR_THRESHOLD = 1.0f;
+    if (FMath::Abs(VectorError) < YAW_ERROR_THRESHOLD)
+    {
+        return;
+    }
 
-	FRotator CurrentRot = dronePawn->GetActorRotation();
-	float CurrentYaw = CurrentRot.Yaw;
-	float YawError = FMath::FindDeltaAngleDegrees(CurrentYaw, desiredYaw);
+    FFullPIDSet* CurrentSet = PIDMap.Find(EFlightMode::VelocityControl);
+    if (!CurrentSet) return;
 
-	static constexpr float YAW_ERROR_THRESHOLD = 1.0f;
-	if (FMath::Abs(YawError) < YAW_ERROR_THRESHOLD)
-	{
-		return;
-	}
+    FVector CurrentAngularVelocity = dronePawn->DroneBody->GetPhysicsAngularVelocityInDegrees();
+    float CurrentYawRate = CurrentAngularVelocity.Z; 
 
-	FFullPIDSet* CurrentSet = PIDMap.Find(EFlightMode::VelocityControl);
-	if (!CurrentSet) return;
+    float PIDOutput = CurrentSet->YawPID->Calculate(VectorError, DeltaTime);
 
-	FVector CurrentAngularVelocity = dronePawn->DroneBody->GetPhysicsAngularVelocityInDegrees();
-	float CurrentYawRate = CurrentAngularVelocity.Z; 
+    float MaxYawTorque = 2.0f; 
+    PIDOutput = FMath::Clamp(PIDOutput, -MaxYawTorque, MaxYawTorque);
 
-	float PIDOutput = CurrentSet->YawPID->Calculate(YawError, DeltaTime);
-
-	float MaxYawTorque = 2.0f; 
-	PIDOutput = FMath::Clamp(PIDOutput, -MaxYawTorque, MaxYawTorque);
-
-
-	float YawDamping = -CurrentYawRate * 0.05f; 
-
-	float FinalYawTorque = PIDOutput + YawDamping;
-
-	FVector UpVector = dronePawn->DroneBody->GetUpVector();
+    float YawDamping = -CurrentYawRate * 0.05f; 
+    float FinalYawTorque = PIDOutput + YawDamping;
 	FVector TorqueVector = UpVector * FinalYawTorque * YawTorqueForce;
 
-	LastYawTorqueApplied = FinalYawTorque * YawTorqueForce;
+    LastYawTorqueApplied = FinalYawTorque * YawTorqueForce;
 
-	for (UThrusterComponent* Thruster : dronePawn->Thrusters)
-	{
-		if (Thruster)
-		{
-			Thruster->ApplyTorque(TorqueVector, true);
-		}
-	}
+    for (UThrusterComponent* Thruster : dronePawn->Thrusters)
+    {
+        if (Thruster)
+        {
+            Thruster->ApplyTorque(TorqueVector, true);
+        }
+    }
+    
+    // Debug visualization
+    if (Debug_DrawDroneWaypoint)
+    {
+        FVector dronePos = dronePawn->GetActorLocation();
+        DrawDebugLine(
+            dronePawn->GetWorld(), 
+            dronePos, 
+            dronePos + DesiredForwardVector * 200.0f, 
+            FColor::Cyan, 
+            false, -1.0f, 0, 3.0f
+        );
+        DrawDebugLine(
+            dronePawn->GetWorld(), 
+            dronePos, 
+            dronePos + CurrentForwardVector * 200.0f, 
+            FColor::Orange, 
+            false, -1.0f, 0, 3.0f
+        );
+    }
 }
 
 
@@ -360,7 +386,8 @@ void UQuadDroneController::ResetDroneOrigin()
 		// Reset controller states
 		ResetPID();
 		desiredNewVelocity = FVector::ZeroVector;
-		desiredYaw = 0.0f; // Add this line to reset the desired yaw
+		desiredYaw = 0.0f;
+		desiredForwardVector = FVector(1.0f, 0.0f, 0.0f);  // Reset to forward direction
 		initialTakeoff = true;
 		altitudeReached = false;
 	}
@@ -456,7 +483,7 @@ void UQuadDroneController::UpdatePropellerRPMs()
 			dronePawn->SetPropellerRPM(i, RPM);
 		}
 	}
-}
+}	
 
 
 // ------------ Setter and Getter -------------------

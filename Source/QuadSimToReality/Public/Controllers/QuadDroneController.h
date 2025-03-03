@@ -105,7 +105,7 @@ private:
     double YawTorqueForce;
     double LastYawTorqueApplied;
     bool UpsideDown;
-    
+    FVector desiredForwardVector;
     FVector initialDronePosition;
 
 };

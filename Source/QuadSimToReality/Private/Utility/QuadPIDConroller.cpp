@@ -1,4 +1,3 @@
-
 // QuadPIDController.cpp
 #include "Utility/QuadPIDConroller.h"
 #include "Math/UnrealMathUtility.h"
@@ -13,16 +12,21 @@ QuadPIDController::QuadPIDController()
     , lastOutput(0.0f)
     , absoluteTime(0.0f)
     , currentBufferSum(0.0f)
+    , filteredDerivative(0.0f)
+    , derivativeFilterAlpha(0.6f)  // Default filter coefficient (0.2 means 20% new, 80% old)
 {
     // Pre-allocate buffer to avoid reallocations
     integralBuffer.Reserve(ESTIMATED_BUFFER_SIZE);
 }
 
-void QuadPIDController::SetGains(float pGain, float iGain, float dGain)
+void QuadPIDController::SetGains(float pGain, float iGain, float dGain, float filterAlpha)
 {
     ProportionalGain = pGain;
     IntegralGain = iGain;
     DerivativeGain = dGain;
+    
+    // Set the derivative filter alpha when gains are set
+    SetDerivativeFilterAlpha(filterAlpha);
 }
 
 void QuadPIDController::RemoveExpiredPoints()
@@ -36,7 +40,6 @@ void QuadPIDController::RemoveExpiredPoints()
         integralBuffer.RemoveAt(0, 1, EAllowShrinking::No);
     }
 }
-
 
 double QuadPIDController::Calculate(float error, float dt)
 {
@@ -65,8 +68,14 @@ double QuadPIDController::Calculate(float error, float dt)
     // Integral term with sliding window
     double i_term = IntegralGain * currentBufferSum;
 
-    // Derivative term
-    double d_term = DerivativeGain * (error - prevError) / dt;
+    // Calculate raw derivative
+    double rawDerivative = (error - prevError) / dt;
+    
+    // Apply low-pass filter to derivative term
+    filteredDerivative = derivativeFilterAlpha * rawDerivative + (1.0f - derivativeFilterAlpha) * filteredDerivative;
+    
+    // Derivative term using filtered derivative
+    double d_term = DerivativeGain * filteredDerivative;
 
     // Combine terms and clamp output
     double output = p_term + i_term + d_term;
@@ -76,10 +85,12 @@ double QuadPIDController::Calculate(float error, float dt)
     lastOutput = output;
 
     // Debug logging
-    UE_LOG(LogTemp, VeryVerbose, TEXT("Time: %.3f, Buffer Size: %d, Sum: %.4f"), 
+    UE_LOG(LogTemp, VeryVerbose, TEXT("Time: %.3f, Buffer Size: %d, Sum: %.4f, Raw D: %.4f, Filtered D: %.4f"), 
            absoluteTime,
            integralBuffer.Num(), 
-           currentBufferSum);
+           currentBufferSum,
+           rawDerivative,
+           filteredDerivative);
 
     return output;
 }
@@ -96,10 +107,18 @@ void QuadPIDController::Reset()
     currentBufferSum = 0.0f;
     prevError = 0.0f;
     absoluteTime = 0.0f;
+    filteredDerivative = 0.0f;  // Reset the filtered derivative
 }
 
 void QuadPIDController::ResetIntegral()
 {
     integralBuffer.Empty();
     currentBufferSum = 0.0f;
+}
+
+// New method to set the derivative filter coefficient
+void QuadPIDController::SetDerivativeFilterAlpha(float alpha)
+{
+    // Keep alpha in valid range [0.0, 1.0]
+    derivativeFilterAlpha = FMath::Clamp(alpha, 0.0f, 1.0f);
 }
