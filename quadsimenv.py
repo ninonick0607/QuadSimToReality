@@ -3,8 +3,8 @@ import numpy as np
 import zmq
 import time
 import cv2  
+import glob 
 import os
-import matplotlib.pyplot as plt
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback, BaseCallback
 from stable_baselines3.common.monitor import Monitor
@@ -207,6 +207,7 @@ class QuadSimEnv(gym.Env):
             return None
 
 
+'''
 class ImageDisplayCallback(BaseCallback):
     def __init__(self, update_freq=10, verbose=0):
         super(ImageDisplayCallback, self).__init__(verbose)
@@ -238,62 +239,23 @@ class ImageDisplayCallback(BaseCallback):
             except Exception as e:
                 print("Error updating image:", e)
         return True
+'''
 
 
-# --- Main training code ---
+
+# New code for loading the best model and running it
 if __name__ == "__main__":
-    rl_dir = "./RL_training"
-    checkpoints_dir = os.path.join(rl_dir, "checkpoints")
-    best_model_dir = os.path.join(rl_dir, "best_model")
-    logs_dir = os.path.join(rl_dir, "logs")
-    
-    os.makedirs(checkpoints_dir, exist_ok=True)
-    os.makedirs(best_model_dir, exist_ok=True)
-    os.makedirs(logs_dir, exist_ok=True)
-    
+    best_model_path = "./RL_training/checkpoints/quad_model_510000_steps.zip"
     # Create the environment
-    env = Monitor(QuadSimEnv(), logs_dir)
-    
-    # Set up evaluation and checkpoint callbacks
-    eval_callback = EvalCallback(
-        env,
-        best_model_save_path=best_model_dir,
-        log_path=logs_dir,
-        eval_freq=5000,  # Evaluate every 5000 steps
-        deterministic=True,
-        render=False
-    )
+    env = QuadSimEnv()
 
-    checkpoint_callback = CheckpointCallback(
-        save_freq=5000,  # Save every 5000 steps
-        save_path=checkpoints_dir,
-        name_prefix="quad_model",
-        save_replay_buffer=True,
-        save_vecnormalize=True,
-        verbose=1
-    )
-    
-    # Create the image display callback
-    image_display_callback = ImageDisplayCallback(update_freq=10)
+    # Load the model
+    model = PPO.load(best_model_path)
 
-    # MODIFIED: Adjusted hyperparameters for better altitude learning
-    model = PPO(
-        "MlpPolicy", 
-        env,
-        policy_kwargs=dict(net_arch=[128, 128]),  # Larger network for better capacity
-        learning_rate=2e-4,  # Slightly reduced learning rate for more stable learning
-        n_steps=2048,
-        batch_size=64,  # Added explicit batch size
-        gamma=0.99,
-        verbose=1,
-        tensorboard_log=logs_dir
-    )
-    
-    try:
-        # Begin training with the modified environment and callbacks
-        model.learn(
-            total_timesteps=512 * 1000,
-            callback=[checkpoint_callback, eval_callback, image_display_callback]
-        )
-    except KeyboardInterrupt:
-        print("Training interrupted by user.")
+    # Run the model
+    obs, _ = env.reset()
+    while True:
+        action, _states = model.predict(obs, deterministic=True)
+        obs, reward, done, truncated, info = env.step(action)
+        if done or truncated:
+            obs, _ = env.reset()
