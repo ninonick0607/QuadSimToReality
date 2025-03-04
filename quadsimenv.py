@@ -73,77 +73,43 @@ class QuadSimEnv(gym.Env):
         return abs(pos1[2] - pos2[2])
     
     def step(self, action):
-        # MODIFIED: Slightly reduced action smoothing for more responsive control
-        self.prev_action = 0.8 * self.prev_action + 0.2 * action[0]
+        # Apply action and update environment (keep your existing code here)
+        self.prev_action = 0.7 * self.prev_action + 0.3 * action[0]
         full_action = np.array([0.0, 0.0, self.prev_action]) * 250.0
         
         for i in range(64):
             self.send_velocity_command(full_action)
 
         self.handle_data()
-
-        # Update image state by receiving image from ZMQ
-        image = self.get_data()
-        if image is not None:
-            self.state['image'] = image
-
-        current_z = self.state['position'][2]
-        z_velocity = self.state['velocity'][2]
-        z_distance = self.calculate_z_distance(self.state['position'], self.goal_state)
         
-        # MODIFIED: Improved reward function focused on altitude control
+        # Get current state
+        current_z = self.state['position'][2]
+        target_z = 1000.0  # Target height of 1000cm
+        
+        # Calculate distance to target
+        z_distance = abs(current_z - target_z)
+        
+        # Simple reward function:
         reward = 0.0
         
-        # Base distance reward - stronger penalty for being far from target
-        distance_reward = -np.tanh(z_distance / 500.0) * 3.0  # Increased sensitivity and weight
-        reward += distance_reward
+        # 1. Main component: negative distance to goal (closer = less negative)
+        distance_penalty = -z_distance / 100.0
+        reward += distance_penalty
         
-        # Target height is expected to be around 1000 based on ZMQController
-        target_height = self.goal_state[2]  # Using the received goal height
+        # 2. Small stability bonus: penalize excessive velocity when close to target
+        z_velocity = self.state['velocity'][2]
+        if z_distance < 50.0:  # When close to target
+            stability_factor = -abs(z_velocity) * 0.1
+            reward += stability_factor
         
-        # ADDED: Proximity bonus - gradually increases as drone gets closer to target height
-        proximity_factor = np.exp(-z_distance / 200.0)  # Exponential reward that peaks at target
-        reward += proximity_factor * 2.0
+        # 3. Big bonus for reaching and staying at target
+        if z_distance < 20.0:
+            target_bonus = 10.0
+            reward += target_bonus
         
-        # Safety height penalty
-        min_safe_height = 100.0  
-        if current_z < min_safe_height:
-            height_penalty = -3.0 * (min_safe_height - current_z) / min_safe_height
-            reward += height_penalty
-        
-        # Direction reward - encourage moving in the right direction
-        if z_distance > 50:  # Only apply when not very close to target
-            correct_direction = np.sign(z_velocity) == np.sign(self.goal_state[2] - current_z)
-            reward += 1.5 if correct_direction else -1.5
-        
-        # MODIFIED: Refined hover behavior near goal
-        if z_distance < 50.0:
-            # Strong hover reward when close to target - encourage stability
-            hover_reward = 2.0 - abs(z_velocity) * 0.05
-            reward += hover_reward
-        else:
-            # Velocity efficiency - optimal speed is proportional to distance
-            optimal_velocity = np.clip(np.sign(self.goal_state[2] - current_z) * 
-                                      min(z_distance * 0.3, 300), -300, 300)
-            velocity_efficiency = -abs(z_velocity - optimal_velocity) * 0.004
-            reward += velocity_efficiency
-                
-        self.prev_velocity = z_velocity
-        
-        # Small energy penalty to discourage excessive movements
-        energy_penalty = -abs(z_velocity) * 0.002
-        reward += energy_penalty
-        
-        # ADDED: Completion bonus when very close to target
-        if z_distance < 30.0:
-            reward += 3.0 * (1.0 - z_distance/30.0)  # Up to +3 reward for perfect positioning
-
+        # Termination conditions
         done = self.steps >= 512
-        info = {
-            'z_distance': z_distance,
-            'current_z': current_z,
-            'target_z': self.goal_state[2]
-        }
+        info = {'height': current_z, 'target': target_z, 'distance': z_distance}
         self.steps += 1
         
         if done:
@@ -241,11 +207,92 @@ class ImageDisplayCallback(BaseCallback):
         return True
 '''
 
+if __name__ == "__main__":
+    # Hard-coded paths
+    checkpoints_dir = "./RL_training/checkpoints"
+    best_model_dir = "./RL_training/best_model"
+    logs_dir = "./RL_training/logs"
+
+    # Create the environment
+    env = Monitor(QuadSimEnv(), logs_dir)
+    
+    # Set up evaluation and checkpoint callbacks
+    eval_callback = EvalCallback(
+        env,
+        best_model_save_path=best_model_dir,
+        log_path=logs_dir,
+        eval_freq=5000,
+        deterministic=True,
+        render=False
+    )
+
+    checkpoint_callback = CheckpointCallback(
+        save_freq=5000,
+        save_path=checkpoints_dir,
+        name_prefix="quad_model",
+        save_replay_buffer=True,
+        save_vecnormalize=True,
+        verbose=1
+    )
+    
+    # Check for existing model checkpoints to continue training
+    latest_model = None
+    
+    # First check best model
+    best_model_path = best_model_dir + "/best_model.zip"
+    if os.path.exists(best_model_path):
+        latest_model = best_model_path
+        print(f"Found best model: {latest_model}")
+    
+    # If no best model, check checkpoints
+    if not latest_model:
+        checkpoint_files = glob.glob(checkpoints_dir + "/*.zip")
+        if checkpoint_files:
+            # Sort by modification time (most recent first)
+            checkpoint_files.sort(key=os.path.getmtime, reverse=True)
+            latest_model = checkpoint_files[0]
+            print(f"Found checkpoint: {latest_model}")
+    
+    # Create or load the model
+    if latest_model:
+        print(f"Continuing training from: {latest_model}")
+        model = PPO.load(
+            latest_model, 
+            env=env,
+            tensorboard_log=logs_dir
+        )
+        # Update learning rate and other hyperparameters if needed
+        model.learning_rate = 2e-4
+    else:
+        print("Starting new training run")
+        model = PPO(
+            "MlpPolicy", 
+            env,
+            policy_kwargs=dict(net_arch=[128, 128]),
+            learning_rate=2e-4,
+            n_steps=2048,
+            batch_size=64,
+            gamma=0.99,
+            verbose=1,
+            tensorboard_log=logs_dir
+        )
+    
+    try:
+        # Begin training with the modified environment and callbacks
+        model.learn(
+            total_timesteps=512 * 1000,
+            callback=[checkpoint_callback, eval_callback]
+        )
+    except KeyboardInterrupt:
+        print("Training interrupted by user.")
+'''
 
 
 # New code for loading the best model and running it
 if __name__ == "__main__":
-    best_model_path = "./RL_training/checkpoints/quad_model_510000_steps.zip"
+    best_model_path = "./RL_training/checkpoints/quad_model_120000_steps.zip"
+    #best_model_path = "./RL_training/best_model/best_model.zip"
+
     # Create the environment
     env = QuadSimEnv()
 
@@ -259,3 +306,6 @@ if __name__ == "__main__":
         obs, reward, done, truncated, info = env.step(action)
         if done or truncated:
             obs, _ = env.reset()
+            
+            
+'''

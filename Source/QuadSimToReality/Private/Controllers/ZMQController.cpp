@@ -89,7 +89,6 @@ void AZMQController::BeginPlay()
         );
     }
 
-    // Register with DroneManager
     ADroneManager* Manager = Cast<ADroneManager>(UGameplayStatics::GetActorOfClass(GetWorld(), ADroneManager::StaticClass()));
     if (Manager)
     {
@@ -258,7 +257,6 @@ void AZMQController::InitializeImageCapture()
 {
     if (!DronePawn || !DronePawn->CameraFPV) return;
 
-    // Create render target with specified resolution
     RenderTarget = NewObject<UTextureRenderTarget2D>(this);
     RenderTarget->InitCustomFormat(
         Configuration.ImageResolution.X,
@@ -268,7 +266,6 @@ void AZMQController::InitializeImageCapture()
     );
     RenderTarget->UpdateResourceImmediate(true);
 
-    // Create and setup capture component
     CaptureComponent = NewObject<USceneCaptureComponent2D>(this);
     CaptureComponent->SetupAttachment(DronePawn->CameraFPV);
     CaptureComponent->RegisterComponent();
@@ -282,7 +279,6 @@ void AZMQController::InitializeImageCapture()
         UE_LOG(LogTemp, Warning, TEXT("CameraFPV is null!"));
     }
 
-    // Optimize capture settings
     CaptureComponent->bCaptureEveryFrame = false;
     CaptureComponent->bCaptureOnMovement = false;
     CaptureComponent->PrimitiveRenderMode = ESceneCapturePrimitiveRenderMode::PRM_LegacySceneCapture;
@@ -297,11 +293,9 @@ void AZMQController::ProcessImageCapture()
     
     bIsCapturing = true;
     
-    // Capture the scene and update the render target
     CaptureComponent->CaptureScene();
     RenderTarget->UpdateResourceImmediate(false);
     
-    // Get the render target resource
     FTextureRenderTargetResource* RenderTargetResource = RenderTarget->GameThread_GetRenderTargetResource();
     if (!RenderTargetResource)
     {
@@ -309,17 +303,13 @@ void AZMQController::ProcessImageCapture()
         return;
     }
     
-    // Define the region to read back (the entire 128x128 target)
     FIntRect Rect(0, 0, Configuration.ImageResolution.X, Configuration.ImageResolution.Y);
     
-    // Allocate a dynamic array to hold the image data; we'll pass ownership to the lambda.
     TArray<FColor>* ImageDataPtr = new TArray<FColor>();
     
-    // Enqueue a render command to perform the readback on the render thread.
     ENQUEUE_RENDER_COMMAND(AsyncReadPixelsCommand)(
         [this, RenderTargetResource, Rect, ImageDataPtr](FRHICommandListImmediate& RHICmdList)
         {
-            // Read the pixel data from the render target
             RHICmdList.ReadSurfaceData(
                 RenderTargetResource->GetRenderTargetTexture(),
                 Rect,
@@ -327,12 +317,10 @@ void AZMQController::ProcessImageCapture()
                 FReadSurfaceDataFlags(RCM_UNorm)
             );
             
-            // Once readback is complete, post a task back to the game thread.
             AsyncTask(ENamedThreads::GameThread, [this, ImageDataPtr]()
             {
                 UE_LOG(LogTemp, Display, TEXT("Captured image via render command: %d pixels"), ImageDataPtr->Num());
                 
-                // Offload PNG compression and network sending to a background thread.
                 AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [this, ImageDataPtr]()
                 {
                     TArray<uint8> CompressedData = CompressImageData(*ImageDataPtr);
@@ -353,7 +341,6 @@ void AZMQController::ProcessImageCapture()
                         }
                     }
                     
-                    // Clean up the allocated image data and reset capture flag.
                     delete ImageDataPtr;
                     bIsCapturing = false;
                 });

@@ -13,7 +13,7 @@ float DroneMathUtils::CalculateDesiredRoll(const FVector& NormalizedError, const
 
     if (FMath::Abs(NormalizedError.Z) > AltitudeThreshold)
     {
-        return 0.0f; // Ignore roll adjustment if altitude error is significant
+        return 0.0f; // Ignore roll adjustment if altitude error is significa
     }
     else
     {

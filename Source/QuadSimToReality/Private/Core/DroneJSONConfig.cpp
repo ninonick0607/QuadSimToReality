@@ -17,7 +17,7 @@ UDroneJSONConfig& UDroneJSONConfig::Get()
     if (!Instance)
     {
         Instance = NewObject<UDroneJSONConfig>();
-        Instance->AddToRoot(); // Prevent garbage collection
+        Instance->AddToRoot(); 
     }
     return *Instance;
 }
