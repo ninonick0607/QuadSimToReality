@@ -82,40 +82,33 @@ class QuadSimEnv(gym.Env):
 
         self.handle_data()
             
-        # Get current state
         current_z = self.state['position'][2]
         target_z = 1000.0
+        z_distance = abs(current_z - target_z)
         z_velocity = self.state['velocity'][2]
         
-        # Store previous distance for progress calculation
-        prev_z_distance = getattr(self, 'prev_z_distance', abs(current_z - target_z))
-        z_distance = abs(current_z - target_z)
-        
-        # Determine direction to target
-        direction_to_goal = 1 if target_z > current_z else -1
-        
-        # Simple reward function:
+        # REBALANCED reward with positive components
         reward = 0.0
         
-        # 1. Progress reward - positive reward for moving toward goal
-        z_progress = prev_z_distance - z_distance  # Positive when getting closer
-        progress_reward = z_progress * 0.5
-        reward += progress_reward
+        # Base reward - slightly negative just for existing (encourages efficiency)
+        reward -= 0.1
         
-        # 2. Efficient velocity component - reward appropriate speed based on distance
-        appropriate_speed = min(100.0, z_distance * 0.2)  # Cap at 100 cm/s
-        velocity_match = -abs(abs(z_velocity) - appropriate_speed) * 0.02
-        reward += velocity_match
+        # Distance component - normalized to be zero at target
+        reward += 5.0 * (1.0 - min(1.0, z_distance/500.0))  # +5 at target, 0 when 500+ cm away
         
-        # 3. Gradually increasing stability component
-        stability_factor = 1.0 - min(1.0, z_distance / 100.0)  # 0 when far, 1 when close
-        stability_reward = -abs(z_velocity) * 0.05 * stability_factor
-        reward += stability_reward
+        # Progress reward - positive for moving toward goal
+        if hasattr(self, 'prev_z_distance'):
+            progress = self.prev_z_distance - z_distance
+            reward += progress * 2.0  # Substantial reward for making progress
         
-        # 4. Target zone bonus with tolerance
+        # Target achievement bonus
         if z_distance < 30.0:
-            target_zone_bonus = 5.0 * (1.0 - z_distance / 30.0)  # Scales from 0 to 5
-            reward += target_zone_bonus
+            reward += 10.0  # Big positive reward for reaching target
+        
+        # Efficiency penalty - applies only to excessive velocity
+        optimal_velocity = min(80.0, max(5.0, z_distance * 0.1))  # Between 5-80 cm/s based on distance
+        inefficiency = abs(abs(z_velocity) - optimal_velocity)
+        reward -= min(1.0, inefficiency/50.0)  # Small penalty for inefficient velocity
         
         # Termination conditions
         self.prev_z_distance = z_distance
@@ -163,7 +156,6 @@ class QuadSimEnv(gym.Env):
                     'position': np.array(parsed_data["POSITION"])
                 })
                 self.goal_state = np.array(parsed_data["GOAL"])
-                # We're keeping the goal as provided by ZMQController
                 
         except Exception as e:
             print(f"Data handling error: {str(e)}")
@@ -217,7 +209,26 @@ class ImageDisplayCallback(BaseCallback):
                 print("Error updating image:", e)
         return True
 '''
+# New code for loading the best model and running it
+if __name__ == "__main__":
+    best_model_path = "./RL_training/checkpoints/quad_model_420000_steps.zip"
+    #best_model_path = "./RL_training/best_model/best_model.zip"
 
+    # Create the environment
+    env = QuadSimEnv()
+
+    # Load the model
+    model = PPO.load(best_model_path)
+
+    # Run the model
+    obs, _ = env.reset()
+    while True:
+        action, _states = model.predict(obs, deterministic=True)
+        obs, reward, done, truncated, info = env.step(action)
+        if done or truncated:
+            obs, _ = env.reset()
+
+'''
 if __name__ == "__main__":
     # Hard-coded paths
     checkpoints_dir = "./RL_training/checkpoints"
@@ -299,24 +310,5 @@ if __name__ == "__main__":
             
 
 
-'''
-# New code for loading the best model and running it
-if __name__ == "__main__":
-    best_model_path = "./RL_training/checkpoints/quad_model_420000_steps.zip"
-    #best_model_path = "./RL_training/best_model/best_model.zip"
-
-    # Create the environment
-    env = QuadSimEnv()
-
-    # Load the model
-    model = PPO.load(best_model_path)
-
-    # Run the model
-    obs, _ = env.reset()
-    while True:
-        action, _states = model.predict(obs, deterministic=True)
-        obs, reward, done, truncated, info = env.step(action)
-        if done or truncated:
-            obs, _ = env.reset()
 
 '''
