@@ -193,9 +193,3 @@ The action smoothing technique (70% previous, 30% current) serves several purpos
 ### State Handling
 - The environment catches and handles communication errors by resetting
 - It extracts position, velocity and goal information from formatted state messages
-
-## Conclusion
-
-This reinforcement learning system implements a simplified altitude controller for a quadcopter drone. It focuses on a single control dimension (vertical movement) and uses a carefully structured reward function to encourage target reaching and stabilization behaviors.
-
-The agent is trained using the PPO algorithm, which is well-suited for continuous control tasks like drone navigation. The simplified task serves as a foundation for potentially expanding to more complex 3D navigation tasks in the future.

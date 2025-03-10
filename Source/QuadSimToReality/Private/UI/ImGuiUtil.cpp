@@ -590,7 +590,7 @@ void UImGuiUtil::DisplayDesiredVelocities()
 		if (hoverModeActive)
 		{
 			// Set Z velocity to 70 when activating hover mode
-			tempVz = 70.0f;
+			tempVz = 28.0f;
 			velocityChanged = true;
 		}
 	}
@@ -657,7 +657,7 @@ void UImGuiUtil::DisplayDesiredVelocities()
 		ImGui::PopStyleColor(2);
 
 		// In hover mode, Z velocity is always 70
-		tempVz = 70.0f;
+		tempVz = 28.0f;
 	}
 
 	// On first run, initialize previous values.

@@ -81,33 +81,44 @@ class QuadSimEnv(gym.Env):
             self.send_velocity_command(full_action)
 
         self.handle_data()
-        
+            
         # Get current state
         current_z = self.state['position'][2]
-        target_z = 1000.0  # Target height of 1000cm
+        target_z = 1000.0
+        z_velocity = self.state['velocity'][2]
         
-        # Calculate distance to target
+        # Store previous distance for progress calculation
+        prev_z_distance = getattr(self, 'prev_z_distance', abs(current_z - target_z))
         z_distance = abs(current_z - target_z)
+        
+        # Determine direction to target
+        direction_to_goal = 1 if target_z > current_z else -1
         
         # Simple reward function:
         reward = 0.0
         
-        # 1. Main component: negative distance to goal (closer = less negative)
-        distance_penalty = -z_distance / 100.0
-        reward += distance_penalty
+        # 1. Progress reward - positive reward for moving toward goal
+        z_progress = prev_z_distance - z_distance  # Positive when getting closer
+        progress_reward = z_progress * 0.5
+        reward += progress_reward
         
-        # 2. Small stability bonus: penalize excessive velocity when close to target
-        z_velocity = self.state['velocity'][2]
-        if z_distance < 50.0:  # When close to target
-            stability_factor = -abs(z_velocity) * 0.1
-            reward += stability_factor
+        # 2. Efficient velocity component - reward appropriate speed based on distance
+        appropriate_speed = min(100.0, z_distance * 0.2)  # Cap at 100 cm/s
+        velocity_match = -abs(abs(z_velocity) - appropriate_speed) * 0.02
+        reward += velocity_match
         
-        # 3. Big bonus for reaching and staying at target
-        if z_distance < 20.0:
-            target_bonus = 10.0
-            reward += target_bonus
+        # 3. Gradually increasing stability component
+        stability_factor = 1.0 - min(1.0, z_distance / 100.0)  # 0 when far, 1 when close
+        stability_reward = -abs(z_velocity) * 0.05 * stability_factor
+        reward += stability_reward
+        
+        # 4. Target zone bonus with tolerance
+        if z_distance < 30.0:
+            target_zone_bonus = 5.0 * (1.0 - z_distance / 30.0)  # Scales from 0 to 5
+            reward += target_zone_bonus
         
         # Termination conditions
+        self.prev_z_distance = z_distance
         done = self.steps >= 512
         info = {'height': current_z, 'target': target_z, 'distance': z_distance}
         self.steps += 1
@@ -285,12 +296,13 @@ if __name__ == "__main__":
         )
     except KeyboardInterrupt:
         print("Training interrupted by user.")
+            
+
+
 '''
-
-
 # New code for loading the best model and running it
 if __name__ == "__main__":
-    best_model_path = "./RL_training/checkpoints/quad_model_120000_steps.zip"
+    best_model_path = "./RL_training/checkpoints/quad_model_420000_steps.zip"
     #best_model_path = "./RL_training/best_model/best_model.zip"
 
     # Create the environment
@@ -306,6 +318,5 @@ if __name__ == "__main__":
         obs, reward, done, truncated, info = env.step(action)
         if done or truncated:
             obs, _ = env.reset()
-            
-            
+
 '''
