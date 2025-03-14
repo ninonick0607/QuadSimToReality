@@ -26,7 +26,8 @@ public:
 	float ProportionalGain;
 	float IntegralGain;
 	float DerivativeGain;
-
+	// Previous error for derivative calculation
+	float prevError;
 	// Last output for debugging or logging
 	float lastOutput;
 
@@ -51,10 +52,7 @@ private:
 	// Output limits
 	float minOutput;
 	float maxOutput;
-    
-	// Previous error for derivative calculation
-	float prevError;
-
+	
 	// For derivative low-pass filter
 	float filteredDerivative;
 	float derivativeFilterAlpha;

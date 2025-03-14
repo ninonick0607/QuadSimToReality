@@ -6,15 +6,14 @@
 #include "Controllers/QuadDroneController.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
-#include "HAL/PlatformFilemanager.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/DateTime.h"
 
 UImGuiUtil::UImGuiUtil()
 	: DronePawn(nullptr)
 	, Controller(nullptr)
-	, maxVelocity(600.0f)
-	, maxAngle(45.0f)
+	, maxVelocity(130.0f)
+	, maxAngle(15.0f)
 	, CumulativeTime(0.0f)
 	, MaxPlotTime(10.0f)
 {
@@ -85,7 +84,7 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 	}
 	// Display drone info and various UI elements
 	DisplayDroneInfo();
-	ImGui::SliderFloat("Max velocity", &maxVelocity, 0.0f, 600.0f);
+	ImGui::SliderFloat("Max velocity", &maxVelocity, 0.0f, 200.0f);
 	ImGui::SliderFloat("Max tilt angle", &maxAngle, 0.0f, 45.0f);
 
 	DisplayDesiredVelocities();

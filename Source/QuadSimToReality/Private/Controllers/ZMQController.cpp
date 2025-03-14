@@ -14,14 +14,14 @@
 #include "Kismet/GameplayStatics.h"
 
 AZMQController::AZMQController()
-    : bIsCapturing(false)
+    :TargetPawn(nullptr)  
+    , bIsCapturing(false)
     , bIsProcessingCommand(false)
     , DronePawn(nullptr)
     , DroneController(nullptr)
     , CaptureComponent(nullptr)
     , RenderTarget(nullptr)
     , CurrentGoalPosition(FVector(0.0f, 0.0f, 1000.0f))
-    , TargetPawn(nullptr)  
 {
     PrimaryActorTick.bCanEverTick = true;
 }

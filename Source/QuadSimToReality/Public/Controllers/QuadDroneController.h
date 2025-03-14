@@ -84,6 +84,7 @@ private:
     TMap<EFlightMode, FFullPIDSet> PIDMap;
 
     float desiredYaw;
+    FVector desiredForwardVector;
     float desiredAltitude;
     EFlightMode currentFlightMode;
     FVector desiredNewVelocity;
@@ -106,7 +107,6 @@ private:
     double YawTorqueForce;
     double LastYawTorqueApplied;
     bool UpsideDown;
-    FVector desiredForwardVector;
     FVector initialDronePosition;
 
 };

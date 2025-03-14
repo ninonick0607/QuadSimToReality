@@ -1,0 +1,17 @@
+/RL_training
+/Intermediate
+/.git
+/logs
+/Saved-PID-Gains
+/Saved
+/.vscode
+/Content
+/.idea
+/ThirdParty
+/Info
+/Plugins/rclUE/Intermediate
+/Plugins/rclUE/docs
+/Plugins/rclUE/.git
+/Plugins/rclUE/.github
+/Plugins/rclUE/ThirdParty
+/Plugins/UnrealImGui/Intermediate

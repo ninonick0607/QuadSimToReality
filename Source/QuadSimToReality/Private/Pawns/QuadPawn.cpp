@@ -88,7 +88,7 @@ void AQuadPawn::BeginPlay()
 	
 	if (ImGuiUtil)
 	{
-		ImGuiUtil->Initialize(this, QuadController,600.f, 45.f);
+		ImGuiUtil->Initialize(this, QuadController,200.f, 45.f);
 	}
 
 	QuadController->ResetPID();
