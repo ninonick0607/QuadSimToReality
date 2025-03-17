@@ -46,7 +46,7 @@ struct FROS2Configuration
 
     // Publication frequencies
     UPROPERTY(EditAnywhere, Category = "ROS2")
-    float StatePublicationFrequencyHz = 50.0f;  // 50 Hz state updates
+    float StatePublicationFrequencyHz = 30.0f;  // 30 Hz state updates
 
     // Image capture settings
     UPROPERTY(EditAnywhere, Category = "Image Capture")
@@ -107,7 +107,6 @@ protected:
 
 private:
     // ROS2 initialization
-    void InitializeROS2();
     void InitializeImageCapture();
     
     // Command handlers
@@ -117,7 +116,7 @@ private:
     // Image utilities
     bool CaptureImage(TArray<FColor>& OutImageData);
     TArray<uint8> CompressImageData(const TArray<FColor>& ImageData);
-    
+
     // ROS2 node component
     UPROPERTY()
     UROS2NodeComponent* ROS2Node;

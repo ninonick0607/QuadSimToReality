@@ -4,6 +4,7 @@
 #include "Pawns/QuadPawn.h"
 #include "string"
 #include "Controllers/QuadDroneController.h"
+#include "Controllers/ROS2Controller.h"  // Updated include
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Kismet/GameplayStatics.h"
@@ -52,20 +53,20 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 	ImGui::SetNextWindowSize(ImVec2(500, 500), ImGuiCond_FirstUseEver);
 
 	// Instead of looking for a component on the pawn, we search the world for our dedicated actor.
-	AZMQController* zmqControllerCurrent = nullptr;
+	AROS2Controller* ros2ControllerCurrent = nullptr;
 	TArray<AActor*> FoundActors;
-	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AZMQController::StaticClass(), FoundActors);
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AROS2Controller::StaticClass(), FoundActors);
 	if (FoundActors.Num() > 0)
 	{
-		zmqControllerCurrent = Cast<AZMQController>(FoundActors[0]);
+		ros2ControllerCurrent = Cast<AROS2Controller>(FoundActors[0]);
 	}
 
 	FVector currentGoalState = FVector::ZeroVector;
 	FString droneID = FString("Unknown");
-	if (zmqControllerCurrent && zmqControllerCurrent->IsValidLowLevel())
+	if (ros2ControllerCurrent && ros2ControllerCurrent->IsValidLowLevel())
 	{
-		currentGoalState = zmqControllerCurrent->GetCurrentGoalPosition();
-		droneID = zmqControllerCurrent->GetConfiguration().DroneID;
+		currentGoalState = ros2ControllerCurrent->GetCurrentGoalPosition();
+		droneID = ros2ControllerCurrent->GetConfiguration().DroneID;
 	}
 
 	// Use ## to give ImGui a hidden unique identifier
@@ -156,7 +157,8 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 		ImGui::Unindent();
 		ImGui::PopID(); // pop "Diag2"
 	}
-    FVector currentDesiredVelocity = Controller->GetDesiredVelocity();
+    
+	FVector currentDesiredVelocity = Controller->GetDesiredVelocity();
 
 	ImGui::Separator();
 	ImGui::Text("Desired Roll: %.2f", rollError);
@@ -191,9 +193,7 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 	DisplayPIDHistoryWindow();
 
 	ImGui::End();
-
 }
-
 void UImGuiUtil::RenderImPlot(const TArray<float>& ThrustsVal, const FVector& desiredForwardVector, const FVector& currentForwardVector, float deltaTime)
 {
     if (ThrustsVal.Num() < 4)

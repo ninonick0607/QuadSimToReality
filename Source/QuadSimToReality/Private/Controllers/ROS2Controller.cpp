@@ -10,7 +10,7 @@
 #include "IImageWrapper.h"
 #include "IImageWrapperModule.h"
 #include "Modules/ModuleManager.h"
-
+#include "Core/DroneManager.h"
 #include "Pawns/QuadPawn.h"
 #include "Controllers/QuadDroneController.h"
 
@@ -39,8 +39,11 @@ void AROS2Controller::Initialize(AQuadPawn* InPawn, UQuadDroneController* InDron
     ROS2Node->Name = Configuration.NodeName;
     ROS2Node->Namespace = Configuration.Namespace;
     
-    // Initialize ROS2 communication
-    InitializeROS2();
+    UE_LOG(LogTemp, Display, TEXT("ROS2Controller: Initializing for drone %s with namespace %s"), 
+        *Configuration.DroneID, *Configuration.Namespace);
+    
+    // Initialize node once
+    ROS2Node->Init();
     
     // Initialize image capture component
     InitializeImageCapture();
@@ -50,30 +53,61 @@ void AROS2Controller::BeginPlay()
 {
     Super::BeginPlay();
     
-    // Setup command subscriber
-    FString commandTopic = Configuration.DroneID + "/" + Configuration.CommandTopicName;
-    ROS2_CREATE_SUBSCRIBER(ROS2Node, this, commandTopic, UROS2StrMsg::StaticClass(), &AROS2Controller::HandleCommandMessage);
+    // Make sure the node is initialized before creating subscribers/publishers
+    if (ROS2Node)
+    {
+        // Ensure name and namespace are set
+        if (ROS2Node->Name.IsEmpty())
+        {
+            ROS2Node->Name = Configuration.NodeName.IsEmpty() ? TEXT("ue_drone_node") : Configuration.NodeName;
+        }
+        
+        if (ROS2Node->Namespace.IsEmpty())
+        {
+            ROS2Node->Namespace = Configuration.Namespace.IsEmpty() ? TEXT("sim") : Configuration.Namespace;
+        }
+        
+        // Initialize the node
+        ROS2Node->Init();
+        
+        FString commandTopic = Configuration.DroneID + "/" + Configuration.CommandTopicName;
+        ROS2_CREATE_SUBSCRIBER(ROS2Node, this, commandTopic, UROS2StrMsg::StaticClass(), &AROS2Controller::HandleCommandMessage);
+        UE_LOG(LogTemp, Display, TEXT("ROS2Controller: Created subscriber for topic %s"), *commandTopic);
+        
+        float SafePublicationFreq = FMath::Min(Configuration.StatePublicationFrequencyHz, 30.0f);
 
-    // Setup state publisher (loop publisher that automatically publishes at the specified frequency)
-    FString stateTopic = Configuration.DroneID + "/" + Configuration.StateTopicName;
-    ROS2_CREATE_LOOP_PUBLISHER_WITH_QOS(
-        ROS2Node,
-        this,
-        stateTopic,
-        UROS2Publisher::StaticClass(),
-        UROS2StrMsg::StaticClass(),
-        Configuration.StatePublicationFrequencyHz,
-        &AROS2Controller::UpdateStateMessage,
-        UROS2QoS::SensorData,
-        StatePublisher);
+        // Setup state publisher
+        FString stateTopic = Configuration.DroneID + "/" + Configuration.StateTopicName;
+        ROS2_CREATE_LOOP_PUBLISHER_WITH_QOS(
+            ROS2Node,
+            this,
+            stateTopic,
+            UROS2Publisher::StaticClass(),
+            UROS2StrMsg::StaticClass(),
+            SafePublicationFreq,
+            &AROS2Controller::UpdateStateMessage,
+            UROS2QoS::SensorData,
+            StatePublisher);
+        
+        // Setup image publisher
+        FString imageTopic = Configuration.DroneID + "/" + Configuration.ImageTopicName;
+        ImagePublisher = ROS2Node->CreatePublisher(
+            imageTopic,
+            UROS2Publisher::StaticClass(),
+            UROS2StrMsg::StaticClass(),
+            UROS2QoS::SensorData);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("ROS2Controller: ROS2Node component is null"));
+    }
     
-    // Setup image publisher (we'll manually publish in Tick)
-    FString imageTopic = Configuration.DroneID + "/" + Configuration.ImageTopicName;
-    ImagePublisher = ROS2Node->CreatePublisher(
-        imageTopic,
-        UROS2Publisher::StaticClass(),
-        UROS2StrMsg::StaticClass(),
-        UROS2QoS::SensorData);
+    // Register with DroneManager
+    ADroneManager* Manager = Cast<ADroneManager>(UGameplayStatics::GetActorOfClass(GetWorld(), ADroneManager::StaticClass()));
+    if (Manager)
+    {
+        Manager->RegisterROS2Controller(this);
+    }
 }
 
 void AROS2Controller::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -145,10 +179,6 @@ void AROS2Controller::SetDroneID(const FString& NewID)
         // Reinitialize
         BeginPlay();
     }
-}
-void AROS2Controller::InitializeROS2()
-{
-    // Setup is done in BeginPlay
 }
 
 void AROS2Controller::InitializeImageCapture()
@@ -239,6 +269,7 @@ void AROS2Controller::PublishImage()
 {
     if (!CaptureComponent || !RenderTarget || !ImagePublisher || bIsCapturing)
     {
+        UE_LOG(LogTemp, Verbose, TEXT("ROS2Controller: Cannot publish image - component not ready or already capturing"));
         return;
     }
     
@@ -275,6 +306,7 @@ void AROS2Controller::PublishImage()
                 RosMsg.Data = OutputString;
                 Message->SetMsg(RosMsg);
                 ImagePublisher->Publish();
+                UE_LOG(LogTemp, Verbose, TEXT("ROS2Controller: Published image, size: %d bytes"), CompressedImageData.Num());
             }
         }
     }
@@ -289,6 +321,8 @@ void AROS2Controller::HandleCommandMessage(const UROS2GenericMsg* InMsg)
         StringMsg->GetMsg(RosMsg);
         const FString& CommandStr = RosMsg.Data;
         
+        UE_LOG(LogTemp, Display, TEXT("ROS2Controller: Received command: %s"), *CommandStr);
+        
         // Parse command string
         if (CommandStr.StartsWith("RESET"))
         {
@@ -298,7 +332,6 @@ void AROS2Controller::HandleCommandMessage(const UROS2GenericMsg* InMsg)
         {
             HandleVelocityCommand(CommandStr);
         }
-        // Add other command types as needed
     }
 }
 
@@ -322,9 +355,7 @@ void AROS2Controller::HandleResetCommand(const FString& CommandStr)
             // Update the goal position
             CurrentGoalPosition = ResetPosition;
             
-            // Reset the drone position
-            // NOTE: You need to implement this method in your drone controller
-            // DroneController->ResetDronePosition(ResetPosition);
+            //DroneController->ResetDronePosition(ResetPosition);
             
             // For now, just log that we received the command
             UE_LOG(LogTemp, Log, TEXT("ROS2Controller: Received reset command to position (%f, %f, %f)"),
@@ -366,9 +397,7 @@ void AROS2Controller::HandleVelocityCommand(const FString& CommandStr)
 void AROS2Controller::UpdateStateMessage(UROS2GenericMsg* InMessage)
 {
     if (!DronePawn)
-    {
         return;
-    }
     
     UROS2StrMsg* StateMsg = Cast<UROS2StrMsg>(InMessage);
     if (StateMsg)

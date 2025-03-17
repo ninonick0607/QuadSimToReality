@@ -88,18 +88,6 @@ void AZMQController::BeginPlay()
             true
         );
     }
-
-    ADroneManager* Manager = Cast<ADroneManager>(UGameplayStatics::GetActorOfClass(GetWorld(), ADroneManager::StaticClass()));
-    if (Manager)
-    {
-        Manager->RegisterZMQController(this);
-    }
-    else
-    {
-        UE_LOG(LogTemp, Warning, TEXT("ZMQController: No DroneManager found in the level."));
-    }
-
-
 }
 
 
