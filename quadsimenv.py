@@ -9,6 +9,7 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback, BaseCallback
 from stable_baselines3.common.monitor import Monitor
 
+import tensorboard
 # --- QuadSimEnv definition ---
 class QuadSimEnv(gym.Env):
     def __init__(self):
@@ -175,6 +176,33 @@ class QuadSimEnv(gym.Env):
         except (zmq.Again, Exception) as e:
             return None
 
+# Lower architecture to 8x8, 16x16 or even 32x32
+# Increase learning rate a little bit
+# Simplify reward functions
+
+
+# New code for loading the best model and running it
+if __name__ == "__main__":
+    #best_model_path = "./RL_training/checkpoints/quad_model_420000_steps.zip"
+    best_model_path = "./RL_training/best_model/best_model.zip"
+
+    # Create the environment
+    env = QuadSimEnv()
+
+    # Load the model
+    model = PPO.load(best_model_path)
+
+    # Run the model
+    obs, _ = env.reset()
+    while True:
+        action, _states = model.predict(obs, deterministic=True)
+        obs, reward, done, truncated, info = env.step(action)
+        if done or truncated:
+            obs, _ = env.reset()
+
+
+            
+'''
 if __name__ == "__main__":
     # Hard-coded paths
     checkpoints_dir = "./RL_training/checkpoints"
@@ -231,6 +259,7 @@ if __name__ == "__main__":
         )
         # Update learning rate and other hyperparameters if needed
         model.learning_rate = 2e-4
+    ### TODO: Lower network architecture, 32x32
     else:
         print("Starting new training run")
         model = PPO(
@@ -253,6 +282,9 @@ if __name__ == "__main__":
         )
     except KeyboardInterrupt:
         print("Training interrupted by user.")
+
+'''
+
 
 '''
 class ImageDisplayCallback(BaseCallback):
@@ -286,31 +318,4 @@ class ImageDisplayCallback(BaseCallback):
             except Exception as e:
                 print("Error updating image:", e)
         return True
-'''
-
-'''
-# New code for loading the best model and running it
-if __name__ == "__main__":
-    best_model_path = "./RL_training/checkpoints/quad_model_420000_steps.zip"
-    #best_model_path = "./RL_training/best_model/best_model.zip"
-
-    # Create the environment
-    env = QuadSimEnv()
-
-    # Load the model
-    model = PPO.load(best_model_path)
-
-    # Run the model
-    obs, _ = env.reset()
-    while True:
-        action, _states = model.predict(obs, deterministic=True)
-        obs, reward, done, truncated, info = env.step(action)
-        if done or truncated:
-            obs, _ = env.reset()
-
-
-            
-
-
-
 '''

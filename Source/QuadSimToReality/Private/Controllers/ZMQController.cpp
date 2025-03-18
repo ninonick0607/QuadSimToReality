@@ -215,7 +215,6 @@ void AZMQController::HandleVelocityCommand(zmq::multipart_t& Message)
 
         FVector DesiredVelocity(VelocityArray[0], VelocityArray[1], VelocityArray[2]);
         DroneController->SetDesiredVelocity(DesiredVelocity);
-        DroneController->SetFlightMode(EFlightMode::VelocityControl);
     }
     else
     {

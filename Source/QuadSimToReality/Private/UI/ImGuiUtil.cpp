@@ -4,6 +4,7 @@
 #include "Pawns/QuadPawn.h"
 #include "string"
 #include "Controllers/QuadDroneController.h"
+#include "Core/DroneJSONConfig.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "HAL/PlatformFilemanager.h"
@@ -13,21 +14,20 @@
 UImGuiUtil::UImGuiUtil()
 	: DronePawn(nullptr)
 	, Controller(nullptr)
-	, maxVelocity(600.0f)
-	, maxAngle(45.0f)
 	, CumulativeTime(0.0f)
 	, MaxPlotTime(10.0f)
 {
+	const auto& Config = UDroneJSONConfig::Get().Config;
 	PrimaryComponentTick.bCanEverTick = true;
+	maxVelocity = Config.FlightParams.MaxVelocity;
+	maxAngle = Config.FlightParams.MaxAngle;
+
 }
 
-void UImGuiUtil::Initialize(AQuadPawn* InPawn, UQuadDroneController* InController,
-								 float InMaxVelocity, float InMaxAngle)
+void UImGuiUtil::Initialize(AQuadPawn* InPawn, UQuadDroneController* InController)
 { 
 	DronePawn = InPawn;
 	Controller = InController;
-	maxVelocity = InMaxVelocity;
-	maxAngle = InMaxAngle;
 }
 
 void UImGuiUtil::BeginPlay()
@@ -178,7 +178,7 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 
 	static bool syncXY = false;
 	static bool syncRP = false;
-	DisplayPIDSettings(EFlightMode::VelocityControl, "PID Settings", syncXY, syncRP);
+	DisplayPIDSettings("PID Settings", syncXY, syncRP);
 
 	ImGui::Separator();
 	ImGui::Text("Position PID Outputs");
@@ -339,9 +339,9 @@ void UImGuiUtil::DisplayDroneInfo()
 	ImGui::Separator();
 }
 
-void UImGuiUtil::DisplayPIDSettings(EFlightMode Mode, const char* headerLabel, bool& synchronizeXYGains, bool& synchronizeGains)
+void UImGuiUtil::DisplayPIDSettings(const char* headerLabel, bool& synchronizeXYGains, bool& synchronizeGains)
 {
-	FFullPIDSet* PIDSet = Controller ? Controller->GetPIDSet(Mode) : nullptr;
+	FFullPIDSet* PIDSet = Controller ? Controller->GetPIDSet() : nullptr;
 	if (!PIDSet)
 	{
 		ImGui::Text("No PID Set found for this mode.");
@@ -808,7 +808,7 @@ void UImGuiUtil::LoadPIDValues(const TArray<FString>& Values)
 	if (!Controller || Values.Num() < 19) // Ensure we have all values (timestamp + 18 PID values)
 		return;
 
-	FFullPIDSet* PIDSet = Controller->GetPIDSet(Controller->GetFlightMode());
+	FFullPIDSet* PIDSet = Controller->GetPIDSet();
 	if (!PIDSet)
 		return;
 

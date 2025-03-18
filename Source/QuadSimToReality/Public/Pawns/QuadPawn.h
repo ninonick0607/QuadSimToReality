@@ -35,11 +35,7 @@ public:
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
-
-	// Exposed function to set propeller RPM (used by the controller)
-	UFUNCTION(BlueprintCallable)
-	void SetPropellerRPM(int32 MotorIndex, float RPM);
-
+	
 	// --- Drone Components ---
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* DroneBody;
@@ -86,7 +82,8 @@ public:
 	// --- Helper Functions ---
 	void SwitchCamera() const;
 	void ToggleImguiInput();
-	
+	void ReloadJSONConfig();
+
 	// This helper is used by the controller to get the drone’s mass.
 	float GetMass() { return DroneBody->GetMass(); };
 

@@ -7,13 +7,6 @@
 
 class AQuadPawn; 
 
-UENUM(BlueprintType)
-enum class EFlightMode : uint8
-{
-    None UMETA(DisplayName = "None"),
-    VelocityControl UMETA(DisplayName = "VelocityControl")
-};
-
 USTRUCT()
 struct FFullPIDSet
 {
@@ -63,13 +56,10 @@ public:
     void ResetDroneIntegral();
     void ResetDroneHigh();
     void ResetDroneOrigin();
-
-
+    
     void DrawDebugVisuals(const FVector& horizontalVelocity) const;
     void SetDesiredVelocity(const FVector& NewVelocity);
-    void SetFlightMode(EFlightMode NewMode);
-    EFlightMode GetFlightMode() const;
-    FFullPIDSet* GetPIDSet(EFlightMode Mode) { return PIDMap.Find(Mode); }
+    FFullPIDSet* GetPIDSet() { return PIDMap.Num() > 0 ? &PIDMap[0] : nullptr; }
     float GetDesiredYaw() const { return desiredYaw; }
     FVector GetDesiredVelocity() const { return desiredNewVelocity; }
 
@@ -77,15 +67,13 @@ public:
     void SetManualThrustMode(bool bEnable);
     void SafetyReset();
     void ApplyManualThrusts();
-    void UpdatePropellerRPMs();
 private:
     
     UPROPERTY()
-    TMap<EFlightMode, FFullPIDSet> PIDMap;
+    TArray<FFullPIDSet> PIDMap; 
 
     float desiredYaw;
     float desiredAltitude;
-    EFlightMode currentFlightMode;
     FVector desiredNewVelocity;
 
     float maxVelocity;
@@ -100,8 +88,6 @@ private:
     bool Debug_DrawDroneCollisionSphere;
     bool Debug_DrawDroneWaypoint;
     
-    float T_k =.001f;
-
     double MaxAngularVelocity;
     double YawTorqueForce;
     double LastYawTorqueApplied;
@@ -109,4 +95,7 @@ private:
     FVector desiredForwardVector;
     FVector initialDronePosition;
 
+    bool bHoverModeActive = false;
+    float hoverTargetAltitude = 0.0f;
+    
 };

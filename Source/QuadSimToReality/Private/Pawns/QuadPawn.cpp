@@ -3,6 +3,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Math/UnrealMathUtility.h"
+#include "Core/DroneJSONConfig.h"
 #include "Engine/Engine.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -88,7 +89,7 @@ void AQuadPawn::BeginPlay()
 	
 	if (ImGuiUtil)
 	{
-		ImGuiUtil->Initialize(this, QuadController,600.f, 45.f);
+		ImGuiUtil->Initialize(this, QuadController);
 	}
 
 	QuadController->ResetPID();
@@ -155,13 +156,10 @@ void AQuadPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 	PlayerInputComponent->BindAction("ToggleImGui", IE_Pressed, this, &AQuadPawn::ToggleImguiInput);
+	PlayerInputComponent->BindAction("ReloadJSON", IE_Pressed, this, &AQuadPawn::ReloadJSONConfig);
 }
 
-void AQuadPawn::SetPropellerRPM(int32 MotorIndex, float RPM)
+void AQuadPawn::ReloadJSONConfig()
 {
-	if (PropellerRPMs.IsValidIndex(MotorIndex))
-	{
-		PropellerRPMs[MotorIndex] = RPM;
-	}
-	
+	UDroneJSONConfig::Get().ReloadConfig();
 }
