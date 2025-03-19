@@ -492,18 +492,6 @@ void UQuadDroneController::ApplyManualThrusts()
 // ------------ Setter and Getter -------------------
 void UQuadDroneController::SetDesiredVelocity(const FVector& NewVelocity)
 {
-	if (NewVelocity.Z == 28.0f && desiredNewVelocity.Z != 28.0f && dronePawn)
-	{
-		bHoverModeActive = true;
-		hoverTargetAltitude = dronePawn->GetActorLocation().Z;
-		UE_LOG(LogTemp, Display, TEXT("Hover mode activated - Target altitude: %.2f"), hoverTargetAltitude);
-	}
-	else if (NewVelocity.Z != 28.0f && desiredNewVelocity.Z == 28.0f)
-	{
-		bHoverModeActive = false;
-		UE_LOG(LogTemp, Display, TEXT("Hover mode deactivated"));
-	}
-	
 	desiredNewVelocity = NewVelocity;
 	UE_LOG(LogTemp, Display, TEXT("[QuadDroneController] SetDesiredVelocity called: X=%.2f, Y=%.2f, Z=%.2f"),
 			NewVelocity.X, NewVelocity.Y, NewVelocity.Z);
@@ -522,3 +510,21 @@ void UQuadDroneController::SetManualThrustMode(bool bEnable)
 	}
 }
 
+void UQuadDroneController::SetHoverMode(bool bActive)
+{
+	if (bActive && !bHoverModeActive && dronePawn)
+	{
+		bHoverModeActive = true;
+		hoverTargetAltitude = dronePawn->GetActorLocation().Z;
+        
+		desiredNewVelocity.Z = 28.0f;
+        
+		UE_LOG(LogTemp, Display, TEXT("Hover mode activated - Target altitude: %.2f"), hoverTargetAltitude);
+	}
+	else if (!bActive && bHoverModeActive)
+	{
+		bHoverModeActive = false;
+		desiredNewVelocity.Z = 0.0f;  // Reset Z velocity when disabling hover
+		UE_LOG(LogTemp, Display, TEXT("Hover mode deactivated"));
+	}
+}

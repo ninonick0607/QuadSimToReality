@@ -63,10 +63,13 @@ public:
     float GetDesiredYaw() const { return desiredYaw; }
     FVector GetDesiredVelocity() const { return desiredNewVelocity; }
 
-    bool bManualThrustMode = false;  // defaults to false
+    bool bManualThrustMode = false;
     void SetManualThrustMode(bool bEnable);
     void SafetyReset();
     void ApplyManualThrusts();
+
+    bool IsHoverModeActive() const { return bHoverModeActive; }
+    void SetHoverMode(bool bActive);
 private:
     
     UPROPERTY()
@@ -95,7 +98,7 @@ private:
     FVector desiredForwardVector;
     FVector initialDronePosition;
 
-    bool bHoverModeActive = false;
-    float hoverTargetAltitude = 0.0f;
+    bool bHoverModeActive;
+    float hoverTargetAltitude;
     
 };

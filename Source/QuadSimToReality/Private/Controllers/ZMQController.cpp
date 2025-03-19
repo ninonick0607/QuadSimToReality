@@ -198,6 +198,7 @@ void AZMQController::HandleResetCommand()
     CurrentGoalPosition = FVector(0.0f, 0.0f, 1000);
 
     UE_LOG(LogTemp, Warning, TEXT("ZMQController: New goal height set to: Z=%f"), CurrentGoalPosition.Z);
+    UE_LOG(LogTemp, Warning, TEXT("Reset command sent over "));
     DroneController->ResetDroneOrigin();
 }
 
