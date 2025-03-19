@@ -167,6 +167,7 @@ void AZMQController::ProcessCommands()
 
                 if (Command == "RESET")
                 {
+                    UE_LOG(LogTemp, Display, TEXT("[ZMQController] Received 'RESET' command."));
                     HandleResetCommand();
                 }
                 else if (Command == "INTEGRAL_RESET" && DroneController)
@@ -195,7 +196,7 @@ void AZMQController::HandleResetCommand()
     if (!DroneController) return;
 
     // Set new goal position (varying only Z height)
-    CurrentGoalPosition = FVector(0.0f, 0.0f, 1000);
+    CurrentGoalPosition = FVector(0.0f, 0.0f, 500);
 
     UE_LOG(LogTemp, Warning, TEXT("ZMQController: New goal height set to: Z=%f"), CurrentGoalPosition.Z);
     UE_LOG(LogTemp, Warning, TEXT("Reset command sent over "));

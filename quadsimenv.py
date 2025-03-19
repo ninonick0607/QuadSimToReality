@@ -52,6 +52,7 @@ class QuadSimEnv(gym.Env):
 
         # Subscriber socket for receiving state
         self.control_socket = self.context.socket(zmq.SUB)
+        self.control_socket.setsockopt(zmq.CONFLATE, 1)  # Keep only the latest message
         self.control_socket.connect("tcp://localhost:5558")
         self.control_socket.setsockopt_string(zmq.SUBSCRIBE, '')
 
@@ -75,18 +76,21 @@ class QuadSimEnv(gym.Env):
     
     def step(self, action):
         # Apply action and update environment (keep your existing code here)
-        self.prev_action = 0.7 * self.prev_action + 0.3 * action[0]
+        # self.prev_action = 0.7 * self.prev_action + 0.3 * action[0]
+        self.prev_action = action[0]
         full_action = np.array([0.0, 0.0, self.prev_action]) * 250.0
         
-        for i in range(64):
-            self.send_velocity_command(full_action)
+        self.send_velocity_command(full_action)
+        time.sleep(0.2) # Action frequency is ~5 Hz
 
         self.handle_data()
-            
+
         current_z = self.state['position'][2]
+        print(f"Current Z: {current_z:.2f} cm")
         target_z = 1000.0
         z_distance = abs(current_z - target_z)
         z_velocity = self.state['velocity'][2]
+        print(f"Velocity: {z_velocity:.2f} cm/s")
         
         # REBALANCED reward with positive components
         reward = 0.0
@@ -113,14 +117,11 @@ class QuadSimEnv(gym.Env):
         
         # Termination conditions
         self.prev_z_distance = z_distance
-        done = self.steps >= 512
+        done = self.steps >= 128
         info = {'height': current_z, 'target': target_z, 'distance': z_distance}
         self.steps += 1
         
-        if done:
-            observation, _ = self.reset(seed=None)
-        else: 
-            observation = self.get_observation()
+        observation = self.get_observation()
 
         return observation, reward, done, False, info
 
@@ -132,6 +133,7 @@ class QuadSimEnv(gym.Env):
     def send_reset_command(self):
         command_topic = "RESET"
         self.prev_goal_state = self.goal_state.copy()
+        print("Sending reset command")
         self.command_socket.send_string(command_topic)
         time.sleep(0.1)
 
@@ -190,7 +192,7 @@ if __name__ == "__main__":
     env = QuadSimEnv()
 
     # Load the model
-    model = PPO.load(best_model_path)
+    model = PPO.load(best_model_path, device="cpu")
 
     # Run the model
     obs, _ = env.reset()
@@ -198,10 +200,11 @@ if __name__ == "__main__":
         action, _states = model.predict(obs, deterministic=True)
         obs, reward, done, truncated, info = env.step(action)
         if done or truncated:
+            print("Resetting environment")
             obs, _ = env.reset()
 
 
-            
+
 '''
 if __name__ == "__main__":
     # Hard-coded paths
