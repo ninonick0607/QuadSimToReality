@@ -1,7 +1,6 @@
 
 // DroneJSONConfig.cpp
 #include "Core/DroneJSONConfig.h"
-#include "JsonObjectConverter.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 
@@ -53,14 +52,7 @@ bool UDroneJSONConfig::LoadConfig()
         (*FlightParams)->TryGetNumberField(TEXT("min_altitude_local"), Config.FlightParams.MinAltitudeLocal);
         (*FlightParams)->TryGetNumberField(TEXT("acceptable_distance"), Config.FlightParams.AcceptableDistance);
     }
-
-    const TSharedPtr<FJsonObject>* NavParams;
-    if (JsonObject->TryGetObjectField(TEXT("navigation"), NavParams))
-    {
-        (*NavParams)->TryGetNumberField(TEXT("base_height"), Config.NavigationParams.BaseHeight);
-        (*NavParams)->TryGetNumberField(TEXT("spiral_radius"), Config.NavigationParams.SpiralRadius);
-    }
-
+    
     const TSharedPtr<FJsonObject>* ControllerParams;
     if (JsonObject->TryGetObjectField(TEXT("controller"), ControllerParams))
     {
@@ -70,4 +62,9 @@ bool UDroneJSONConfig::LoadConfig()
     }
 
     return true;
+}
+
+bool UDroneJSONConfig::ReloadConfig()
+{
+    return LoadConfig();
 }

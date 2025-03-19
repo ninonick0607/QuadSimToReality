@@ -12,7 +12,7 @@
 #define ACCEPTABLE_DIST 200
 
 // -- Waypoint Mode related types --
-// These are used for navigation / waypoint input. If you’re not implementing 
+// These are used for navigation / waypoint input. If youï¿½re not implementing 
 // autonomous waypoint control right now, you could remove these.
 enum class EWaypointMode
 {
@@ -35,11 +35,7 @@ public:
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
-
-	// Exposed function to set propeller RPM (used by the controller)
-	UFUNCTION(BlueprintCallable)
-	void SetPropellerRPM(int32 MotorIndex, float RPM);
-
+	
 	// --- Drone Components ---
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* DroneBody;
@@ -86,8 +82,8 @@ public:
 	// --- Helper Functions ---
 	void SwitchCamera() const;
 	void ToggleImguiInput();
-	
-	// This helper is used by the controller to get the drone’s mass.
+	void ReloadJSONConfig();
+	// This helper is used by the controller to get the droneï¿½s mass.
 	float GetMass() { return DroneBody->GetMass(); };
 
 protected:

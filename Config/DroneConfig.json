@@ -1,20 +1,15 @@
 {
-
-    "flight_parameters": {
-      "max_velocity": 450.0,
-      "max_angle": 35.0,
-      "max_pid_output": 700.0,
-      "altitude_threshold": 0.6,
-      "min_altitude_local": 500.0,
-      "acceptable_distance": 200
-    },
-    "navigation": {
-      "base_height": 1000.0,
-      "spiral_radius": 1500.0
-    },
-    "controller": {
-      "altitude_rate": 400.0,
-      "yaw_rate": 90.0,
-      "min_velocity_for_yaw": 10.0
-    }
+  "flight_parameters": {
+    "max_velocity": 130.0,
+    "max_angle": 15.0,
+    "max_pid_output": 350.0,
+    "altitude_threshold": 0.6,
+    "min_altitude_local": 500.0,
+    "acceptable_distance": 200
+  },
+  "controller": {
+    "altitude_rate": 400.0,
+    "yaw_rate": 90.0,
+    "min_velocity_for_yaw": 10.0
   }
+}

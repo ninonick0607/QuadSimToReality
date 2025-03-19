@@ -17,12 +17,7 @@ struct FDroneConfigData
 		float MinAltitudeLocal;
 		float AcceptableDistance;
 	} FlightParams;
-
-	struct FNavigationParameters {
-		float BaseHeight;
-		float SpiralRadius;
-	} NavigationParams;
-
+	
 	struct FControllerParameters {
 		float AltitudeRate;
 		float YawRate;
@@ -40,6 +35,7 @@ public:
     
 	static UDroneJSONConfig& Get();
 	bool LoadConfig();
+	bool ReloadConfig();
 	FDroneConfigData Config;
 
 private:

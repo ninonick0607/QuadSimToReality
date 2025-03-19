@@ -24,6 +24,10 @@
 		{
 			"Name": "StaticMeshEditorModeling",
 			"Enabled": true
+		},
+		{
+			"Name": "rclUE",
+			"Enabled": true
 		}
 	]
 }

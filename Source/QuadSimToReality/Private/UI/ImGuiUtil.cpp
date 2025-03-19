@@ -4,7 +4,7 @@
 #include "Pawns/QuadPawn.h"
 #include "string"
 #include "Controllers/QuadDroneController.h"
-#include "Controllers/ROS2Controller.h"  // Updated include
+#include "Core/DroneJSONConfig.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Kismet/GameplayStatics.h"
@@ -13,21 +13,20 @@
 UImGuiUtil::UImGuiUtil()
 	: DronePawn(nullptr)
 	, Controller(nullptr)
-	, maxVelocity(130.0f)
-	, maxAngle(15.0f)
 	, CumulativeTime(0.0f)
 	, MaxPlotTime(10.0f)
 {
+	const auto& Config = UDroneJSONConfig::Get().Config;
 	PrimaryComponentTick.bCanEverTick = true;
+	maxVelocity = Config.FlightParams.MaxVelocity;
+	maxAngle = Config.FlightParams.MaxAngle;
+
 }
 
-void UImGuiUtil::Initialize(AQuadPawn* InPawn, UQuadDroneController* InController,
-								 float InMaxVelocity, float InMaxAngle)
+void UImGuiUtil::Initialize(AQuadPawn* InPawn, UQuadDroneController* InController)
 { 
 	DronePawn = InPawn;
 	Controller = InController;
-	maxVelocity = InMaxVelocity;
-	maxAngle = InMaxAngle;
 }
 
 void UImGuiUtil::BeginPlay()
@@ -53,20 +52,20 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 	ImGui::SetNextWindowSize(ImVec2(500, 500), ImGuiCond_FirstUseEver);
 
 	// Instead of looking for a component on the pawn, we search the world for our dedicated actor.
-	AROS2Controller* ros2ControllerCurrent = nullptr;
+	AZMQController* zmqControllerCurrent = nullptr;
 	TArray<AActor*> FoundActors;
-	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AROS2Controller::StaticClass(), FoundActors);
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AZMQController::StaticClass(), FoundActors);
 	if (FoundActors.Num() > 0)
 	{
-		ros2ControllerCurrent = Cast<AROS2Controller>(FoundActors[0]);
+		zmqControllerCurrent = Cast<AZMQController>(FoundActors[0]);
 	}
 
 	FVector currentGoalState = FVector::ZeroVector;
 	FString droneID = FString("Unknown");
-	if (ros2ControllerCurrent && ros2ControllerCurrent->IsValidLowLevel())
+	if (zmqControllerCurrent && zmqControllerCurrent->IsValidLowLevel())
 	{
-		currentGoalState = ros2ControllerCurrent->GetCurrentGoalPosition();
-		droneID = ros2ControllerCurrent->GetConfiguration().DroneID;
+		currentGoalState = zmqControllerCurrent->GetCurrentGoalPosition();
+		droneID = zmqControllerCurrent->GetConfiguration().DroneID;
 	}
 
 	// Use ## to give ImGui a hidden unique identifier
@@ -85,7 +84,7 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 	}
 	// Display drone info and various UI elements
 	DisplayDroneInfo();
-	ImGui::SliderFloat("Max velocity", &maxVelocity, 0.0f, 200.0f);
+	ImGui::SliderFloat("Max velocity", &maxVelocity, 0.0f, 600.0f);
 	ImGui::SliderFloat("Max tilt angle", &maxAngle, 0.0f, 45.0f);
 
 	DisplayDesiredVelocities();
@@ -157,8 +156,7 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 		ImGui::Unindent();
 		ImGui::PopID(); // pop "Diag2"
 	}
-    
-	FVector currentDesiredVelocity = Controller->GetDesiredVelocity();
+    FVector currentDesiredVelocity = Controller->GetDesiredVelocity();
 
 	ImGui::Separator();
 	ImGui::Text("Desired Roll: %.2f", rollError);
@@ -179,7 +177,7 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 
 	static bool syncXY = false;
 	static bool syncRP = false;
-	DisplayPIDSettings(EFlightMode::VelocityControl, "PID Settings", syncXY, syncRP);
+	DisplayPIDSettings("PID Settings", syncXY, syncRP);
 
 	ImGui::Separator();
 	ImGui::Text("Position PID Outputs");
@@ -193,7 +191,9 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 	DisplayPIDHistoryWindow();
 
 	ImGui::End();
+
 }
+
 void UImGuiUtil::RenderImPlot(const TArray<float>& ThrustsVal, const FVector& desiredForwardVector, const FVector& currentForwardVector, float deltaTime)
 {
     if (ThrustsVal.Num() < 4)
@@ -338,9 +338,9 @@ void UImGuiUtil::DisplayDroneInfo()
 	ImGui::Separator();
 }
 
-void UImGuiUtil::DisplayPIDSettings(EFlightMode Mode, const char* headerLabel, bool& synchronizeXYGains, bool& synchronizeGains)
+void UImGuiUtil::DisplayPIDSettings(const char* headerLabel, bool& synchronizeXYGains, bool& synchronizeGains)
 {
-	FFullPIDSet* PIDSet = Controller ? Controller->GetPIDSet(Mode) : nullptr;
+	FFullPIDSet* PIDSet = Controller ? Controller->GetPIDSet() : nullptr;
 	if (!PIDSet)
 	{
 		ImGui::Text("No PID Set found for this mode.");
@@ -807,7 +807,7 @@ void UImGuiUtil::LoadPIDValues(const TArray<FString>& Values)
 	if (!Controller || Values.Num() < 19) // Ensure we have all values (timestamp + 18 PID values)
 		return;
 
-	FFullPIDSet* PIDSet = Controller->GetPIDSet(Controller->GetFlightMode());
+	FFullPIDSet* PIDSet = Controller->GetPIDSet();
 	if (!PIDSet)
 		return;
 

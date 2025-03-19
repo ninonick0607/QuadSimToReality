@@ -49,39 +49,39 @@ DebugSet: RequiredTools UnrealFrontend-Linux-Debug QuadSimToRealityEditor-Linux-
 
 
 QuadSimToReality-Android-DebugGame:
-	 $(BUILD) QuadSimToReality Android DebugGame  -Project="/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject" $(ARGS)
+	 $(BUILD) QuadSimToReality Android DebugGame  -Project="/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject" $(ARGS)
 
 QuadSimToReality-Android-Development:
-	 $(BUILD) QuadSimToReality Android Development  -Project="/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject" $(ARGS)
+	 $(BUILD) QuadSimToReality Android Development  -Project="/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject" $(ARGS)
 
 QuadSimToReality-Android-Shipping:
-	 $(BUILD) QuadSimToReality Android Shipping  -Project="/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject" $(ARGS)
+	 $(BUILD) QuadSimToReality Android Shipping  -Project="/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject" $(ARGS)
 
 QuadSimToReality-Linux-DebugGame:
-	 $(BUILD) QuadSimToReality Linux DebugGame  -Project="/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject" $(ARGS)
+	 $(BUILD) QuadSimToReality Linux DebugGame  -Project="/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject" $(ARGS)
 
 QuadSimToReality-Linux-Development:
-	 $(BUILD) QuadSimToReality Linux Development  -Project="/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject" $(ARGS)
+	 $(BUILD) QuadSimToReality Linux Development  -Project="/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject" $(ARGS)
 
 QuadSimToReality-Linux-Shipping:
-	 $(BUILD) QuadSimToReality Linux Shipping  -Project="/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject" $(ARGS)
+	 $(BUILD) QuadSimToReality Linux Shipping  -Project="/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject" $(ARGS)
 
 QuadSimToReality-LinuxArm64-DebugGame:
-	 $(BUILD) QuadSimToReality LinuxArm64 DebugGame  -Project="/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject" $(ARGS)
+	 $(BUILD) QuadSimToReality LinuxArm64 DebugGame  -Project="/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject" $(ARGS)
 
 QuadSimToReality-LinuxArm64-Development:
-	 $(BUILD) QuadSimToReality LinuxArm64 Development  -Project="/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject" $(ARGS)
+	 $(BUILD) QuadSimToReality LinuxArm64 Development  -Project="/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject" $(ARGS)
 
 QuadSimToReality-LinuxArm64-Shipping:
-	 $(BUILD) QuadSimToReality LinuxArm64 Shipping  -Project="/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject" $(ARGS)
+	 $(BUILD) QuadSimToReality LinuxArm64 Shipping  -Project="/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject" $(ARGS)
 
 QuadSimToReality: QuadSimToReality-Linux-Development
 
 QuadSimToRealityEditor-Linux-DebugGame:
-	 $(BUILD) QuadSimToRealityEditor Linux DebugGame  -Project="/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject" $(ARGS)
+	 $(BUILD) QuadSimToRealityEditor Linux DebugGame  -Project="/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject" $(ARGS)
 
 QuadSimToRealityEditor-Linux-Development:
-	 $(BUILD) QuadSimToRealityEditor Linux Development  -Project="/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject" $(ARGS)
+	 $(BUILD) QuadSimToRealityEditor Linux Development  -Project="/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject" $(ARGS)
 
 QuadSimToRealityEditor: QuadSimToRealityEditor-Linux-Development
 
@@ -135,6 +135,6 @@ UnrealGame-LinuxArm64-Shipping:
 UnrealGame: UnrealGame-Linux-Development
 
 configure:
-	$(BUILD) -ProjectFiles -Project="/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject" -Game 
+	$(BUILD) -ProjectFiles -Project="/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject" -Game 
 
 .PHONY: $(TARGETS)

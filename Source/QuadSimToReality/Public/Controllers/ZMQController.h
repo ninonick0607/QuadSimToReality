@@ -12,7 +12,6 @@ class AQuadPawn;
 class UQuadDroneController;
 class USceneCaptureComponent2D;
 class UTextureRenderTarget2D;
-enum class EFlightMode : uint8;
 
 USTRUCT(BlueprintType)
 struct FZMQConfiguration

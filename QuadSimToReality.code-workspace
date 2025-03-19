@@ -37,7 +37,7 @@
 					"QuadSimToReality",
 					"Linux",
 					"Debug",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -54,7 +54,7 @@
 					"QuadSimToReality",
 					"Linux",
 					"Debug",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -74,7 +74,7 @@
 					"QuadSimToReality",
 					"Linux",
 					"Debug",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
@@ -92,7 +92,7 @@
 					"QuadSimToReality",
 					"Linux",
 					"DebugGame",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -109,7 +109,7 @@
 					"QuadSimToReality",
 					"Linux",
 					"DebugGame",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -129,7 +129,7 @@
 					"QuadSimToReality",
 					"Linux",
 					"DebugGame",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
@@ -147,7 +147,7 @@
 					"QuadSimToReality",
 					"Linux",
 					"Development",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -164,7 +164,7 @@
 					"QuadSimToReality",
 					"Linux",
 					"Development",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -184,7 +184,7 @@
 					"QuadSimToReality",
 					"Linux",
 					"Development",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
@@ -202,7 +202,7 @@
 					"QuadSimToReality",
 					"Linux",
 					"Test",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -219,7 +219,7 @@
 					"QuadSimToReality",
 					"Linux",
 					"Test",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -239,7 +239,7 @@
 					"QuadSimToReality",
 					"Linux",
 					"Test",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
@@ -257,7 +257,7 @@
 					"QuadSimToReality",
 					"Linux",
 					"Shipping",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -274,7 +274,7 @@
 					"QuadSimToReality",
 					"Linux",
 					"Shipping",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -294,7 +294,7 @@
 					"QuadSimToReality",
 					"Linux",
 					"Shipping",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
@@ -312,7 +312,7 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"Debug",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -329,7 +329,7 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"Debug",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -349,7 +349,7 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"Debug",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
@@ -367,7 +367,7 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"DebugGame",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -384,7 +384,7 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"DebugGame",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -404,7 +404,7 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"DebugGame",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
@@ -422,7 +422,7 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"Development",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -439,7 +439,7 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"Development",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -459,7 +459,7 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"Development",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
@@ -477,7 +477,7 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"Test",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -494,7 +494,7 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"Test",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -514,7 +514,7 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"Test",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
@@ -532,7 +532,7 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"Shipping",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -549,7 +549,7 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"Shipping",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -569,7 +569,7 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"Shipping",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
@@ -587,7 +587,7 @@
 					"QuadSimToRealityEditor",
 					"Linux",
 					"Debug",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -604,7 +604,7 @@
 					"QuadSimToRealityEditor",
 					"Linux",
 					"Debug",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -624,7 +624,7 @@
 					"QuadSimToRealityEditor",
 					"Linux",
 					"Debug",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
@@ -642,7 +642,7 @@
 					"QuadSimToRealityEditor",
 					"Linux",
 					"DebugGame",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -659,7 +659,7 @@
 					"QuadSimToRealityEditor",
 					"Linux",
 					"DebugGame",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -679,7 +679,7 @@
 					"QuadSimToRealityEditor",
 					"Linux",
 					"DebugGame",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
@@ -697,7 +697,7 @@
 					"QuadSimToRealityEditor",
 					"Linux",
 					"Development",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -714,7 +714,7 @@
 					"QuadSimToRealityEditor",
 					"Linux",
 					"Development",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -734,7 +734,7 @@
 					"QuadSimToRealityEditor",
 					"Linux",
 					"Development",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
@@ -752,7 +752,7 @@
 			{
 				"name": "Launch QuadSimToReality (Debug)",
 				"request": "launch",
-				"program": "/home/ninonick0426/Documents/GitHub/QuadSimToReality/Binaries/Linux/UnrealGame-Linux-Debug",
+				"program": "/home/ninonick0426/Desktop/QuadSimToReality/Binaries/Linux/UnrealGame-Linux-Debug",
 				"preLaunchTask": "QuadSimToReality Linux Debug Build",
 				"args": [
 				],
@@ -764,7 +764,7 @@
 			{
 				"name": "Launch QuadSimToReality (DebugGame)",
 				"request": "launch",
-				"program": "/home/ninonick0426/Documents/GitHub/QuadSimToReality/Binaries/Linux/UnrealGame-Linux-DebugGame",
+				"program": "/home/ninonick0426/Desktop/QuadSimToReality/Binaries/Linux/UnrealGame-Linux-DebugGame",
 				"preLaunchTask": "QuadSimToReality Linux DebugGame Build",
 				"args": [
 				],
@@ -776,7 +776,7 @@
 			{
 				"name": "Launch QuadSimToReality (Development)",
 				"request": "launch",
-				"program": "/home/ninonick0426/Documents/GitHub/QuadSimToReality/Binaries/Linux/UnrealGame",
+				"program": "/home/ninonick0426/Desktop/QuadSimToReality/Binaries/Linux/UnrealGame",
 				"preLaunchTask": "QuadSimToReality Linux Development Build",
 				"args": [
 				],
@@ -788,7 +788,7 @@
 			{
 				"name": "Launch QuadSimToReality (Test)",
 				"request": "launch",
-				"program": "/home/ninonick0426/Documents/GitHub/QuadSimToReality/Binaries/Linux/UnrealGame-Linux-Test",
+				"program": "/home/ninonick0426/Desktop/QuadSimToReality/Binaries/Linux/UnrealGame-Linux-Test",
 				"preLaunchTask": "QuadSimToReality Linux Test Build",
 				"args": [
 				],
@@ -800,7 +800,7 @@
 			{
 				"name": "Launch QuadSimToReality (Shipping)",
 				"request": "launch",
-				"program": "/home/ninonick0426/Documents/GitHub/QuadSimToReality/Binaries/Linux/UnrealGame-Linux-Shipping",
+				"program": "/home/ninonick0426/Desktop/QuadSimToReality/Binaries/Linux/UnrealGame-Linux-Shipping",
 				"preLaunchTask": "QuadSimToReality Linux Shipping Build",
 				"args": [
 				],
@@ -815,7 +815,7 @@
 				"program": "/home/ninonick0426/Unreal/Engine/Binaries/Linux/UnrealEditor-Linux-Debug",
 				"preLaunchTask": "QuadSimToRealityEditor Linux Debug Build",
 				"args": [
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject"
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject"
 				],
 				"cwd": "/home/ninonick0426/Unreal",
 				"type": "cppdbg",
@@ -828,7 +828,7 @@
 				"program": "/home/ninonick0426/Unreal/Engine/Binaries/Linux/UnrealEditor-Linux-DebugGame",
 				"preLaunchTask": "QuadSimToRealityEditor Linux DebugGame Build",
 				"args": [
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject"
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject"
 				],
 				"cwd": "/home/ninonick0426/Unreal",
 				"type": "cppdbg",
@@ -841,7 +841,7 @@
 				"program": "/home/ninonick0426/Unreal/Engine/Binaries/Linux/UnrealEditor",
 				"preLaunchTask": "QuadSimToRealityEditor Linux Development Build",
 				"args": [
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject"
+					"/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject"
 				],
 				"cwd": "/home/ninonick0426/Unreal",
 				"type": "cppdbg",
@@ -857,7 +857,7 @@
 				"args": [
 					"-projectfiles",
 					"-vscode",
-					"-project=/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"-project=/home/ninonick0426/Desktop/QuadSimToReality/QuadSimToReality.uproject",
 					"-game",
 					"-engine",
 					"-dotnet"

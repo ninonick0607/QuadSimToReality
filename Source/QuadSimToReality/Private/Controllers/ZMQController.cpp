@@ -88,6 +88,18 @@ void AZMQController::BeginPlay()
             true
         );
     }
+
+    ADroneManager* Manager = Cast<ADroneManager>(UGameplayStatics::GetActorOfClass(GetWorld(), ADroneManager::StaticClass()));
+    if (Manager)
+    {
+        //Manager->RegisterZMQController(this);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("ZMQController: No DroneManager found in the level."));
+    }
+
+
 }
 
 
@@ -203,7 +215,6 @@ void AZMQController::HandleVelocityCommand(zmq::multipart_t& Message)
 
         FVector DesiredVelocity(VelocityArray[0], VelocityArray[1], VelocityArray[2]);
         DroneController->SetDesiredVelocity(DesiredVelocity);
-        DroneController->SetFlightMode(EFlightMode::VelocityControl);
     }
     else
     {

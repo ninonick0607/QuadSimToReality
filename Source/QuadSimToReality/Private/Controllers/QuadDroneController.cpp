@@ -19,9 +19,6 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	: dronePawn(nullptr)
 	, Thrusts({0, 0, 0, 0})
 	, desiredYaw(0.f)
-	, desiredForwardVector(FVector(1.0f, 0.0f, 0.0f))
-	, desiredAltitude(0.0f)
-	, currentFlightMode(EFlightMode::None)
 	, desiredNewVelocity(FVector::ZeroVector)
 	, initialTakeoff(true)
 	, altitudeReached(false)
@@ -29,13 +26,10 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	, YawTorqueForce(2.0)       
 	, LastYawTorqueApplied(0.0)
 	, UpsideDown(false)
+	, desiredForwardVector(FVector(1.0f, 0.0f, 0.0f))
 {
 	const auto& Config = UDroneJSONConfig::Get().Config;
-	maxVelocity = Config.FlightParams.MaxVelocity;
-	maxAngle = Config.FlightParams.MaxAngle;
-	maxPIDOutput = 350.f;//Config.FlightParams.MaxPIDOutput;
-	altitudeThresh = Config.FlightParams.AltitudeThreshold;
-	minAltitudeLocal = Config.FlightParams.MinAltitudeLocal;
+	maxPIDOutput = Config.FlightParams.MaxPIDOutput;
 	acceptableDistance = Config.FlightParams.AcceptableDistance;
 	
     FFullPIDSet VelocitySet;
@@ -62,7 +56,7 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
     VelocitySet.YawPID = new QuadPIDController();
     VelocitySet.YawPID->SetLimits(-maxPIDOutput, maxPIDOutput);
     VelocitySet.YawPID->SetGains(0.f, 0.f, 0.f);
-	PIDMap.Add(EFlightMode::VelocityControl, MoveTemp(VelocitySet));
+	PIDMap.Add(VelocitySet);
 
 	
 	DroneGlobalState::Get().BindController(this);
@@ -96,26 +90,13 @@ void UQuadDroneController::Initialize(AQuadPawn* InPawn)
 
 void UQuadDroneController::Update(double a_deltaTime)
 {
-	SetFlightMode(EFlightMode::VelocityControl);
 	VelocityControl(a_deltaTime);
-
-
-	// TODO: Change to only one game mode please
-	switch (currentFlightMode)
-	{
-	case EFlightMode::None:
-		return;
-	case EFlightMode::VelocityControl:
-		break;
-	}
-    UpdatePropellerRPMs();
-
 }
 
 void UQuadDroneController::VelocityControl(double a_deltaTime)
 {
 	// Calls the mapped PID set
-    FFullPIDSet* CurrentSet = PIDMap.Find(EFlightMode::VelocityControl);
+    FFullPIDSet* CurrentSet = GetPIDSet();
     if (!CurrentSet || !dronePawn)
         return;
     
@@ -129,7 +110,27 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
     
     double x_output = 0.f, y_output = 0.f, z_output = 0.f;
     double roll_output = 0.f, pitch_output = 0.f;
+
+	if (bHoverModeActive)
+	{
+		// Calculate altitude error
+		float altitudeError = hoverTargetAltitude - currentPosition.Z;
+        
+		// Simple P controller for altitude (you can tune this value)
+		float altitudeKp = 0.5f;
+        
+		// Adjust Z velocity component based on altitude error
+		// Add this to the fixed hover velocity of 28.0f
+		float zAdjustment = altitudeError * altitudeKp;
+        
+		// Clamp the adjustment to prevent too aggressive corrections
+		zAdjustment = FMath::Clamp(zAdjustment, -10.0f, 10.0f);
+        
+		// Apply the adjustment to the Z velocity while preserving X and Y
+		desiredNewVelocity.Z = 28.0f + zAdjustment;
+	}
     
+	
     if (!bManualThrustMode)
     {
         FVector velocityError = desiredNewVelocity - currentVelocity;
@@ -248,7 +249,7 @@ void UQuadDroneController::YawStabilization(double DeltaTime)
     float DirectionSign = FMath::Sign(FVector::DotProduct(CrossProduct, UpVector));
     VectorError *= DirectionSign;  // Apply the sign to the angle error.
 
-    // Skip small errors within threshold — prevents overcorrection when close to target.
+    // Skip small errors within threshold ï¿½ prevents overcorrection when close to target.
     static constexpr float YAW_ERROR_THRESHOLD = 1.0f;
     if (FMath::Abs(VectorError) < YAW_ERROR_THRESHOLD)
     {
@@ -256,7 +257,7 @@ void UQuadDroneController::YawStabilization(double DeltaTime)
     }
 
     // Retrieve the current PID controller settings for the VelocityControl flight mode.
-    FFullPIDSet* CurrentSet = PIDMap.Find(EFlightMode::VelocityControl);
+    FFullPIDSet* CurrentSet = GetPIDSet();
     if (!CurrentSet) return;
 
     // Get the drone's current angular velocity around the Z-axis (current yaw rate).
@@ -315,10 +316,8 @@ void UQuadDroneController::YawStabilization(double DeltaTime)
 
 void UQuadDroneController::ResetPID()
 {
-	for (auto& Elem : PIDMap)
+	for (auto& ThisSet : PIDMap)
 	{
-		FFullPIDSet& ThisSet = Elem.Value;
-
 		ThisSet.XPID->Reset();
 		ThisSet.YPID->Reset();
 		ThisSet.ZPID->Reset();
@@ -330,12 +329,7 @@ void UQuadDroneController::ResetPID()
 }
 void UQuadDroneController::ResetDroneIntegral()
 {
-	FFullPIDSet* CurrentSet = PIDMap.Find(currentFlightMode);
-	if (!CurrentSet)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("ResetDroneIntegral: No PID set found for current flight mode %d"), (int32)currentFlightMode);
-		return;
-	}
+    FFullPIDSet* CurrentSet = GetPIDSet();
 
 	CurrentSet->XPID->ResetIntegral();
 	CurrentSet->YPID->ResetIntegral();
@@ -494,40 +488,25 @@ void UQuadDroneController::ApplyManualThrusts()
 	}
 }
 
-void UQuadDroneController::UpdatePropellerRPMs()
-{
-
-	for (int i = 0; i < Thrusts.Num(); i++)
-	{
-		// Calculate RPM from thrust
-		float RPM = FMath::Sqrt(Thrusts[i]/T_k);
-
-		if (dronePawn)
-		{
-			dronePawn->SetPropellerRPM(i, RPM);
-		}
-	}
-}	
-
-
 // ------------ Setter and Getter -------------------
 void UQuadDroneController::SetDesiredVelocity(const FVector& NewVelocity)
 {
+	if (NewVelocity.Z == 28.0f && desiredNewVelocity.Z != 28.0f && dronePawn)
+	{
+		bHoverModeActive = true;
+		hoverTargetAltitude = dronePawn->GetActorLocation().Z;
+		UE_LOG(LogTemp, Display, TEXT("Hover mode activated - Target altitude: %.2f"), hoverTargetAltitude);
+	}
+	else if (NewVelocity.Z != 28.0f && desiredNewVelocity.Z == 28.0f)
+	{
+		bHoverModeActive = false;
+		UE_LOG(LogTemp, Display, TEXT("Hover mode deactivated"));
+	}
+	
 	desiredNewVelocity = NewVelocity;
 	UE_LOG(LogTemp, Display, TEXT("[QuadDroneController] SetDesiredVelocity called: X=%.2f, Y=%.2f, Z=%.2f"),
 			NewVelocity.X, NewVelocity.Y, NewVelocity.Z);
 }
-
-void UQuadDroneController::SetFlightMode(EFlightMode NewMode)
-{
-	currentFlightMode = NewMode;
-}
-
-EFlightMode UQuadDroneController::GetFlightMode() const
-{
-	return currentFlightMode;
-}
-
 
 void UQuadDroneController::SetManualThrustMode(bool bEnable)
 {
@@ -541,4 +520,3 @@ void UQuadDroneController::SetManualThrustMode(bool bEnable)
 		UE_LOG(LogTemp, Display, TEXT("Manual Thrust Mode DISABLED"));
 	}
 }
-
