@@ -16,3 +16,9 @@ Content/** filter=lfs diff=lfs merge=lfs -text
 *.mp4 filter=lfs diff=lfs merge=lfs -text
 Plugins/** filter=lfs diff=lfs merge=lfs -text
 Plugins/rclUE/** filter=lfs diff=lfs merge=lfs -text
+Plugins/rclUE/**/*.so filter=lfs diff=lfs merge=lfs -text
+Plugins/rclUE/**/*.a filter=lfs diff=lfs merge=lfs -text
+Plugins/rclUE/**/*.dylib filter=lfs diff=lfs merge=lfs -text
+Plugins/rclUE/**/*.dll filter=lfs diff=lfs merge=lfs -text
+Plugins/rclUE/**/*.lib filter=lfs diff=lfs merge=lfs -text
+Plugins/rclUE/**/*.uasset filter=lfs diff=lfs merge=lfs -text
