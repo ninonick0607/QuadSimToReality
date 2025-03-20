@@ -4,6 +4,7 @@ Intermediate
 Saved
 .vscode
 .vs
+.ignore
 __pycache__
 *.pyc
 events.out.tfevents.*
@@ -13,6 +14,7 @@ checkpoint*
 *.opendb
 *.sdf
 *.sln
+*.code-workspace
 *.suo
 *.xcodeproj
 *.xcworkspace
