@@ -2,7 +2,7 @@ from RL import RL_Algorithm
 import torch
 import yaml
 
-NAME = "lstm_no_aux_0"
+NAME = "mlp_0"
 TRAIN = True
 
 if __name__ == "__main__":

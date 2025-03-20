@@ -4,6 +4,10 @@ Intermediate
 Saved
 .vscode
 .vs
+__pycache__
+*.pyc
+events.out.tfevents.*
+checkpoint*
 *.VC.db
 *.opensdf
 *.opendb

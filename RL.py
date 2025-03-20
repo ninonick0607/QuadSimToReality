@@ -4,7 +4,7 @@ import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 # TorchRL imports
 from torchrl.collectors import SyncDataCollector
-from torchrl.envs import TransformedEnv, GymLikeEnv
+from torchrl.envs import TransformedEnv, GymWrapper
 from torchrl.envs.transforms import ToTensorImage, Resize, Transform, InitTracker, DoubleToFloat, ObservationNorm
 from torchrl.objectives import ClipPPOLoss
 from torchrl.objectives.value import GAE
@@ -80,10 +80,10 @@ class RL_Algorithm:
         """
 
         # TODO: Add support for other envs, and use config
-        env = GymLikeEnv(QuadSimEnv())
+        env = GymWrapper(QuadSimEnv()).to(self.device)
         env = TransformedEnv(env, DoubleToFloat())
         env = TransformedEnv(env, InitTracker())
-        # self.obs_norm = ObservationNorm(in_keys=["observation"], loc=0, scale=(1, 1, 8), standard_normal=True)
+        self.obs_norm = ObservationNorm(in_keys=["observation"], loc=0, scale=(1, 1, 8), standard_normal=True)
         # env = TransformedEnv(env, self.obs_norm)
         # self.obs_norm.init_stats(1000)
         # env.append_transform(ToTensorImage(True, in_keys=["pixels"], out_keys=["pixels_transformed"]))
@@ -104,9 +104,9 @@ class RL_Algorithm:
         """
 
         # TODO: Add support for aux heads, and use config
-        features_extractor_arch = LSTM(device=self.device)
+        # features_extractor_arch = LSTM(device=self.device)
         critic_arch = nn.Sequential(
-            nn.Linear(64, 128),
+            nn.Linear(2, 128),
             nn.Tanh(),
             nn.Linear(128, 128),
             nn.Tanh(),
@@ -115,7 +115,7 @@ class RL_Algorithm:
             nn.Linear(128, 1),
         )
         actor_arch = nn.Sequential(
-            nn.Linear(64, 128),
+            nn.Linear(2, 128),
             nn.Tanh(),
             nn.Linear(128, 128),
             nn.Tanh(),
@@ -124,8 +124,8 @@ class RL_Algorithm:
             nn.Linear(128, 2),
             NormalParamExtractor()
         )
-        critic = ValueOperator(critic_arch, in_keys=["features"]).to(self.device)
-        actor = TensorDictModule(actor_arch, in_keys=["features"], out_keys=["loc", "scale"])
+        critic = ValueOperator(critic_arch, in_keys=["observation"]).to(self.device)
+        actor = TensorDictModule(actor_arch, in_keys=["observation"], out_keys=["loc", "scale"])
         actor = ProbabilisticActor(
             actor, 
             spec=self.env.action_spec,
@@ -137,10 +137,10 @@ class RL_Algorithm:
             },
             return_log_prob=True
         ).to(self.device)
-        features_extractor = TensorDictModule(features_extractor_arch, in_keys=["observation", "pixels_transformed", "is_init"], 
-                                              out_keys=["features", "aux_pred", "aux_target"]).to(self.device)
+        # features_extractor = TensorDictModule(features_extractor_arch, in_keys=["observation", "pixels_transformed", "is_init"], 
+        #                                       out_keys=["features", "aux_pred", "aux_target"]).to(self.device)
         self.modules = OrderedDict([
-            ("features_extractor", features_extractor),
+            # ("features_extractor", features_extractor),
             ("actor", actor),
             ("critic", critic)
         ])
@@ -157,8 +157,9 @@ class RL_Algorithm:
 
         self.collector = SyncDataCollector(
             self.env,
-            self.sequential_select(["features_extractor", "actor"]),
-            frames_per_batch=1024,
+            # self.sequential_select(["features_extractor", "actor"]),
+            self.modules["actor"],
+            frames_per_batch=512,
             reset_at_each_iter=True,
             device=self.device
         )
@@ -197,8 +198,9 @@ class RL_Algorithm:
         Note: To parametrize the training loop, you would need to change the `create_training_utils` function as well (eg. episode length, learning rate, etc.)
         """
 
-        critic_op = self.sequential_select(["features_extractor", "critic"])
-        
+        # critic_op = self.sequential_select(["features_extractor", "critic"])
+        critic_op = self.modules["critic"]
+
         for i, data in enumerate(self.collector):
 
             logs = defaultdict(list)
@@ -224,24 +226,24 @@ class RL_Algorithm:
                 logs["explained_variance"].append(explained_var.item())
 
                 data_view = data.reshape(-1)
-                minibatches = data_view.split(64)
+                minibatches = data_view.split(32)
                 indices = torch.randperm(len(minibatches))
                 minibatches = [minibatches[index] for index in indices]
                 
                 for k in range(16):
 
-                    self.modules["features_extractor"].module.reset()
+                    # self.modules["features_extractor"].module.reset()
                     batch = minibatches[k]
                     batch = batch.to(self.device)
 
-                    batch = self.modules["features_extractor"](batch)
+                    # batch = self.modules["features_extractor"](batch)
                     loss = self.loss_module(batch)
-                    angle_loss = self.loss_fn(batch["aux_pred"][-1, :2], batch["aux_target"][-1, :2])
-                    angular_velocity_loss = self.loss_fn(batch["aux_pred"][-1, 2], batch["aux_target"][-1, 2])
-                    total_loss = loss["loss_objective"] + loss["loss_critic"] + loss["loss_entropy"] + angle_loss + angular_velocity_loss
+                    # angle_loss = self.loss_fn(batch["aux_pred"][-1, :2], batch["aux_target"][-1, :2])
+                    # angular_velocity_loss = self.loss_fn(batch["aux_pred"][-1, 2], batch["aux_target"][-1, 2])
+                    total_loss = loss["loss_objective"] + loss["loss_critic"] + loss["loss_entropy"] # + angle_loss + angular_velocity_loss
                     logs["loss"].append(total_loss.item())
-                    logs["angle_loss"].append(angle_loss.item())
-                    logs["angular_velocity_loss"].append(angular_velocity_loss.item())
+                    # logs["angle_loss"].append(angle_loss.item())
+                    # logs["angular_velocity_loss"].append(angular_velocity_loss.item())
                     logs["critic"].append(loss["loss_critic"].item())
                     logs["objective"].append(loss["loss_objective"].item())
                     logs["entropy"].append(loss["loss_entropy"].item())
@@ -269,10 +271,10 @@ class RL_Algorithm:
             self.writer.add_scalar("misc/memory_usage", torch.cuda.memory_allocated() / 1e9, i)
             self.writer.flush()
 
-            if i % 25 == 0:
+            if i % 50 == 0:
                 self.save(f"{self.writer.log_dir}/checkpoint_{i}.pt")
 
-            if i == 511:
+            if i == 255:
                 return
 
 

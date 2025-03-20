@@ -81,43 +81,19 @@ class QuadSimEnv(gym.Env):
         full_action = np.array([0.0, 0.0, self.prev_action]) * 250.0
         
         self.send_velocity_command(full_action)
-        time.sleep(0.2) # Action frequency is ~5 Hz
+        time.sleep(0.05) # Action frequency is ~20 Hz
 
         self.handle_data()
 
         current_z = self.state['position'][2]
-        print(f"Current Z: {current_z:.2f} cm")
         target_z = 1000.0
         z_distance = abs(current_z - target_z)
-        z_velocity = self.state['velocity'][2]
-        print(f"Velocity: {z_velocity:.2f} cm/s")
         
-        # REBALANCED reward with positive components
-        reward = 0.0
-        
-        # Base reward - slightly negative just for existing (encourages efficiency)
-        reward -= 0.1
-        
-        # Distance component - normalized to be zero at target
-        reward += 5.0 * (1.0 - min(1.0, z_distance/500.0))  # +5 at target, 0 when 500+ cm away
-        
-        # Progress reward - positive for moving toward goal
-        if hasattr(self, 'prev_z_distance'):
-            progress = self.prev_z_distance - z_distance
-            reward += progress * 2.0  # Substantial reward for making progress
-        
-        # Target achievement bonus
-        if z_distance < 30.0:
-            reward += 10.0  # Big positive reward for reaching target
-        
-        # Efficiency penalty - applies only to excessive velocity
-        optimal_velocity = min(80.0, max(5.0, z_distance * 0.1))  # Between 5-80 cm/s based on distance
-        inefficiency = abs(abs(z_velocity) - optimal_velocity)
-        reward -= min(1.0, inefficiency/50.0)  # Small penalty for inefficient velocity
+        reward = 1 - (z_distance / 500) # 0 -> 1 for z_distance in [0, 1000]
         
         # Termination conditions
         self.prev_z_distance = z_distance
-        done = self.steps >= 128
+        done = (self.steps >= 128) or (z_distance > 505) # 128 steps or more than 505 cm away from target (505 instead of 500 so that the ground is not terminal)
         info = {'height': current_z, 'target': target_z, 'distance': z_distance}
         self.steps += 1
         
@@ -135,7 +111,7 @@ class QuadSimEnv(gym.Env):
         self.prev_goal_state = self.goal_state.copy()
         print("Sending reset command")
         self.command_socket.send_string(command_topic)
-        time.sleep(0.1)
+        time.sleep(1)
 
     def handle_data(self):
         try:
