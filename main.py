@@ -2,8 +2,8 @@ from RL import RL_Algorithm
 import torch
 import yaml
 
-NAME = "mlp_0"
-TRAIN = True
+NAME = "mlp_1"
+TRAIN = False
 
 if __name__ == "__main__":
     

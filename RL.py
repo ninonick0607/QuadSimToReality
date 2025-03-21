@@ -287,12 +287,12 @@ class RL_Algorithm:
         """
 
 
-        pygame.init()
-        display = pygame.display.set_mode((256, 256))
+        # pygame.init()
+        # display = pygame.display.set_mode((256, 256))
 
-        env = self.env.append_transform(RenderPixels(display=display, in_keys=["pixels"], out_keys=["pixels"]))
-        actor_op = self.sequential_select(["features_extractor", "actor"])
-        actor_op.eval()
+        env = self.env # .append_transform(RenderPixels(display=display, in_keys=["pixels"], out_keys=["pixels"]))
+        actor_op = self.modules["actor"].to(self.device)
+        # actor_op.eval()
         i=0
         while True:
             env.rollout(200, actor_op)

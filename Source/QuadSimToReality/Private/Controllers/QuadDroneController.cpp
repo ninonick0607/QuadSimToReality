@@ -250,7 +250,7 @@ void UQuadDroneController::YawStabilization(double DeltaTime)
     float DirectionSign = FMath::Sign(FVector::DotProduct(CrossProduct, UpVector));
     VectorError *= DirectionSign;  // Apply the sign to the angle error.
 
-    // Skip small errors within threshold — prevents overcorrection when close to target.
+    // Skip small errors within threshold ï¿½ prevents overcorrection when close to target.
     static constexpr float YAW_ERROR_THRESHOLD = 1.0f;
     if (FMath::Abs(VectorError) < YAW_ERROR_THRESHOLD)
     {
@@ -386,7 +386,7 @@ void UQuadDroneController::ResetDroneOrigin()
 		}
 
 		// Reset position and rotation
-		dronePawn->SetActorLocation(FVector(0.0f, 0.0f, 10.0f), false, nullptr, ETeleportType::TeleportPhysics);
+		dronePawn->SetActorLocation(FVector(0.0f, 0.0f, 50.0f), false, nullptr, ETeleportType::TeleportPhysics);
 		dronePawn->SetActorRotation(FRotator::ZeroRotator);
 
 		if (dronePawn->DroneBody)

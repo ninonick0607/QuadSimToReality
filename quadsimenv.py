@@ -86,13 +86,15 @@ class QuadSimEnv(gym.Env):
         self.handle_data()
 
         current_z = self.state['position'][2]
-        target_z = 1000.0
+        target_z = self.goal_state[2]
         z_distance = abs(current_z - target_z)
         
         reward = 1 - (z_distance / 500) # 0 -> 1 for z_distance in [0, 1000]
         
         # Termination conditions
         self.prev_z_distance = z_distance
+        if z_distance > 505:
+            print("Terminating episode due to distance:", z_distance)
         done = (self.steps >= 128) or (z_distance > 505) # 128 steps or more than 505 cm away from target (505 instead of 500 so that the ground is not terminal)
         info = {'height': current_z, 'target': target_z, 'distance': z_distance}
         self.steps += 1
