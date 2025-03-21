@@ -5,6 +5,7 @@ import time
 import cv2  
 import glob 
 import os
+import struct
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback, BaseCallback
 from stable_baselines3.common.monitor import Monitor
@@ -55,6 +56,10 @@ class QuadSimEnv(gym.Env):
         self.control_socket.connect("tcp://localhost:5558")
         self.control_socket.setsockopt_string(zmq.SUBSCRIBE, '')
 
+        # Publisher socket for sending obstacle commands
+        self.obstacle_socket = self.context.socket(zmq.PUB)
+        self.obstacle_socket.bind("tcp://*:5559")
+        
         self.steps = 0
         time.sleep(0.1)
 
@@ -128,13 +133,25 @@ class QuadSimEnv(gym.Env):
         command_topic = "VELOCITY"
         message = np.array(velocity, dtype=np.float32).tobytes()
         self.command_socket.send_multipart([command_topic.encode(), message])
- 
+        
     def send_reset_command(self):
         command_topic = "RESET"
         self.prev_goal_state = self.goal_state.copy()
         self.command_socket.send_string(command_topic)
         time.sleep(0.1)
 
+    def send_obstacle_command(self, obstacleNum, bObstacleRand):
+        print("Obstacles called")
+        obstacle_topic = "CREATE_OBSTACLE"
+        float_data = struct.pack('f', float(obstacleNum))
+        bool_data = struct.pack('?', bool(bObstacleRand))
+        
+        self.obstacle_socket.send_multipart([
+            obstacle_topic.encode(), 
+            float_data,
+            bool_data
+        ])
+        
     def handle_data(self):
         try:
             if self.control_socket.poll(100, zmq.POLLIN):
@@ -184,21 +201,24 @@ class QuadSimEnv(gym.Env):
 # New code for loading the best model and running it
 if __name__ == "__main__":
     #best_model_path = "./RL_training/checkpoints/quad_model_420000_steps.zip"
+    
+
     best_model_path = "./RL_training/best_model/best_model.zip"
 
     # Create the environment
     env = QuadSimEnv()
-
+    time.sleep(2.0)  # Give time for the subscriber to connect
+    env.send_obstacle_command(150,True)
     # Load the model
-    model = PPO.load(best_model_path)
+    # model = PPO.load(best_model_path)
 
-    # Run the model
-    obs, _ = env.reset()
-    while True:
-        action, _states = model.predict(obs, deterministic=True)
-        obs, reward, done, truncated, info = env.step(action)
-        if done or truncated:
-            obs, _ = env.reset()
+    # # Run the model
+    # obs, _ = env.reset()
+    # while True:
+    #     action, _states = model.predict(obs, deterministic=True)
+    #     obs, reward, done, truncated, info = env.step(action)
+    #     if done or truncated:
+    #         obs, _ = env.reset()
 
 
             
