@@ -12,6 +12,7 @@ class AQuadPawn;
 class UQuadDroneController;
 class USceneCaptureComponent2D;
 class UTextureRenderTarget2D;
+class AObstacleManager;
 
 USTRUCT(BlueprintType)
 struct FZMQConfiguration
@@ -27,6 +28,9 @@ struct FZMQConfiguration
     UPROPERTY(EditAnywhere, Category = "ZMQ")
     int32 ControlPort = 5558;
 
+    UPROPERTY(EditAnywhere, Category = "ZMQ")
+    int32 ObstaclePort = 5559;
+    
     UPROPERTY(EditAnywhere, Category = "Image Capture")
     FIntPoint ImageResolution = FIntPoint(128, 128);
 
@@ -65,7 +69,8 @@ public:
     // This property is used to point to the drone this controller is responsible for.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="ZMQ")
     AQuadPawn* TargetPawn;
-
+    
+ 
 protected:
     virtual void BeginPlay() override;
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -77,6 +82,7 @@ private:
     void InitializeZMQ();
     void HandleResetCommand();
     void HandleVelocityCommand(zmq::multipart_t& Message);
+    void HandleObstacleCommand(zmq::multipart_t& Message);
     void SendStateData();
     void ProcessCommands();
     void CheckAndInitialize();
@@ -87,7 +93,8 @@ private:
     TSharedPtr<zmq::socket_t> PublishSocket;
     TSharedPtr<zmq::socket_t> CommandSocket;
     TSharedPtr<zmq::socket_t> ControlSocket;
-
+    TSharedPtr<zmq::socket_t> ObstacleSocket;
+    AObstacleManager* ObstacleManagerInstance;
     UPROPERTY(EditAnywhere, Category = "ZMQ")
     FZMQConfiguration Configuration;
 

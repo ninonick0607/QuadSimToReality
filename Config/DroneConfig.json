@@ -11,5 +11,10 @@
       "altitude_rate": 400.0,
       "yaw_rate": 90.0,
       "min_velocity_for_yaw": 10.0
-    }
+    },
+  "obstacle_parameters": {
+      "outer_boundary": 12000,
+      "inner_boundary": 10000,
+      "spawn_height": 0
+  }
   }

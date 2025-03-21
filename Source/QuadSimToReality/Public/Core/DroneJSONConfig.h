@@ -23,6 +23,13 @@ struct FDroneConfigData
 		float YawRate;
 		float MinVelocityForYaw;
 	} ControllerParams;
+
+	struct FObstacleParameters
+	{
+		float InnerBoundarySize;
+		float OuterBoundarySize;
+		float SpawnHeight;
+	} ObstacleParams;
 };
 
 UCLASS()

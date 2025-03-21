@@ -9,6 +9,7 @@
 #include "Camera/CameraComponent.h"
 #include "HAL/RunnableThread.h"
 #include "Async/Async.h"
+#include "Utility/ObstacleManager.h"
 #include "Core/DroneManager.h"
 
 #include "Kismet/GameplayStatics.h"
@@ -21,7 +22,9 @@ AZMQController::AZMQController()
     , CaptureComponent(nullptr)
     , RenderTarget(nullptr)
     , CurrentGoalPosition(FVector(0.0f, 0.0f, 1000.0f))
-    , TargetPawn(nullptr)  
+    , TargetPawn(nullptr)
+    , ObstacleManagerInstance(nullptr)  
+
 {
     PrimaryActorTick.bCanEverTick = true;
 }
@@ -141,6 +144,11 @@ void AZMQController::InitializeZMQ()
         FString ControlEndpoint = FString::Printf(TEXT("tcp://*:%d"), Configuration.ControlPort);
         ControlSocket->bind(TCHAR_TO_UTF8(*ControlEndpoint));
 
+        ObstacleSocket = MakeShared<zmq::socket_t>(Context, zmq::socket_type::sub);
+        FString ObstacleEndpoint = FString::Printf(TEXT("tcp://localhost:%d"), Configuration.ObstaclePort);
+        ObstacleSocket->connect(TCHAR_TO_UTF8(*ObstacleEndpoint));
+        ObstacleSocket->set(zmq::sockopt::subscribe, "");
+
         UE_LOG(LogTemp, Display, TEXT("ZMQ Initialization Successful"));
     }
     catch (const zmq::error_t& Error)
@@ -152,32 +160,51 @@ void AZMQController::InitializeZMQ()
 
 void AZMQController::ProcessCommands()
 {
-    if (!CommandSocket || bIsProcessingCommand) return;
-
+    if (bIsProcessingCommand) return;
     bIsProcessingCommand = true;
 
     try
     {
-        zmq::multipart_t Message;
-        if (Message.recv(*CommandSocket, static_cast<int>(zmq::recv_flags::dontwait)))
+        // Check Command Socket
+        if (CommandSocket)
         {
-            if (!Message.empty())
+            zmq::multipart_t CommandMessage;
+            if (CommandMessage.recv(*CommandSocket, static_cast<int>(zmq::recv_flags::dontwait)))
             {
-                std::string Command = Message.popstr();
+                if (!CommandMessage.empty())
+                {
+                    std::string Command = CommandMessage.popstr();
 
-                if (Command == "RESET")
-                {
-                    UE_LOG(LogTemp, Display, TEXT("[ZMQController] Received 'RESET' command."));
-                    HandleResetCommand();
+                    if (Command == "RESET")
+                    {
+                        HandleResetCommand();
+                    }
+                    else if (Command == "INTEGRAL_RESET" && DroneController)
+                    {
+                        DroneController->ResetDroneIntegral();
+                    }
+                    else if (Command == "VELOCITY")
+                    {
+                        UE_LOG(LogTemp, Display, TEXT("[ZMQController] Received 'VELOCITY' command."));
+                        HandleVelocityCommand(CommandMessage);
+                    }
                 }
-                else if (Command == "INTEGRAL_RESET" && DroneController)
+            }
+        }
+
+        if (ObstacleSocket)
+        {
+            zmq::multipart_t ObstacleMessage;
+            if (ObstacleMessage.recv(*ObstacleSocket, static_cast<int>(zmq::recv_flags::dontwait)))
+            {
+                if (!ObstacleMessage.empty())
                 {
-                    DroneController->ResetDroneIntegral();
-                }
-                else if (Command == "VELOCITY")
-                {
-                    UE_LOG(LogTemp, Display, TEXT("[ZMQController] Received 'VELOCITY' command."));
-                    HandleVelocityCommand(Message);
+                    std::string Command = ObstacleMessage.popstr();
+                    if (Command == "CREATE_OBSTACLE")
+                    {
+                        UE_LOG(LogTemp, Display, TEXT("Creating Obstacles.... Received on port %d"), Configuration.ObstaclePort);
+                        HandleObstacleCommand(ObstacleMessage);
+                    }
                 }
             }
         }
@@ -221,6 +248,71 @@ void AZMQController::HandleVelocityCommand(zmq::multipart_t& Message)
     else
     {
         UE_LOG(LogTemp, Warning, TEXT("Invalid velocity data size in ZMQ message."));
+    }
+}
+
+void AZMQController::HandleObstacleCommand(zmq::multipart_t& Message)
+{
+    if (Message.empty()) {
+        UE_LOG(LogTemp, Warning, TEXT("Empty obstacle message"));
+        return;
+    }
+
+    zmq::message_t ObstacleCountMsg = Message.pop();
+    int32 numObstacles = 0;
+    
+    if (ObstacleCountMsg.size() == sizeof(float)) {
+        // Make sure to dereference the data correctly
+        numObstacles = static_cast<int32>(*static_cast<float*>(ObstacleCountMsg.data()));
+        UE_LOG(LogTemp, Display, TEXT("Obstacle count: %d"), numObstacles);
+    } else {
+        UE_LOG(LogTemp, Warning, TEXT("Invalid obstacle count data size: %d"), ObstacleCountMsg.size());
+        return;
+    }
+
+    bool bRandomize = false;
+    if (!Message.empty()) {
+        zmq::message_t randomizeBoolMsg = Message.pop();
+        if (randomizeBoolMsg.size() == sizeof(bool)) {
+            bRandomize = *static_cast<bool*>(randomizeBoolMsg.data());
+        }
+    }
+
+    UE_LOG(LogTemp, Display, TEXT("Obstacle command: Count=%d, Randomize=%s"), 
+       numObstacles, bRandomize ? TEXT("true") : TEXT("false"));
+
+    if (!ObstacleManagerInstance) {
+        TArray<AActor*> FoundActors;
+        UGameplayStatics::GetAllActorsOfClass(GetWorld(), AObstacleManager::StaticClass(), FoundActors);
+        
+        if (FoundActors.Num() > 0) {
+            ObstacleManagerInstance = Cast<AObstacleManager>(FoundActors[0]);
+            UE_LOG(LogTemp, Display, TEXT("Found ObstacleManager: %s"), 
+                *ObstacleManagerInstance->GetName());
+        } else {
+            UE_LOG(LogTemp, Warning, TEXT("No ObstacleManager found in level! Will try to spawn one."));
+            
+            // Try to spawn an ObstacleManager if none exists
+            FActorSpawnParameters SpawnParams;
+            SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+            ObstacleManagerInstance = GetWorld()->SpawnActor<AObstacleManager>(AObstacleManager::StaticClass(), 
+                                                                               FVector::ZeroVector, 
+                                                                               FRotator::ZeroRotator, 
+                                                                               SpawnParams);
+            if (ObstacleManagerInstance) {
+                UE_LOG(LogTemp, Display, TEXT("Spawned new ObstacleManager"));
+            } else {
+                UE_LOG(LogTemp, Error, TEXT("Failed to spawn ObstacleManager"));
+                return;
+            }
+        }
+    }
+    
+    // Call the ObstacleManager to create obstacles
+    EGoalPosition goalPos = bRandomize ? EGoalPosition::Random : EGoalPosition::Front;
+    if (ObstacleManagerInstance) {
+        ObstacleManagerInstance->CreateObstacles(numObstacles, goalPos);
+        UE_LOG(LogTemp, Display, TEXT("Created %d obstacles via ObstacleManager"), numObstacles);
     }
 }
 
