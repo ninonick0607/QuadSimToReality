@@ -5,6 +5,8 @@
 #include "Math/UnrealMathUtility.h"
 #include "Core/DroneJSONConfig.h"
 #include "Engine/Engine.h"
+#include "Components/SceneCaptureComponent2D.h"
+#include "Engine/TextureRenderTarget2D.h"
 #include "Kismet/GameplayStatics.h"
 
 #define EPSILON 0.0001f
@@ -25,9 +27,10 @@ AQuadPawn::AQuadPawn()
 	DroneBody->SetSimulatePhysics(true);
 
 	CameraFPV = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraFPV"));
-	CameraFPV->SetupAttachment(DroneBody,TEXT("FPVCam"));
+	CameraFPV->SetupAttachment(DroneBody, TEXT("FPVCam"));  // Attach to FPVCam socket
 	CameraFPV->SetRelativeScale3D(FVector(0.1f));
-
+	CameraFPV->SetActive(true);
+	
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(DroneBody);
 
@@ -68,8 +71,23 @@ AQuadPawn::AQuadPawn()
 
 	// Create additional components
 	ImGuiUtil = CreateDefaultSubobject<UImGuiUtil>(TEXT("DroneImGuiUtil"));
-
+	
 	AutoPossessPlayer = EAutoReceiveInput::Player0;
+
+	SceneCapture = CreateDefaultSubobject<USceneCaptureComponent2D>(TEXT("SceneCapture"));
+	SceneCapture->SetupAttachment(DroneBody, TEXT("FPVCam")); 
+	SceneCapture->CaptureSource = SCS_FinalColorLDR;
+
+	RenderTarget = CreateDefaultSubobject<UTextureRenderTarget2D>(TEXT("CameraRenderTarget"));
+	RenderTarget->InitCustomFormat(128, 128, PF_B8G8R8A8, false);
+	RenderTarget->UpdateResourceImmediate(true);
+	SceneCapture->CaptureScene(); 
+	RenderTarget->UpdateResource();
+	SceneCapture->TextureTarget = RenderTarget;
+
+	bIsFPVActive = true;
+	bFirstCapture = true;
+
 }
 
 void AQuadPawn::BeginPlay()
@@ -162,4 +180,46 @@ void AQuadPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 void AQuadPawn::ReloadJSONConfig()
 {
 	UDroneJSONConfig::Get().ReloadConfig();
+}
+
+void AQuadPawn::CaptureCameraImage(TArray<uint8>& OutImageData)
+{
+	if (!RenderTarget || !SceneCapture) return;
+
+	// Skip first frame (often blank)
+	if (bFirstCapture) {
+		bFirstCapture = false;
+		return;
+	}
+
+	// Force GPU flush and scene capture
+	FlushRenderingCommands();
+	SceneCapture->CaptureScene();
+
+	FTextureRenderTargetResource* RTResource = RenderTarget->GameThread_GetRenderTargetResource();
+	if (RTResource)
+	{
+		// Read pixels with correct flags
+		PixelData.Reset();
+		FReadSurfaceDataFlags ReadFlags(RCM_UNorm, CubeFace_MAX);
+		ReadFlags.SetLinearToGamma(false); // Important for correct color space
+        
+		RTResource->ReadPixels(PixelData, ReadFlags);
+
+		// Convert BGRA to RGB
+		OutImageData.Reset(PixelData.Num() * 3 / 4); // 4 channels -> 3 channels
+		for (FColor& Pixel : PixelData)
+		{
+			OutImageData.Add(Pixel.B);
+			OutImageData.Add(Pixel.G);
+			OutImageData.Add(Pixel.R);
+		}
+
+		// Debug check
+		if (OutImageData.Num() > 3 && 
+			OutImageData[0] == 0 && OutImageData[1] == 0 && OutImageData[2] == 0)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("First pixel is still black!"));
+		}
+	}
 }

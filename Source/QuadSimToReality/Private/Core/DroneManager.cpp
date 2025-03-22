@@ -58,12 +58,12 @@ void ADroneManager::OnActorSpawned(AActor* SpawnedActor)
 
 void ADroneManager::RegisterROS2Controller(AROS2Controller* Controller)
 {
-    if (Controller)
-    {
-        AllROS2Controllers.Add(Controller);
-        UE_LOG(LogTemp, Display, TEXT("DroneManager: Registered ROS2Controller with DroneID: %s"), 
-               *Controller->GetConfiguration().DroneID);
-    }
+    // if (Controller)
+    // {
+    //     AllROS2Controllers.Add(Controller);
+    //     UE_LOG(LogTemp, Display, TEXT("DroneManager: Registered ROS2Controller with DroneID: %s"), 
+    //            *Controller->GetConfiguration().DroneID);
+    // }
 }
 
 void ADroneManager::Tick(float DeltaTime)
@@ -88,18 +88,18 @@ void ADroneManager::Tick(float DeltaTime)
         }
     }
 
-    // Build a quick lookup map from drone (AQuadPawn*) to its ROS2 controller.
-    TMap<AQuadPawn*, AROS2Controller*> DroneToROS2Map;
-    for (const TWeakObjectPtr<AROS2Controller>& ControllerWeak : AllROS2Controllers)
-    {
-        if (AROS2Controller* Controller = ControllerWeak.Get())
-        {
-            if (Controller->TargetPawn)
-            {
-                DroneToROS2Map.Add(Controller->TargetPawn, Controller);
-            }
-        }
-    }
+    // // Build a quick lookup map from drone (AQuadPawn*) to its ROS2 controller.
+    // TMap<AQuadPawn*, AROS2Controller*> DroneToROS2Map;
+    // for (const TWeakObjectPtr<AROS2Controller>& ControllerWeak : AllROS2Controllers)
+    // {
+    //     if (AROS2Controller* Controller = ControllerWeak.Get())
+    //     {
+    //         if (Controller->TargetPawn)
+    //         {
+    //             DroneToROS2Map.Add(Controller->TargetPawn, Controller);
+    //         }
+    //     }
+    // }
 
     // Prepare the drone labels for the ImGui interface.
     ImGui::Begin("Global Drone Manager");
@@ -115,15 +115,15 @@ void ADroneManager::Tick(float DeltaTime)
 
         if (Drone)
         {
-            AROS2Controller* ROS2ControllerForDrone = DroneToROS2Map.FindRef(Drone);
-            if (ROS2ControllerForDrone)
-            {
-                DroneID = ROS2ControllerForDrone->GetConfiguration().DroneID;
-            }
-            else
-            {
-                DroneID = FString::Printf(TEXT("Drone%d"), i + 1);
-            }
+            // AROS2Controller* ROS2ControllerForDrone = DroneToROS2Map.FindRef(Drone);
+            // if (ROS2ControllerForDrone)
+            // {
+            //     DroneID = ROS2ControllerForDrone->GetConfiguration().DroneID;
+            // }
+            // else
+            // {
+            //     DroneID = FString::Printf(TEXT("Drone%d"), i + 1);
+            // }
         }
         else
         {
@@ -221,20 +221,20 @@ AQuadPawn* ADroneManager::SpawnDrone(const FVector& SpawnLocation, const FRotato
         {
             // Calculate a unique namespace based on the current number of drones.
             int32 DroneIndex = AllDrones.Num();
-            FROS2Configuration Config;
-            Config.Namespace = FString::Printf(TEXT("drone%d"), DroneIndex);
-            Config.DroneID = NewDrone->GetName();
+            //FROS2Configuration Config;
+            //Config.Namespace = FString::Printf(TEXT("drone%d"), DroneIndex);
+            //Config.DroneID = NewDrone->GetName();
             
             // Spawn the dedicated ROS2Controller for this drone after a short delay.
-            FTimerHandle TimerHandle;
-            World->GetTimerManager().SetTimer(TimerHandle, [this, NewDrone, SpawnLocation, SpawnRotation, SpawnParams, Config]()
-            {
-                AROS2Controller* NewROS2Controller = GetWorld()->SpawnActor<AROS2Controller>(ROS2ControllerClass, SpawnLocation, SpawnRotation, SpawnParams);
-                if (NewROS2Controller)
-                {
-                    NewROS2Controller->Initialize(NewDrone, NewDrone->QuadController, Config);
-                }
-            }, 0.2f, false);
+            // FTimerHandle TimerHandle;
+            // World->GetTimerManager().SetTimer(TimerHandle, [this, NewDrone, SpawnLocation, SpawnRotation, SpawnParams, Config]()
+            // {
+            //     AROS2Controller* NewROS2Controller = GetWorld()->SpawnActor<AROS2Controller>(ROS2ControllerClass, SpawnLocation, SpawnRotation, SpawnParams);
+            //     if (NewROS2Controller)
+            //     {
+            //         //NewROS2Controller->Initialize(NewDrone, NewDrone->QuadController, Config);
+            //     }
+            // }, 0.2f, false);
         }
         return NewDrone;
     }

@@ -29,13 +29,17 @@ apt-get update
 echo "[+] Installing ROS2 Humble..."
 apt-get install -y ros-humble-desktop ros-humble-rmw-cyclonedds-cpp python3-colcon-common-extensions
 
+# Install additional ROS2 packages for visualization
+echo "[+] Installing ROS2 visualization packages..."
+apt-get install -y ros-humble-cv-bridge ros-humble-rviz2 ros-humble-vision-msgs ros-humble-image-transport
+
 # Install ZeroMQ (for compatibility with older code)
 echo "[+] Installing ZeroMQ..."
 apt-get install -y libzmq3-dev
 
-# Install Python packages for simulation
+# Install Python packages for simulation and visualization
 echo "[+] Installing Python packages..."
-pip3 install gymnasium zmq stable-baselines3 opencv-python
+pip3 install gymnasium zmq stable-baselines3 opencv-python numpy
 
 # Add ROS2 setup to user's bashrc if not already there
 USER_HOME=$(eval echo ~${SUDO_USER})
@@ -50,3 +54,6 @@ fi
 echo "===== Dependencies installation complete! ====="
 echo "Please log out and log back in, or run 'source ~/.bashrc'"
 echo "to update your environment variables."
+echo ""
+echo "IMPORTANT: You must source the ROS2 setup script before running any ROS2 code:"
+echo "    source /opt/ros/humble/setup.bash"

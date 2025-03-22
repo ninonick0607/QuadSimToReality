@@ -50,6 +50,8 @@ public:
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
 	UCameraComponent* CameraFPV;
 	
+	UPROPERTY(VisibleAnywhere, Category = "Camera")
+	USceneComponent* CameraParent;
 	// --- Thruster Components ---
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TArray<UStaticMeshComponent*> Propellers;
@@ -79,6 +81,17 @@ public:
 	UPROPERTY(VisibleAnywhere)
 	FString PawnLocalID;
 
+	UPROPERTY(VisibleAnywhere, Category = "Camera")
+	UTextureRenderTarget2D* RenderTarget;
+
+	UPROPERTY(VisibleAnywhere, Category = "Camera")
+	USceneCaptureComponent2D* SceneCapture;
+	
+	UFUNCTION(BlueprintCallable, Category = "Camera")
+	void CaptureCameraImage(TArray<uint8>& OutImageData);
+
+	UPROPERTY(VisibleAnywhere, Category = "Camera")
+	bool bIsFPVActive = true;
 	// --- Helper Functions ---
 	void SwitchCamera() const;
 	void ToggleImguiInput();
@@ -91,10 +104,10 @@ protected:
 	virtual void BeginPlay() override;
 
 private:
-	// Updates control each tick.
-	void UpdateControl(float DeltaTime);
 	
-
+	bool bFirstCapture = true;
+	TArray<FColor> PixelData;
+	void UpdateControl(float DeltaTime);
 	UPROPERTY(VisibleAnywhere)
 	UInputComponent* Input_ToggleImguiInput;
 };
