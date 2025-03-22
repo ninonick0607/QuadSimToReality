@@ -28,22 +28,22 @@ class DroneMonitor(Node):
         self.fig, (self.ax_img, self.ax_pos) = plt.subplots(1, 2, figsize=(12, 6))
         plt.ion()
         
-        # Subscribers
+        # Subscribers - UPDATED TOPIC NAMES
         self.image_sub = self.create_subscription(
             Image,
-            '/quad_position/camera/image',
+            '/camera/image',  # Changed from '/quad/camera/image'
             self.image_callback,
             image_qos
         )
         
         self.pos_sub = self.create_subscription(
             Point,
-            '/quad_position/quad_position',
+            '/position',  # Changed from '/quad/position'
             self.position_callback,
             position_qos
         )
         
-        # Initialize displays (FIXED LINE)
+        # Initialize displays
         self.img_display = self.ax_img.imshow(np.zeros((128, 128, 3)),
                                              interpolation='nearest')
         self.ax_img.axis('off')
@@ -59,22 +59,24 @@ class DroneMonitor(Node):
 
     def image_callback(self, msg):
         try:
-            now = self.get_clock().now()
-            dt = (now - self.last_image_time).nanoseconds / 1e9
-            self.last_image_time = now
-            self.image_count += 1
+            current_time = self.get_clock().now()
+            dt = (current_time - self.last_image_time).nanoseconds / 1e9
+            self.last_image_time = current_time
             
-            # Process image data
+            # Process image data with error checking
+            if len(msg.data) != 128*128*3:
+                self.get_logger().error("Invalid image dimensions!")
+                return
+                
             img_array = np.frombuffer(msg.data, dtype=np.uint8).reshape(128, 128, 3)
-            
-            # Convert BGR to RGB (Unreal's format)
-            rgb_array = img_array[:, :, ::-1]  # Reverse color channels
+            rgb_array = img_array[:, :, ::-1]  # BGR to RGB conversion
             
             # Update image display
             self.img_display.set_data(rgb_array)
-            self.ax_img.set_title(f"Frame: {self.image_count} ({1/dt:.1f} FPS)")
+            fps = 1.0 / dt if dt > 0 else 0
+            self.ax_img.set_title(f"Frame: {self.image_count} ({fps:.1f} FPS)")
+            self.image_count += 1
             
-            # Check for black images
             if np.mean(rgb_array) < 5:
                 self.get_logger().warn("Received mostly black image!")
             

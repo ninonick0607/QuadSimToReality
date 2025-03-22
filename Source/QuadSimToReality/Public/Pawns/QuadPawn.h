@@ -82,15 +82,6 @@ public:
 	FString PawnLocalID;
 
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
-	UTextureRenderTarget2D* RenderTarget;
-
-	UPROPERTY(VisibleAnywhere, Category = "Camera")
-	USceneCaptureComponent2D* SceneCapture;
-	
-	UFUNCTION(BlueprintCallable, Category = "Camera")
-	void CaptureCameraImage(TArray<uint8>& OutImageData);
-
-	UPROPERTY(VisibleAnywhere, Category = "Camera")
 	bool bIsFPVActive = true;
 	// --- Helper Functions ---
 	void SwitchCamera() const;
@@ -105,8 +96,6 @@ protected:
 
 private:
 	
-	bool bFirstCapture = true;
-	TArray<FColor> PixelData;
 	void UpdateControl(float DeltaTime);
 	UPROPERTY(VisibleAnywhere)
 	UInputComponent* Input_ToggleImguiInput;
