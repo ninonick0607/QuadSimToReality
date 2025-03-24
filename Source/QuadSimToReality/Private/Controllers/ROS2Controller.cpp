@@ -2,6 +2,9 @@
 #include "ROS2Node.h"
 #include "Kismet/GameplayStatics.h"
 #include "Async/Async.h"
+#include "Msgs/ROS2Float32.h"
+#include "Msgs/ROS2Float64.h"
+#include "Msgs/ROS2Str.h"
 
 AROS2Controller::AROS2Controller()
 {
@@ -28,8 +31,17 @@ void AROS2Controller::BeginPlay()
         return;
     }
 
+    UE_LOG(LogTemp, Warning, TEXT("ROS2Controller: Initializing with namespace '%s'"), *Namespace);
+    
     // Initialize ROS2 node
+    Node->Name = NodeName;
+    Node->Namespace = Namespace;
     Node->Init();
+    
+    // Log the fully qualified topic names
+    UE_LOG(LogTemp, Warning, TEXT("Position topic: %s"), *PositionTopicName);
+    UE_LOG(LogTemp, Warning, TEXT("Image topic: %s"), *ImageTopicName);
+    UE_LOG(LogTemp, Warning, TEXT("Obstacle topic: %s"), *ObstacleTopicName);
 
     // Setup position publisher
     ROS2_CREATE_LOOP_PUBLISHER_WITH_QOS(
@@ -57,6 +69,21 @@ void AROS2Controller::BeginPlay()
         ImagePublisher
     );
 
+    SetupObstacleManager();
+    
+    UE_LOG(LogTemp, Warning, TEXT("Setting up obstacle subscriber on topic: %s"), *ObstacleTopicName);
+    
+    // Create obstacle subscriber with standard macro
+    ROS2_CREATE_SUBSCRIBER(
+        Node,
+        this,
+        ObstacleTopicName,
+        UROS2Float64Msg::StaticClass(),
+        &AROS2Controller::HandleObstacleMessage
+    );
+    
+    UE_LOG(LogTemp, Warning, TEXT("Obstacle subscriber created successfully"));
+
     // Initialize image capture system
     InitializeImageCapture();
 
@@ -72,7 +99,6 @@ void AROS2Controller::BeginPlay()
         );
     }
 }
-
 void AROS2Controller::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
     GetWorld()->GetTimerManager().ClearTimer(CaptureTimerHandle);
@@ -175,15 +201,16 @@ void AROS2Controller::ProcessCapturedImage(const TArray<FColor>& Pixels)
     FROSImg ImageMsg;
     ImageMsg.Height = ImageResolution.Y;
     ImageMsg.Width = ImageResolution.X;
-    ImageMsg.Encoding = "rgb8";
+    ImageMsg.Encoding = "bgr8";  // Change to bgr8 since we're sending in BGR order
     ImageMsg.Step = ImageResolution.X * 3;
     ImageMsg.Data.Reserve(Pixels.Num() * 3);
 
     for (const FColor& Pixel : Pixels)
     {
-        ImageMsg.Data.Add(Pixel.R);  
-        ImageMsg.Data.Add(Pixel.G);  
+        // Store in BGR order to match the expected format
         ImageMsg.Data.Add(Pixel.B);  
+        ImageMsg.Data.Add(Pixel.G);  
+        ImageMsg.Data.Add(Pixel.R);  
     }
 
     if (IsValid(ImagePublisher) && IsValid(ImagePublisher->TopicMessage))
@@ -192,6 +219,8 @@ void AROS2Controller::ProcessCapturedImage(const TArray<FColor>& Pixels)
         {
             Msg->SetMsg(ImageMsg);
             ImagePublisher->Publish();
+            // UE_LOG(LogTemp, Display, TEXT("Published image: %dx%d, %d bytes"), 
+            //        ImageResolution.X, ImageResolution.Y, static_cast<int32>(ImageMsg.Data.Num()));
         }
     }
     else 
@@ -216,15 +245,79 @@ void AROS2Controller::UpdatePositionMessage(UROS2GenericMsg* InMessage)
     PositionMsg.Z = WorldPosition.Z;
 
     CastChecked<UROS2PointMsg>(InMessage)->SetMsg(PositionMsg);
-    
-    if(++UpdateCount % 10 == 0)  
-    {
-        UE_LOG(LogTemp, Display, TEXT("Position Update: X=%.2f, Y=%.2f, Z=%.2f"), 
-            WorldPosition.X, WorldPosition.Y, WorldPosition.Z);
-    }
 }
 
 void AROS2Controller::UpdateImageMessage(UROS2GenericMsg* InMessage)
 {
     // Empty - now handled by timer-based capture system
+}
+
+void AROS2Controller::SetupObstacleManager()
+{
+    // Try to find existing obstacle manager
+    TArray<AActor*> FoundActors;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), AObstacleManager::StaticClass(), FoundActors);
+    
+    if (FoundActors.Num() > 0)
+    {
+        ObstacleManagerInstance = Cast<AObstacleManager>(FoundActors[0]);
+        UE_LOG(LogTemp, Display, TEXT("ROS2Controller: Found existing ObstacleManager: %s"), 
+            *ObstacleManagerInstance->GetName());
+    }
+    else
+    {
+        // Try to spawn a new obstacle manager
+        FActorSpawnParameters SpawnParams;
+        SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+        ObstacleManagerInstance = GetWorld()->SpawnActor<AObstacleManager>(AObstacleManager::StaticClass(), 
+                                                                           FVector::ZeroVector, 
+                                                                           FRotator::ZeroRotator, 
+                                                                           SpawnParams);
+        if (ObstacleManagerInstance)
+        {
+            UE_LOG(LogTemp, Display, TEXT("ROS2Controller: Spawned new ObstacleManager"));
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("ROS2Controller: Failed to spawn ObstacleManager"));
+        }
+    }
+
+    if (ObstacleManagerInstance)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("ObstacleManager status: Valid=%d, Name=%s"), 
+            IsValid(ObstacleManagerInstance),
+            *ObstacleManagerInstance->GetName());
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("ObstacleManagerInstance is NULL after setup!"));
+    }
+}
+
+void AROS2Controller::HandleObstacleMessage(const UROS2GenericMsg* InMsg)
+{
+    // Log every incoming message
+    UE_LOG(LogTemp, Warning, TEXT("Obstacle message received!"));
+    
+    const UROS2Float64Msg* Float64Msg = Cast<UROS2Float64Msg>(InMsg);
+    if (!Float64Msg)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Invalid message type!"));
+        return;
+    }
+    
+    FROSFloat64 RosMsg;
+    Float64Msg->GetMsg(RosMsg);
+    float ObstacleCount = RosMsg.Data;
+    
+    UE_LOG(LogTemp, Display, TEXT("Received obstacle count: %f"), ObstacleCount);
+    
+    // Only create obstacles if the count is positive and manager exists
+    if (ObstacleCount > 0.0f && ObstacleManagerInstance)
+    {
+        int32 Count = FMath::RoundToInt(ObstacleCount); // Convert float to int
+        UE_LOG(LogTemp, Warning, TEXT("Creating %d obstacles"), Count);
+        ObstacleManagerInstance->CreateObstacles(Count, EGoalPosition::Random);
+    }
 }
