@@ -159,7 +159,7 @@ AActor* AObstacleManager::SpawnGoal(EGoalPosition Position) {
     // Spawn parameters
     FActorSpawnParameters SpawnParams;
     SpawnParams.Owner = this;
-    // REMOVE THIS LINE: SpawnParams.Template = GoalClass; 
+
     SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
     
     // Create goal actor using the class directly
@@ -183,17 +183,22 @@ void AObstacleManager::CreateObstacles(int32 NumObstacles, EGoalPosition GoalPos
         }
     }
     
-    // Spawn goal
-    SpawnedGoal = SpawnGoal(GoalPos);
+    // Handle Random goal position here, before spawning the goal
+    EGoalPosition ActualGoalPos = GoalPos;
+    if (ActualGoalPos == EGoalPosition::Random) {
+        ActualGoalPos = static_cast<EGoalPosition>(FMath::RandRange(0, 3));
+    }
     
-    // Move drone to opposite of goal
-    MoveDroneToOppositeOfGoal(GoalPos);
+    // Spawn goal with the actual position
+    SpawnedGoal = SpawnGoal(ActualGoalPos);
+    
+    // Move drone to opposite of the actual goal position
+    MoveDroneToOppositeOfGoal(ActualGoalPos);
     
     VisualizeSpawnBoundaries(true);
 
     UE_LOG(LogTemp, Display, TEXT("Created %d obstacles and 1 goal, drone placed opposite"), NumObstacles);
 }
-
 void AObstacleManager::ClearObstacles() {
     // Clear any existing debug drawings first
     FlushPersistentDebugLines(GetWorld());
@@ -263,43 +268,49 @@ void AObstacleManager::MoveDroneToOppositeOfGoal(EGoalPosition GoalPos) {
         GoalPos = static_cast<EGoalPosition>(FMath::RandRange(0, 3));
     }
     
+    // Calculate center point
     FVector CenterPoint = GetActorLocation();
     float HalfOuterSize = OuterBoundarySize * 0.5f;
     
     // Get the opposite position
     EGoalPosition OppositePos = GetOppositePosition(GoalPos);
     
-    // Calculate the drone location directly on the opposite face
-    FVector DroneLocation = CenterPoint;
-    FRotator FacingRotation;
+    UE_LOG(LogTemp, Display, TEXT("Goal position: %d, Opposite position: %d"), 
+           static_cast<int>(GoalPos), static_cast<int>(OppositePos));
     
-    // Explicitly set the position based on which face we need
+    // Calculate the drone location based on the opposite position
+    // We can't use GetPositionLocation here as it might be using the same logic as for goal placement
+    FVector DroneLocation = CenterPoint;
+    FRotator FacingRotation(0.0f, 0.0f, 0.0f);
+    
+    // It's important to use OppositePos here, not GoalPos
     switch (OppositePos) {
         case EGoalPosition::Front:
             DroneLocation.X = CenterPoint.X + HalfOuterSize;
-            FacingRotation = FRotator(0.0f, 180.0f, 0.0f); // Face inward
+            FacingRotation.Yaw = 180.0f; // Face -X (inward)
             break;
-            
         case EGoalPosition::Back:
             DroneLocation.X = CenterPoint.X - HalfOuterSize;
-            FacingRotation = FRotator(0.0f, 0.0f, 0.0f); // Face inward
+            FacingRotation.Yaw = 0.0f;   // Face +X (inward)
             break;
-            
         case EGoalPosition::Left:
             DroneLocation.Y = CenterPoint.Y + HalfOuterSize;
-            FacingRotation = FRotator(0.0f, 270.0f, 0.0f); // Face inward
+            FacingRotation.Yaw = 270.0f; // Face -Y (inward)
             break;
-            
         case EGoalPosition::Right:
             DroneLocation.Y = CenterPoint.Y - HalfOuterSize;
-            FacingRotation = FRotator(0.0f, 90.0f, 0.0f); // Face inward
+            FacingRotation.Yaw = 90.0f;  // Face +Y (inward)
             break;
-            
         default:
+            // Should never get here since we handle Random above
             break;
     }
     
     DroneLocation.Z = ObstacleSpawnHeight; // Set proper height
+    
+    // Additional logging for debugging
+    UE_LOG(LogTemp, Display, TEXT("Moving drone to %s based on opposite position %d"), 
+           *DroneLocation.ToString(), static_cast<int>(OppositePos));
     
     // Find all drones in the world and teleport them to this location
     TArray<AActor*> FoundDrones;
@@ -323,11 +334,6 @@ void AObstacleManager::MoveDroneToOppositeOfGoal(EGoalPosition GoalPos) {
                 RootPrim->SetPhysicsLinearVelocity(FVector::ZeroVector);
                 RootPrim->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
             }
-            
-            UE_LOG(LogTemp, Display, TEXT("Moved drone to %s (opposite of %s): Location=%s"),
-                   *UEnum::GetValueAsString(TEXT("EGoalPosition"), OppositePos),
-                   *UEnum::GetValueAsString(TEXT("EGoalPosition"), GoalPos),
-                   *DroneLocation.ToString());
         }
     } else {
         UE_LOG(LogTemp, Warning, TEXT("No drones found in the world!"));
