@@ -17,12 +17,19 @@ struct FDroneConfigData
 		float MinAltitudeLocal;
 		float AcceptableDistance;
 	} FlightParams;
-	
+
 	struct FControllerParameters {
 		float AltitudeRate;
 		float YawRate;
 		float MinVelocityForYaw;
 	} ControllerParams;
+
+	struct FObstacleParameters
+	{
+		float InnerBoundarySize;
+		float OuterBoundarySize;
+		float SpawnHeight;
+	} ObstacleParams;
 };
 
 UCLASS()
@@ -36,6 +43,7 @@ public:
 	static UDroneJSONConfig& Get();
 	bool LoadConfig();
 	bool ReloadConfig();
+
 	FDroneConfigData Config;
 
 private:

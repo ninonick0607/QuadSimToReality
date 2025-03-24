@@ -60,7 +60,14 @@ bool UDroneJSONConfig::LoadConfig()
         (*ControllerParams)->TryGetNumberField(TEXT("yaw_rate"), Config.ControllerParams.YawRate);
         (*ControllerParams)->TryGetNumberField(TEXT("min_velocity_for_yaw"), Config.ControllerParams.MinVelocityForYaw);
     }
-
+    
+    const TSharedPtr<FJsonObject>* ObstacleParams;
+    if (JsonObject->TryGetObjectField(TEXT("obstacle_parameters"), ObstacleParams))
+    {
+        (*ObstacleParams)->TryGetNumberField(TEXT("outer_boundary"), Config.ObstacleParams.OuterBoundarySize);
+        (*ObstacleParams)->TryGetNumberField(TEXT("inner_boundary"), Config.ObstacleParams.InnerBoundarySize);
+        (*ObstacleParams)->TryGetNumberField(TEXT("spawn_height"), Config.ObstacleParams.SpawnHeight);
+    }
     return true;
 }
 

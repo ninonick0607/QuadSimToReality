@@ -50,8 +50,6 @@ public:
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
 	UCameraComponent* CameraFPV;
 	
-	UPROPERTY(VisibleAnywhere, Category = "Camera")
-	USceneComponent* CameraParent;
 	// --- Thruster Components ---
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TArray<UStaticMeshComponent*> Propellers;
@@ -81,12 +79,11 @@ public:
 	UPROPERTY(VisibleAnywhere)
 	FString PawnLocalID;
 
-	UPROPERTY(VisibleAnywhere, Category = "Camera")
-	bool bIsFPVActive = true;
 	// --- Helper Functions ---
 	void SwitchCamera() const;
 	void ToggleImguiInput();
 	void ReloadJSONConfig();
+
 	// This helper is used by the controller to get the drone�s mass.
 	float GetMass() { return DroneBody->GetMass(); };
 
@@ -95,8 +92,10 @@ protected:
 	virtual void BeginPlay() override;
 
 private:
-	
+	// Updates control each tick.
 	void UpdateControl(float DeltaTime);
+	
+
 	UPROPERTY(VisibleAnywhere)
 	UInputComponent* Input_ToggleImguiInput;
 };

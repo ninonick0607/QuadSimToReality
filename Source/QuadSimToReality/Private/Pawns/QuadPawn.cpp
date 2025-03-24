@@ -5,8 +5,6 @@
 #include "Math/UnrealMathUtility.h"
 #include "Core/DroneJSONConfig.h"
 #include "Engine/Engine.h"
-#include "Components/SceneCaptureComponent2D.h"
-#include "Engine/TextureRenderTarget2D.h"
 #include "Kismet/GameplayStatics.h"
 
 #define EPSILON 0.0001f
@@ -27,10 +25,9 @@ AQuadPawn::AQuadPawn()
 	DroneBody->SetSimulatePhysics(true);
 
 	CameraFPV = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraFPV"));
-	CameraFPV->SetupAttachment(DroneBody, TEXT("FPVCam"));  // Attach to FPVCam socket
+	CameraFPV->SetupAttachment(DroneBody,TEXT("FPVCam"));
 	CameraFPV->SetRelativeScale3D(FVector(0.1f));
-	CameraFPV->SetActive(true);
-	
+
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(DroneBody);
 
@@ -71,10 +68,8 @@ AQuadPawn::AQuadPawn()
 
 	// Create additional components
 	ImGuiUtil = CreateDefaultSubobject<UImGuiUtil>(TEXT("DroneImGuiUtil"));
-	
+
 	AutoPossessPlayer = EAutoReceiveInput::Player0;
-	
-					
 }
 
 void AQuadPawn::BeginPlay()
@@ -168,4 +163,3 @@ void AQuadPawn::ReloadJSONConfig()
 {
 	UDroneJSONConfig::Get().ReloadConfig();
 }
-
