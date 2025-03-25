@@ -200,16 +200,16 @@ if __name__ == "__main__":
 
     # Create the environment
     env = QuadSimEnv()
-    acc = 0
-    start = time.time()
-    while True:
-        if env.get_data() is not None:
-            acc += 1
-            current = time.time()
-            print(f"fps: {acc / (current - start + 1e-10)}")
+    # acc = 0
+    # start = time.time()
+    # while True:
+    #     if env.get_data() is not None:
+    #         acc += 1
+    #         current = time.time()
+    #         print(f"fps: {acc / (current - start + 1e-10)}")
 
-    # time.sleep(2.0)  # Give time for the subscriber to connect
-    # env.send_obstacle_command(150,True)
+    time.sleep(2.0)  # Give time for the subscriber to connect
+    env.send_obstacle_command(150,True)
     # Load the model
     # model = PPO.load(best_model_path)
 
