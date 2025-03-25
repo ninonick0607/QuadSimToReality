@@ -70,6 +70,9 @@ public:
 
     bool IsHoverModeActive() const { return bHoverModeActive; }
     void SetHoverMode(bool bActive);
+
+    bool GetDebugVisualsEnabled() const { return bDebugVisualsEnabled; }
+    void SetDebugVisualsEnabled(bool bEnabled) { bDebugVisualsEnabled = bEnabled; }
 private:
     
     UPROPERTY()
@@ -88,8 +91,8 @@ private:
     
     bool initialTakeoff;
     bool altitudeReached;
-    bool Debug_DrawDroneCollisionSphere;
-    bool Debug_DrawDroneWaypoint;
+    bool bDebugVisualsEnabled = false; 
+
     
     double MaxAngularVelocity;
     double YawTorqueForce;

@@ -82,6 +82,12 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 			Controller->SetManualThrustMode(bLocalManualMode);
 		}
 	}
+
+	bool currentDebugState = Controller->GetDebugVisualsEnabled();
+	if (ImGui::Checkbox("Debug Visuals", &currentDebugState))
+	{
+		Controller->SetDebugVisualsEnabled(currentDebugState);
+	}
 	// Display drone info and various UI elements
 	DisplayDroneInfo();
 	ImGui::SliderFloat("Max velocity", &maxVelocity, 0.0f, 600.0f);
