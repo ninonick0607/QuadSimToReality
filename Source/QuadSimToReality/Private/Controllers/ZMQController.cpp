@@ -102,6 +102,33 @@ void AZMQController::BeginPlay()
         UE_LOG(LogTemp, Warning, TEXT("ZMQController: No DroneManager found in the level."));
     }
 
+    // Check and initialize the ObstacleManager
+    if (!ObstacleManagerInstance) {
+        TArray<AActor*> FoundActors;
+        UGameplayStatics::GetAllActorsOfClass(GetWorld(), AObstacleManager::StaticClass(), FoundActors);
+        
+        if (FoundActors.Num() > 0) {
+            ObstacleManagerInstance = Cast<AObstacleManager>(FoundActors[0]);
+            UE_LOG(LogTemp, Display, TEXT("Found ObstacleManager: %s"), 
+                *ObstacleManagerInstance->GetName());
+        } else {
+            UE_LOG(LogTemp, Warning, TEXT("No ObstacleManager found in level! Will try to spawn one."));
+            
+            // Try to spawn an ObstacleManager if none exists
+            FActorSpawnParameters SpawnParams;
+            SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+            ObstacleManagerInstance = GetWorld()->SpawnActor<AObstacleManager>(AObstacleManager::StaticClass(), 
+                                                                               FVector::ZeroVector, 
+                                                                               FRotator::ZeroRotator, 
+                                                                               SpawnParams);
+            if (ObstacleManagerInstance) {
+                UE_LOG(LogTemp, Display, TEXT("Spawned new ObstacleManager"));
+            } else {
+                UE_LOG(LogTemp, Error, TEXT("Failed to spawn ObstacleManager"));
+                return;
+            }
+        }
+    }
 
 }
 
@@ -325,6 +352,8 @@ void AZMQController::SendStateData()
 
     FVector CurrentVelocity = RootPrimitive->GetPhysicsLinearVelocity();
     FVector CurrentPosition = DronePawn->GetActorLocation();
+    CurrentGoalPosition = ObstacleManagerInstance->GetObstaclePosition();
+    UE_LOG(LogTemp, Display, TEXT("Goal Position is: %f %f %f"),CurrentGoalPosition.X, CurrentGoalPosition.Y,CurrentGoalPosition.Z);
 
     try
     {

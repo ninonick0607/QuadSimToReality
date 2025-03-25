@@ -69,7 +69,8 @@ public:
     // This property is used to point to the drone this controller is responsible for.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="ZMQ")
     AQuadPawn* TargetPawn;
-    
+    UPROPERTY(EditAnywhere, Category = "ZMQ")
+    AObstacleManager* ObstacleManager;
  
 protected:
     virtual void BeginPlay() override;
@@ -94,6 +95,7 @@ private:
     TSharedPtr<zmq::socket_t> CommandSocket;
     TSharedPtr<zmq::socket_t> ControlSocket;
     TSharedPtr<zmq::socket_t> ObstacleSocket;
+    UPROPERTY()
     AObstacleManager* ObstacleManagerInstance;
     UPROPERTY(EditAnywhere, Category = "ZMQ")
     FZMQConfiguration Configuration;

@@ -18,7 +18,7 @@ enum class EGoalPosition : uint8
 UCLASS(Blueprintable)
 class QUADSIMTOREALITY_API AObstacleManager : public AActor {
     GENERATED_BODY()
-    
+
 public:
     AObstacleManager();
     
@@ -35,47 +35,53 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Obstacle Settings")
     TSubclassOf<AActor> ObstacleClass;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Obstacle Settings") 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Obstacle Settings")
     TSubclassOf<AActor> GoalClass;
-    
+   
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     UStaticMeshComponent* VisualMarker;
-    
+   
     // Main function to create obstacles and goal - called by ZMQ controller
     UFUNCTION(BlueprintCallable, Category = "Obstacles")
     void CreateObstacles(int32 NumObstacles, EGoalPosition GoalPos = EGoalPosition::Random);
-    
+   
     // Clear all obstacles and goal
     UFUNCTION(BlueprintCallable, Category = "Obstacles")
     void ClearObstacles();
 
     UFUNCTION(BlueprintCallable, Category = "Obstacles")
     void MoveDroneToOppositeOfGoal(EGoalPosition GoalPos);
-    
+
+    UFUNCTION(BlueprintCallable, Category = "Obstacles")
+    FVector GetObstaclePosition() const { return GoalPosition; }
+   
 protected:
     virtual void BeginPlay() override;
-    
+   
     // Draw debug visualization with thicker lines
     UFUNCTION(BlueprintCallable, Category = "Debug")
     void VisualizeSpawnBoundaries(bool bPersistentLines = false);
-    
+   
 private:
     // Randomly place a single obstacle within inner boundary
     AActor* SpawnObstacle();
-    
+   
     // Place goal at specified boundary face
     AActor* SpawnGoal(EGoalPosition Position);
-    
+   
     // Get random point within inner boundary
     FVector GetRandomInnerPoint();
 
     EGoalPosition GetOppositePosition(EGoalPosition Position);
     FVector GetPositionLocation(EGoalPosition Position);
-    
+   
     // Store spawned actors for easy cleanup
     UPROPERTY()
     TArray<AActor*> SpawnedObstacles;
-    
+   
     UPROPERTY()
     AActor* SpawnedGoal;
+
+    FVector GoalPosition;
+
 };

@@ -208,8 +208,11 @@ if __name__ == "__main__":
     #         current = time.time()
     #         print(f"fps: {acc / (current - start + 1e-10)}")
 
-    time.sleep(2.0)  # Give time for the subscriber to connect
+    time.sleep(1.0)  # Give time for the subscriber to connect
     env.send_obstacle_command(150,True)
+    time.sleep(1.0)  # Give time for the obstacle to be created
+    env.handle_data()
+    pass
     # Load the model
     # model = PPO.load(best_model_path)
 
