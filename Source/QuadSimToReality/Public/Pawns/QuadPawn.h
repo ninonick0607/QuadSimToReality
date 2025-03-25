@@ -4,7 +4,6 @@
 #include "GameFramework/Pawn.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
-#include "Controllers/ZMQController.h"
 #include "Core/ThrusterComponent.h"
 #include "UI/ImGuiUtil.h"
 #include "QuadPawn.generated.h"

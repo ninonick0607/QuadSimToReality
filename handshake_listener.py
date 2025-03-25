@@ -6,7 +6,7 @@ from sensor_msgs.msg import Image
 from std_msgs.msg import String
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSDurabilityPolicy
 import numpy as np
-from std_msgs.msg import Float64  # Instead of String
+from example_interfaces.msg import Float64
 import time
 import matplotlib.pyplot as plt
 import sys
@@ -51,11 +51,14 @@ class DroneMonitor(Node):
             reliable_qos
         )
         
-        # Publisher for obstacles
         self.obstacle_pub = self.create_publisher(
             Float64,
             '/obstacles',
-            reliable_qos
+            QoSProfile(
+                reliability=QoSReliabilityPolicy.RELIABLE,
+                depth=1,
+                durability=QoSDurabilityPolicy.VOLATILE
+            )
         )
         # Initialize displays
         self.img_display = self.ax_img.imshow(np.zeros((128, 128, 3)),
@@ -73,22 +76,16 @@ class DroneMonitor(Node):
 
 
     def send_obstacle_command(self, obstacleNum):
-        self.get_logger().info(f"===== Sending obstacle command =====")
-        self.get_logger().info(f"Count: {obstacleNum}")
-        
-        # Create and publish Float64 message
         msg = Float64()
         msg.data = float(obstacleNum)
         
-        # Publish multiple times to increase chance of delivery
-        for _ in range(3):
-            self.obstacle_pub.publish(msg)
-            time.sleep(0.1)  # Small delay between publishes
-            
-        self.get_logger().info(f"Obstacle command sent: {obstacleNum}")
+        # Send once with confirmation
+        self.obstacle_pub.publish(msg)
+        self.get_logger().info(f"Sent obstacle count: {obstacleNum}")
         
-        # Also print to stdout for debugging
-        print(f"\n>>> PUBLISHED OBSTACLE COUNT: {obstacleNum} <<<\n")
+        # Verify publication
+        print(f"\n--- PUBLISHED OBSTACLE COUNT: {obstacleNum} ---\n")
+        print(f"Verify with: ros2 topic echo /obstacles")
 
     def image_callback(self, msg):
         try:

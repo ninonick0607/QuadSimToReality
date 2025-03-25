@@ -101,7 +101,7 @@ void UQuadDroneController::Update(double a_deltaTime)
 
 void UQuadDroneController::VelocityControl(double a_deltaTime)
 {
-	// Calls the mapped PID set
+    // Get current PID set and validate drone existence
     FFullPIDSet* CurrentSet = GetPIDSet();
     if (!CurrentSet || !dronePawn)
         return;
@@ -109,6 +109,12 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
     FVector currentPosition = dronePawn->GetActorLocation();
     FVector currentVelocity = dronePawn->GetVelocity();
     FRotator currentRotation = dronePawn->GetActorRotation();
+    
+    // Transform the world velocity to the drone's local coordinates
+    FVector desiredLocalVelocity = dronePawn->GetActorTransform().InverseTransformVector(desiredNewVelocity);
+    FVector currentLocalVelocity = dronePawn->GetActorTransform().InverseTransformVector(currentVelocity);
+    
+    // Extract horizontal velocity for yaw control
     FVector horizontalVelocity = desiredNewVelocity;
     horizontalVelocity.Z = 0;
     
@@ -117,29 +123,21 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
     double x_output = 0.f, y_output = 0.f, z_output = 0.f;
     double roll_output = 0.f, pitch_output = 0.f;
 
-	if (bHoverModeActive)
-	{
-		// Calculate altitude error
-		float altitudeError = hoverTargetAltitude - currentPosition.Z;
-        
-		// Simple P controller for altitude (you can tune this value)
-		float altitudeKp = 0.5f;
-        
-		// Adjust Z velocity component based on altitude error
-		// Add this to the fixed hover velocity of 28.0f
-		float zAdjustment = altitudeError * altitudeKp;
-        
-		// Clamp the adjustment to prevent too aggressive corrections
-		zAdjustment = FMath::Clamp(zAdjustment, -10.0f, 10.0f);
-        
-		// Apply the adjustment to the Z velocity while preserving X and Y
-		desiredNewVelocity.Z = 28.0f + zAdjustment;
-	}
+    // Process hover mode logic
+    if (bHoverModeActive)
+    {
+        // Calculate altitude error
+        float altitudeError = hoverTargetAltitude - currentPosition.Z;
+        float altitudeKp = 0.5f;
+        float zAdjustment = altitudeError * altitudeKp;
+        zAdjustment = FMath::Clamp(zAdjustment, -10.0f, 10.0f);
+        desiredLocalVelocity.Z = 28.0f + zAdjustment;
+    }
     
-	
     if (!bManualThrustMode)
     {
-        FVector velocityError = desiredNewVelocity - currentVelocity;
+        // Calculate PID outputs based on local velocity errors
+        FVector velocityError = desiredLocalVelocity - currentLocalVelocity;
         x_output = CurrentSet->XPID->Calculate(velocityError.X, a_deltaTime);
         y_output = CurrentSet->YPID->Calculate(velocityError.Y, a_deltaTime);
         z_output = CurrentSet->ZPID->Calculate(velocityError.Z, a_deltaTime);
@@ -149,21 +147,22 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
         roll_output = CurrentSet->RollPID->Calculate(roll_error, a_deltaTime);
         pitch_output = CurrentSet->PitchPID->Calculate(pitch_error, a_deltaTime);
     
-    	const float VELOCITY_YAW_THRESHOLD = 20.0f;
-    	if (horizontalVelocity.SizeSquared() > VELOCITY_YAW_THRESHOLD)
-    	{
-    		horizontalVelocity.Normalize();
-    		desiredForwardVector = FVector(horizontalVelocity.X, horizontalVelocity.Y, 0.0f).GetSafeNormal();
+        // Yaw calculation based on horizontal velocity for direction
+        const float VELOCITY_YAW_THRESHOLD = 20.0f;
+        if (horizontalVelocity.SizeSquared() > VELOCITY_YAW_THRESHOLD)
+        {
+            horizontalVelocity.Normalize();
+            desiredForwardVector = FVector(horizontalVelocity.X, horizontalVelocity.Y, 0.0f).GetSafeNormal();
 
-    		float rawDesiredYaw = FMath::RadiansToDegrees(FMath::Atan2(horizontalVelocity.X, -horizontalVelocity.Y));
-    		float normalizedDesiredYaw = FMath::UnwindDegrees(rawDesiredYaw);
-    		desiredYaw = normalizedDesiredYaw;
-        
-    		// Debug info
-    		UE_LOG(LogTemp, Display, TEXT("Velocity Direction: X=%.2f, Y=%.2f, DesiredForward: X=%.2f, Y=%.2f"),
-				  horizontalVelocity.X, horizontalVelocity.Y, desiredForwardVector.X, desiredForwardVector.Y);
-    	}
+            float rawDesiredYaw = FMath::RadiansToDegrees(FMath::Atan2(horizontalVelocity.X, -horizontalVelocity.Y));
+            float normalizedDesiredYaw = FMath::UnwindDegrees(rawDesiredYaw);
+            desiredYaw = normalizedDesiredYaw;
+            
+            UE_LOG(LogTemp, Display, TEXT("Velocity Direction: X=%.2f, Y=%.2f, DesiredForward: X=%.2f, Y=%.2f"),
+                  horizontalVelocity.X, horizontalVelocity.Y, desiredForwardVector.X, desiredForwardVector.Y);
+        }
     
+        // Apply thrust mixing with body-relative outputs
         ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
     }
     else
@@ -172,9 +171,9 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
     }
     
     YawStabilization(a_deltaTime);
-	DrawDebugVisuals(horizontalVelocity);
+    DrawDebugVisuals(horizontalVelocity);
 
-
+    // Update UI if needed
     if (dronePawn && dronePawn->ImGuiUtil)
     {
         ADroneManager* Manager = Cast<ADroneManager>(UGameplayStatics::GetActorOfClass(dronePawn->GetWorld(), ADroneManager::StaticClass()));
@@ -185,11 +184,11 @@ void UQuadDroneController::VelocityControl(double a_deltaTime)
             AQuadPawn* selectedPawn = (DroneList.IsValidIndex(idx)) ? DroneList[idx] : nullptr;
             if (dronePawn == selectedPawn)
             {
-                dronePawn->ImGuiUtil->VelocityHud(Thrusts, roll_output, pitch_output, currentRotation,FVector::ZeroVector, currentPosition, FVector::ZeroVector,currentVelocity, x_output, y_output, z_output, a_deltaTime);
-            	//FVector currentForwardVector = dronePawn->GetActorForwardVector();
-            	//dronePawn->ImGuiUtil->RenderImPlot(Thrusts, desiredForwardVector, currentForwardVector, a_deltaTime);
+                dronePawn->ImGuiUtil->VelocityHud(Thrusts, roll_output, pitch_output, currentRotation, 
+                    FVector::ZeroVector, currentPosition, FVector::ZeroVector, currentVelocity, 
+                    x_output, y_output, z_output, a_deltaTime);
             }
-        }	
+        }    
     }
 }
 

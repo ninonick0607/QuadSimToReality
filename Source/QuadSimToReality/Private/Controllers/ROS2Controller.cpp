@@ -291,33 +291,27 @@ void AROS2Controller::SetupObstacleManager()
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("ObstacleManagerInstance is NULL after setup!"));
+        UE_LOG(LogTemp, Error, TEXT("ObstacleManagerInstance .0is NULL after setup!"));
     }
 }
 
 void AROS2Controller::HandleObstacleMessage(const UROS2GenericMsg* InMsg)
 {
-    // Log every incoming message
-    UE_LOG(LogTemp, Warning, TEXT("Obstacle message received!"));
-    
     const UROS2Float64Msg* Float64Msg = Cast<UROS2Float64Msg>(InMsg);
     if (!Float64Msg)
     {
-        UE_LOG(LogTemp, Error, TEXT("Invalid message type!"));
+        UE_LOG(LogTemp, Error, TEXT("Invalid message type received!"));
         return;
     }
     
     FROSFloat64 RosMsg;
     Float64Msg->GetMsg(RosMsg);
-    float ObstacleCount = RosMsg.Data;
+    const int32 ObstacleCount = FMath::RoundToInt(RosMsg.Data);
     
-    UE_LOG(LogTemp, Display, TEXT("Received obstacle count: %f"), ObstacleCount);
+    UE_LOG(LogTemp, Display, TEXT("Received valid obstacle count: %d"), ObstacleCount);
     
-    // Only create obstacles if the count is positive and manager exists
-    if (ObstacleCount > 0.0f && ObstacleManagerInstance)
+    if (ObstacleManagerInstance && ObstacleCount > 0)
     {
-        int32 Count = FMath::RoundToInt(ObstacleCount); // Convert float to int
-        UE_LOG(LogTemp, Warning, TEXT("Creating %d obstacles"), Count);
-        ObstacleManagerInstance->CreateObstacles(Count, EGoalPosition::Random);
+        ObstacleManagerInstance->CreateObstacles(ObstacleCount, EGoalPosition::Random);
     }
 }

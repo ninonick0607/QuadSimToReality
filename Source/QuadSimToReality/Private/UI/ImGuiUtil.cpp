@@ -52,28 +52,28 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 	ImGui::SetNextWindowSize(ImVec2(500, 500), ImGuiCond_FirstUseEver);
 
 	// Instead of looking for a component on the pawn, we search the world for our dedicated actor.
-	AZMQController* zmqControllerCurrent = nullptr;
-	TArray<AActor*> FoundActors;
-	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AZMQController::StaticClass(), FoundActors);
-	if (FoundActors.Num() > 0)
-	{
-		zmqControllerCurrent = Cast<AZMQController>(FoundActors[0]);
-	}
+	// AZMQController* zmqControllerCurrent = nullptr;
+	// TArray<AActor*> FoundActors;
+	// UGameplayStatics::GetAllActorsOfClass(GetWorld(), AZMQController::StaticClass(), FoundActors);
+	// if (FoundActors.Num() > 0)
+	// {
+	// 	zmqControllerCurrent = Cast<AZMQController>(FoundActors[0]);
+	// }
 
-	FVector currentGoalState = FVector::ZeroVector;
-	FString droneID = FString("Unknown");
-	if (zmqControllerCurrent && zmqControllerCurrent->IsValidLowLevel())
-	{
-		currentGoalState = zmqControllerCurrent->GetCurrentGoalPosition();
-		droneID = zmqControllerCurrent->GetConfiguration().DroneID;
-	}
+	// FVector currentGoalState = FVector::ZeroVector;
+	// FString droneID = FString("Unknown");
+	// if (zmqControllerCurrent && zmqControllerCurrent->IsValidLowLevel())
+	// {
+	// 	currentGoalState = zmqControllerCurrent->GetCurrentGoalPosition();
+	// 	droneID = zmqControllerCurrent->GetConfiguration().DroneID;
+	// }
 
-	// Use ## to give ImGui a hidden unique identifier
-	FString WindowName = FString::Printf(TEXT("Drone Controller##%s"), *droneID);
-
+	//Use ## to give ImGui a hidden unique identifier
+	FString WindowName = FString::Printf(TEXT("Drone Controller"));
+	
 	ImGui::Begin(TCHAR_TO_UTF8(*WindowName), nullptr, ImGuiWindowFlags_AlwaysVerticalScrollbar);
 	
-	ImGui::Text("Drone ID: %s", TCHAR_TO_UTF8(*droneID));
+	//ImGui::Text("Drone ID: %s", TCHAR_TO_UTF8(*droneID));
 	static bool bLocalManualMode = false;
 	if (ImGui::Checkbox("Manual Thrust Mode", &bLocalManualMode))
 	{
@@ -172,7 +172,7 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 	ImGui::Text("Position Error X, Y, Z: %.2f, %.2f, %.2f", error.X, error.Y, error.Z);
 	ImGui::Spacing();
 	ImGui::Text("Velocity Command Received X, Y, Z: %.2f, %.2f, %.2f", currentDesiredVelocity.X, currentDesiredVelocity.Y, currentDesiredVelocity.Z);
-	ImGui::Text("Current Goal State X, Y, Z: %.2f, %.2f, %.2f", currentGoalState.X, currentGoalState.Y, currentGoalState.Z);
+	// ImGui::Text("Current Goal State X, Y, Z: %.2f, %.2f, %.2f", currentGoalState.X, currentGoalState.Y, currentGoalState.Z);
 	ImGui::Spacing();
 
 	static bool syncXY = false;
