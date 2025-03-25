@@ -53,7 +53,7 @@ void AZMQController::Initialize(AQuadPawn* InPawn, UQuadDroneController* InDrone
     UE_LOG(LogTemp, Display, TEXT("ZMQController initialized with DroneID: %s"), *Configuration.DroneID);
 
     InitializeZMQ();
-    //InitializeImageCapture();
+    InitializeImageCapture();
     
 }
 
@@ -423,7 +423,7 @@ void AZMQController::ProcessImageCapture()
                         try
                         {
                             zmq::multipart_t Message;
-                            Message.addstr(TCHAR_TO_UTF8(*Configuration.DroneID));
+                            // Message.addstr(TCHAR_TO_UTF8(*Configuration.DroneID));
                             Message.addmem(CompressedData.GetData(), CompressedData.Num());
                             Message.send(*PublishSocket, static_cast<int>(zmq::send_flags::none));
                         }

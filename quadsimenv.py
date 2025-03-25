@@ -2,10 +2,12 @@ import gymnasium as gym
 import numpy as np
 import zmq
 import time
-import cv2  
+import cv2 
+import matplotlib.pyplot as plt
 import glob 
 import os
 import struct
+from collections import OrderedDict
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback, BaseCallback
 from stable_baselines3.common.monitor import Monitor
@@ -39,11 +41,13 @@ class QuadSimEnv(gym.Env):
         self.goal_state = np.zeros(3, dtype=np.float32)
         self.prev_goal_state = np.zeros(3, dtype=np.float32)
         self.prev_action = 0.0  
-        self.prev_velocity = 0.0  
+        self.prev_velocity = 0.0
+        self.image = np.zeros((128, 128, 3), dtype=np.uint8)  # Placeholder for image 
         self.context = zmq.Context()
 
         # Subscriber socket for receiving images
         self.image_socket = self.context.socket(zmq.SUB)
+        self.image_socket.setsockopt(zmq.CONFLATE, 1)
         self.image_socket.connect("tcp://localhost:5557")
         self.image_socket.setsockopt_string(zmq.SUBSCRIBE, '')
 
@@ -102,11 +106,17 @@ class QuadSimEnv(gym.Env):
             print("Terminating episode due to distance:", z_distance)
         done = (self.steps >= 128) or (z_distance > 505) # 128 steps or more than 505 cm away from target (505 instead of 500 so that the ground is not terminal)
         info = {'height': current_z, 'target': target_z, 'distance': z_distance}
-        self.steps += 1
         
         observation = self.get_observation()
+        if self.steps % 5 == 0:
+            self.image = self.get_data()
+        complete_obs = OrderedDict([
+            ('pixels', self.image),
+            ('observation', observation)
+        ])
 
-        return observation, reward, done, False, info
+        self.steps += 1
+        return complete_obs, reward, done, False, info
 
     def send_velocity_command(self, velocity):
         command_topic = "VELOCITY"
@@ -161,7 +171,7 @@ class QuadSimEnv(gym.Env):
         
     def get_data(self):
         try:
-            [topic, message] = self.image_socket.recv_multipart(flags=zmq.NOBLOCK)
+            message = self.image_socket.recv_multipart(flags=zmq.NOBLOCK)[0]
             image_data = np.frombuffer(message, dtype=np.uint8)
             image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
             if image is not None:
@@ -170,7 +180,10 @@ class QuadSimEnv(gym.Env):
             else:
                 print("Image decode failed.")
             return image if image is not None else None
-        except (zmq.Again, Exception) as e:
+        except zmq.Again:
+            return None
+        except Exception as e:
+            print(f"Error receiving image: {str(e)}")
             return None
 
 # Lower architecture to 8x8, 16x16 or even 32x32
@@ -187,8 +200,16 @@ if __name__ == "__main__":
 
     # Create the environment
     env = QuadSimEnv()
-    time.sleep(2.0)  # Give time for the subscriber to connect
-    env.send_obstacle_command(150,True)
+    acc = 0
+    start = time.time()
+    while True:
+        if env.get_data() is not None:
+            acc += 1
+            current = time.time()
+            print(f"fps: {acc / (current - start + 1e-10)}")
+
+    # time.sleep(2.0)  # Give time for the subscriber to connect
+    # env.send_obstacle_command(150,True)
     # Load the model
     # model = PPO.load(best_model_path)
 
