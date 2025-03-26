@@ -51,7 +51,7 @@ public:
     void VelocityControl(double a_deltaTime);
     void ThrustMixer(double xOutput, double yOutput, double zOutput, double rollOutput, double pitchOutput);
     void YawStabilization(double DeltaTime);
-
+    void YawRateControl(double DeltaTime);
     void ResetPID();
     void ResetDroneIntegral();
     void ResetDroneHigh();
@@ -73,6 +73,20 @@ public:
 
     bool GetDebugVisualsEnabled() const { return bDebugVisualsEnabled; }
     void SetDebugVisualsEnabled(bool bEnabled) { bDebugVisualsEnabled = bEnabled; }
+    void SetDesiredYawRate(float NewYawRate) { desiredYawRate = NewYawRate; }
+
+    UPROPERTY()
+    float desiredYawRate;
+
+    UPROPERTY()
+    float desiredRoll;    // desired roll angle (in degrees)
+
+    UPROPERTY()
+    float desiredPitch;   // desired pitch angle (in degrees)
+
+    // Optionally, add setter functions:
+    void SetDesiredRoll(float NewRoll) { desiredRoll = NewRoll; }
+    void SetDesiredPitch(float NewPitch) { desiredPitch = NewPitch; }
 private:
     
     UPROPERTY()

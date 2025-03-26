@@ -55,6 +55,18 @@ void AROS2Controller::BeginPlay()
         UROS2QoS::Services,
         PositionPublisher
     );
+    
+    ROS2_CREATE_LOOP_PUBLISHER_WITH_QOS(
+        Node,
+        this,
+        PositionGoalTopicName,
+        UROS2Publisher::StaticClass(),
+        UROS2PointMsg::StaticClass(),
+        GoalFrequenzyHz,
+        &AROS2Controller::UpdateGoalPositionMessage,
+        UROS2QoS::Services,
+        GoalPosition
+    );
 
     // Setup image publisher
     ROS2_CREATE_LOOP_PUBLISHER_WITH_QOS(
@@ -219,8 +231,6 @@ void AROS2Controller::ProcessCapturedImage(const TArray<FColor>& Pixels)
         {
             Msg->SetMsg(ImageMsg);
             ImagePublisher->Publish();
-            // UE_LOG(LogTemp, Display, TEXT("Published image: %dx%d, %d bytes"), 
-            //        ImageResolution.X, ImageResolution.Y, static_cast<int32>(ImageMsg.Data.Num()));
         }
     }
     else 
@@ -245,6 +255,19 @@ void AROS2Controller::UpdatePositionMessage(UROS2GenericMsg* InMessage)
     PositionMsg.Z = WorldPosition.Z;
 
     CastChecked<UROS2PointMsg>(InMessage)->SetMsg(PositionMsg);
+}
+
+void AROS2Controller::UpdateGoalPositionMessage(UROS2GenericMsg* InMessage)
+{
+
+    FROSPoint GoalMsg;
+    const FVector GoalLocation = ObstacleManagerInstance->GetActorLocation();
+
+    GoalMsg.X = GoalLocation.X;
+    GoalMsg.Y = GoalLocation.Y;
+    GoalMsg.Z = GoalLocation.Z;
+
+    CastChecked<UROS2PointMsg>(InMessage)->SetMsg(GoalMsg);
 }
 
 void AROS2Controller::UpdateImageMessage(UROS2GenericMsg* InMessage)

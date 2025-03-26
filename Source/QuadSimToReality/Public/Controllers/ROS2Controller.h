@@ -31,11 +31,18 @@ public:
 
     // Position Publishing
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2")
-    FString PositionTopicName = TEXT("/position");
+    FString PositionTopicName = TEXT("/drone/position");
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2")
     float PositionFrequencyHz = 10.f;
 
+    // Goal Publishing
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2")
+    FString PositionGoalTopicName = TEXT("/goal/position");
+    
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2")
+    float GoalFrequenzyHz = 10.f;
+    
     // Image Publishing
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Image")
     FString ImageTopicName = TEXT("/camera/image");
@@ -49,6 +56,9 @@ public:
     UPROPERTY(EditAnywhere, Category = "ROS2")
     AQuadPawn* QuadPawn;
 
+    UPROPERTY(EditAnywhere, Category = "ROS2")
+    AObstacleManager* ObstacleManager;
+    
     // Image Capture System
     UPROPERTY()
     TArray<UTextureRenderTarget2D*> RenderTargets;
@@ -73,6 +83,9 @@ private:
     void UpdatePositionMessage(UROS2GenericMsg* InMessage);
 
     UFUNCTION()
+    void UpdateGoalPositionMessage(UROS2GenericMsg* InMessage);
+
+    UFUNCTION()
     void UpdateImageMessage(UROS2GenericMsg* InMessage);
 
     UFUNCTION()
@@ -87,6 +100,9 @@ private:
 
     UPROPERTY()
     UROS2Publisher* ImagePublisher;
+    
+    UPROPERTY()
+    UROS2Publisher* GoalPosition;
 
     UPROPERTY()
     AObstacleManager* ObstacleManagerInstance;

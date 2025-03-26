@@ -15,7 +15,6 @@ class DroneMonitor(Node):
     def __init__(self):
         super().__init__('drone_monitor')
         
-        # Configure QoS profiles
         reliable_qos = QoSProfile(
             reliability=QoSReliabilityPolicy.RELIABLE,
             depth=10,
@@ -28,13 +27,14 @@ class DroneMonitor(Node):
             durability=QoSDurabilityPolicy.VOLATILE
         )
 
-        # Initialize matplotlib figure
-        self.fig, (self.ax_img, self.ax_pos) = plt.subplots(1, 2, figsize=(12, 6))
+
+        # Create a figure with three subplots: image, position, and goal position
+        self.fig, (self.ax_img, self.ax_pos, self.ax_goal) = plt.subplots(1, 3, figsize=(18, 6))
         plt.ion()
         
         self.get_logger().info("Starting DroneMonitor node")
-        self.get_logger().info(f"Subscribing to topics: /camera/image, /position")
-        self.get_logger().info(f"Publishing to topic: /obstacles")
+        self.get_logger().info("Subscribing to topics: /camera/image, /position, /position/goal")
+        self.get_logger().info("Publishing to topic: /obstacles")
         
         # Subscribers
         self.image_sub = self.create_subscription(
@@ -46,11 +46,18 @@ class DroneMonitor(Node):
         
         self.pos_sub = self.create_subscription(
             Point,
-            '/position',
+            '/drone/position',
             self.position_callback,
             reliable_qos
         )
         
+        self.goalPos_sub = self.create_subscription(
+            Point,
+            '/goal/position',
+            self.goal_position_callback,
+            reliable_qos
+        )
+
         self.obstacle_pub = self.create_publisher(
             Float64,
             '/obstacles',
@@ -60,16 +67,23 @@ class DroneMonitor(Node):
                 durability=QoSDurabilityPolicy.VOLATILE
             )
         )
-        # Initialize displays
-        self.img_display = self.ax_img.imshow(np.zeros((128, 128, 3)),
-                                             interpolation='nearest')
+
+        # Setup image display
+        self.img_display = self.ax_img.imshow(np.zeros((128, 128, 3)), interpolation='nearest')
         self.ax_img.axis('off')
         self.ax_img.set_title("Camera Feed")
         
-        self.pos_text = self.ax_pos.text(0.5, 0.5, 'Waiting for data...', 
-                                       ha='center', va='center', fontsize=12)
+        # Setup drone position display
+        self.pos_text = self.ax_pos.text(0.5, 0.5, 'Waiting for position data...', 
+                                        ha='center', va='center', fontsize=12)
         self.ax_pos.axis('off')
         self.ax_pos.set_title("Drone Position")
+        
+        # Setup goal position display
+        self.goal_text = self.ax_goal.text(0.5, 0.5, 'Waiting for goal data...', 
+                                        ha='center', va='center', fontsize=12)
+        self.ax_goal.axis('off')
+        self.ax_goal.set_title("Goal Position")
         
         self.image_count = 0
         self.last_image_time = self.get_clock().now()
@@ -85,7 +99,7 @@ class DroneMonitor(Node):
         
         # Verify publication
         print(f"\n--- PUBLISHED OBSTACLE COUNT: {obstacleNum} ---\n")
-        print(f"Verify with: ros2 topic echo /obstacles")
+        print("Verify with: ros2 topic echo /obstacles")
 
     def image_callback(self, msg):
         try:
@@ -101,7 +115,7 @@ class DroneMonitor(Node):
             # Extract image data
             img_array = np.frombuffer(msg.data, dtype=np.uint8).reshape(128, 128, 3)
             
-            # Check encoding format - Now expecting bgr8
+            # Check encoding format - now expecting bgr8
             if msg.encoding == "bgr8":
                 rgb_array = img_array[:, :, ::-1]  # BGR to RGB conversion
             else:
@@ -114,7 +128,7 @@ class DroneMonitor(Node):
             self.ax_img.set_title(f"Frame: {self.image_count} ({fps:.1f} FPS)")
             self.image_count += 1
             
-            # Check for mostly black image
+            # Warn if image is mostly black
             if np.mean(rgb_array) < 5:
                 self.get_logger().warn("Received mostly black image!")
             
@@ -130,6 +144,14 @@ class DroneMonitor(Node):
         plt.draw()
         plt.pause(0.001)
 
+    def goal_position_callback(self, msg):
+        # Log the received goal position
+        #self.get_logger().info(f"Goal Position received: X: {msg.x:.2f}, Y: {msg.y:.2f}, Z: {msg.z:.2f}")
+        goal_str = f"Goal (m):\nX: {msg.x:.2f}\nY: {msg.y:.2f}\nZ: {msg.z:.2f}"
+        self.goal_text.set_text(goal_str)
+        plt.draw()
+        plt.pause(0.001)
+
     def destroy_node(self):
         plt.close('all')
         super().destroy_node()
@@ -140,7 +162,7 @@ def main(args=None):
     
     # Wait for connections to establish
     time.sleep(2)
-    
+
     # Get obstacle count from command line if provided
     obstacle_count = 150
     if len(sys.argv) > 1:
@@ -148,10 +170,10 @@ def main(args=None):
             obstacle_count = int(sys.argv[1])
         except ValueError:
             print(f"Invalid obstacle count: {sys.argv[1]}, using default: 150")
-    
+
     # Send obstacle command
     monitor.send_obstacle_command(obstacle_count)
-    
+
     # Spin until interrupted
     try:
         print("Node running. Press Ctrl+C to exit.")
@@ -161,6 +183,7 @@ def main(args=None):
     finally:
         monitor.destroy_node()
         rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()

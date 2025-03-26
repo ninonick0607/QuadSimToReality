@@ -565,20 +565,20 @@ void UImGuiUtil::DisplayDesiredVelocities()
 {
 	ImGui::Text("Desired Velocities");
 
-	// Static variables to hold previous slider values.
+	// Static variables to hold previous slider values
 	static float prevVx = 0.0f;
 	static float prevVy = 0.0f;
 	static float prevVz = 0.0f;
 	static bool firstRun = true;
-	static bool hoverModeActive = false;  // Hover mode flag
-
+     
 	// Reset checkboxes states (we need separate variables for these)
 	static bool resetXChecked = false;
 	static bool resetYChecked = false;
 	static bool resetZChecked = false;
-	
+     
 	FVector currentDesiredVelocity = Controller->GetDesiredVelocity();
-
+	bool hoverModeActive = Controller->IsHoverModeActive();
+	
 	float tempVx = currentDesiredVelocity.X;
 	float tempVy = currentDesiredVelocity.Y;
 	float tempVz = currentDesiredVelocity.Z;
@@ -591,20 +591,20 @@ void UImGuiUtil::DisplayDesiredVelocities()
 
 	if (ImGui::Button(hoverModeActive ? "HOVER MODE ACTIVE" : "ACTIVATE HOVER MODE", ImVec2(200, 35)))
 	{
-		hoverModeActive = !hoverModeActive;
-		if (hoverModeActive)
-		{
-			// Set Z velocity to 70 when activating hover mode
+		// Toggle hover mode through the controller
+		Controller->SetHoverMode(!hoverModeActive);
+         
+		// Update local values to match the new state
+		if (!hoverModeActive)  // It's about to be activated
 			tempVz = 28.0f;
-			velocityChanged = true;
-		}
+             
+		velocityChanged = true;
 	}
 	ImGui::PopStyleColor(3);
-
 	if (hoverModeActive)
 	{
 		ImGui::SameLine();
-		ImGui::TextColored(ImVec4(0.1f, 0.6f, 0.8f, 1.0f), "Z-velocity locked at 70.0");
+		ImGui::TextColored(ImVec4(0.1f, 0.6f, 0.8f, 1.0f), "Z-velocity locked at 28.0");
 	}
 
 	ImGui::Spacing();
@@ -664,7 +664,6 @@ void UImGuiUtil::DisplayDesiredVelocities()
 		// In hover mode, Z velocity is always 70
 		tempVz = 28.0f;
 	}
-
 	// On first run, initialize previous values.
 	if (firstRun)
 	{
@@ -673,6 +672,35 @@ void UImGuiUtil::DisplayDesiredVelocities()
 		prevVz = tempVz;
 		firstRun = false;
 	}
+	// Yaw Rate Slider with Label and Reset Checkbox
+	static float tempYawRate = 0.0f;
+	static bool resetYawChecked = false;
+
+	// Display a label for the yaw rate slider.
+	ImGui::Text("Desired Yaw Rate (deg/s):");
+
+	// Use a slider for the yaw rate (hidden label for uniqueness).
+	velocityChanged |= ImGui::SliderFloat("##DesiredYawRate", &tempYawRate, -45.0f, 45.0f);
+
+	// Place a reset checkbox on the same line.
+	ImGui::SameLine();
+	if (ImGui::Checkbox("Reset Yaw to 0", &resetYawChecked))
+	{
+		if (resetYawChecked)
+		{
+			tempYawRate = 0.0f;
+			velocityChanged = true;
+		}
+		// Automatically uncheck after resetting.
+		resetYawChecked = false;
+	}
+
+	// Finally, update the controller with the new yaw rate.
+	if (Controller)
+	{
+		Controller->SetDesiredYawRate(tempYawRate);
+	}
+
 
 	// Set a deadzone threshold (adjust as needed)
 	const float threshold = 0.01f;
@@ -683,10 +711,10 @@ void UImGuiUtil::DisplayDesiredVelocities()
 	// Only update the desired velocity if there's a significant change or if we just entered hover mode
 	if (significantChange || velocityChanged)
 	{
-		FVector desiredNewVelocity = FVector(tempVx, tempVy, tempVz);
+		FVector localCommand(tempVx, tempVy, tempVz);
 		if (Controller)
 		{
-			Controller->SetDesiredVelocity(desiredNewVelocity);
+			Controller->SetDesiredVelocity(localCommand);
 		}
 		// Update previous values so that subsequent small changes are ignored.
 		prevVx = tempVx;
@@ -870,3 +898,5 @@ void UImGuiUtil::LoadPIDValues(const TArray<FString>& Values)
 	// Notify of successful load
 	UE_LOG(LogTemp, Display, TEXT("Loaded PID configuration from %s"), *Values[0]);
 }
+
+

@@ -51,7 +51,8 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "Obstacles")
     void MoveDroneToOppositeOfGoal(EGoalPosition GoalPos);
-    
+
+    FVector GetGoalPosition(){return GoalLocation;}
 protected:
     virtual void BeginPlay() override;
     
@@ -78,4 +79,6 @@ private:
     
     UPROPERTY()
     AActor* SpawnedGoal;
+
+    FVector GoalLocation;
 };
