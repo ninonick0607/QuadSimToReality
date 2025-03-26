@@ -113,38 +113,57 @@ void UQuadDroneController::VelocityControl(double DeltaTime)
     FVector desiredLocalVelocity = desiredNewVelocity;  
     FVector currentLocalVelocity = dronePawn->GetActorTransform().InverseTransformVector(currentVelocity);
     FVector velocityError = desiredLocalVelocity - currentLocalVelocity;
+	FVector horizontalVelocity = desiredNewVelocity;
+	horizontalVelocity.Z = 0;
+ 
     SafetyReset();
 
 	double x_output = 0.f, y_output = 0.f, z_output = 0.f;
 	double roll_output = 0.f, pitch_output = 0.f;
-	
-    x_output = CurrentSet->XPID->Calculate(velocityError.X, DeltaTime);
-    y_output = CurrentSet->YPID->Calculate(velocityError.Y, DeltaTime);
-    z_output = CurrentSet->ZPID->Calculate(velocityError.Z, DeltaTime);
-
-    float roll_error = -currentRotation.Roll;
-    double roll_output = CurrentSet->RollPID->Calculate(roll_error, DeltaTime);
-
-    float pitch_error = -currentRotation.Pitch;
-    double pitch_output = CurrentSet->PitchPID->Calculate(pitch_error, DeltaTime);
-
-    desiredYaw = currentRotation.Yaw;
-
 	if (bHoverModeActive)
 	{
-		// Calculate altitude error and convert to velocity command
-		float currentAltitude = dronePawn->GetActorLocation().Z;
-		float altitudeError = hoverTargetAltitude - currentAltitude;
-		float altitudeKp = 0.5f; // Adjust this gain as needed
-		desiredLocalVelocity.Z = altitudeError * altitudeKp;
-        
-		// Clamp to reasonable limits
-		desiredLocalVelocity.Z = FMath::Clamp(desiredLocalVelocity.Z, -100.0f, 100.0f);
+		float altitudeError = hoverTargetAltitude - currentPosition.Z;
+ 
+		float altitudeKp = 0.5f;
+		float zAdjustment = altitudeError * altitudeKp;
+ 
+		zAdjustment = FMath::Clamp(zAdjustment, -10.0f, 10.0f);
+		desiredNewVelocity.Z = 28.0f + zAdjustment;
+	}
+	if (!bManualThrustMode)
+	{
+		//FVector velocityError = desiredNewVelocity - currentVelocity;
+		x_output = CurrentSet->XPID->Calculate(velocityError.X, DeltaTime);
+		y_output = CurrentSet->YPID->Calculate(velocityError.Y, DeltaTime);
+		z_output = CurrentSet->ZPID->Calculate(velocityError.Z, DeltaTime);
+ 
+		float roll_error = -currentRotation.Roll;
+		float pitch_error = -currentRotation.Pitch;
+		roll_output = CurrentSet->RollPID->Calculate(roll_error, DeltaTime);
+		pitch_output = CurrentSet->PitchPID->Calculate(pitch_error, DeltaTime);
+ 
+		const float VELOCITY_YAW_THRESHOLD = 20.0f;
+		if (horizontalVelocity.SizeSquared() > VELOCITY_YAW_THRESHOLD)
+		{
+			horizontalVelocity.Normalize();
+			desiredForwardVector = FVector(horizontalVelocity.X, horizontalVelocity.Y, 0.0f).GetSafeNormal();
+ 
+			float rawDesiredYaw = FMath::RadiansToDegrees(FMath::Atan2(horizontalVelocity.X, -horizontalVelocity.Y));
+			float normalizedDesiredYaw = FMath::UnwindDegrees(rawDesiredYaw);
+			desiredYaw = normalizedDesiredYaw;
+ 
+			// Debug info
+			UE_LOG(LogTemp, Display, TEXT("Velocity Direction: X=%.2f, Y=%.2f, DesiredForward: X=%.2f, Y=%.2f"),
+				  horizontalVelocity.X, horizontalVelocity.Y, desiredForwardVector.X, desiredForwardVector.Y);
+		}
+ 
+		ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
+	}
+	else
+	{
+		ApplyManualThrusts();
 	}
 	
-    ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
-
-
 	// TODO: Fix Yaw Stabilization to work in local frame 
     YawStabilization(DeltaTime);
     DrawDebugVisuals(FVector(desiredLocalVelocity.X, desiredLocalVelocity.Y, 0));
