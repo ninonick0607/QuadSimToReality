@@ -19,20 +19,25 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	: dronePawn(nullptr)
 	, Thrusts({0, 0, 0, 0})
 	, desiredYaw(0.f)
-	, desiredForwardVector(FVector(1.0f, 0.0f, 0.0f))
 	, desiredAltitude(0.0f)
 	, desiredNewVelocity(FVector::ZeroVector)
 	, initialTakeoff(true)
 	, altitudeReached(false)
+	, Debug_DrawDroneCollisionSphere(false)
+	, Debug_DrawDroneWaypoint(false)
 	, MaxAngularVelocity(180.0)  
 	, YawTorqueForce(2.0)       
-	, LastYawTorqueApplied(0.0)
+	, LastYawTorqueApplied(0.0)	
 	, UpsideDown(false)
+	, desiredForwardVector(FVector(1.0f, 0.0f, 0.0f))
+	, initialDronePosition(FVector::ZeroVector)
+	, bHoverModeActive(false)
+	, hoverTargetAltitude(0.0f)
 {
 	const auto& Config = UDroneJSONConfig::Get().Config;
 	maxPIDOutput = Config.FlightParams.MaxPIDOutput;
 	acceptableDistance = Config.FlightParams.AcceptableDistance;
-	
+  
     FFullPIDSet VelocitySet;
     VelocitySet.XPID = new QuadPIDController();
     VelocitySet.XPID->SetLimits(-maxPIDOutput, maxPIDOutput);
@@ -250,7 +255,7 @@ void UQuadDroneController::YawStabilization(double DeltaTime)
     float DirectionSign = FMath::Sign(FVector::DotProduct(CrossProduct, UpVector));
     VectorError *= DirectionSign;  // Apply the sign to the angle error.
 
-    // Skip small errors within threshold — prevents overcorrection when close to target.
+    // Skip small errors within threshold ï¿½ prevents overcorrection when close to target.
     static constexpr float YAW_ERROR_THRESHOLD = 1.0f;
     if (FMath::Abs(VectorError) < YAW_ERROR_THRESHOLD)
     {

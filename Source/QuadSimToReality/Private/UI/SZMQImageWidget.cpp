@@ -1,4 +1,4 @@
-#include "Ui/SZMQImageWidget.h"
+#include "UI/SZMQImageWidget.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "Widgets/Images/SImage.h"
 #include "Widgets/Text/STextBlock.h"

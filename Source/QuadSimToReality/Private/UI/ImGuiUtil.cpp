@@ -7,7 +7,6 @@
 #include "Core/DroneJSONConfig.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
-#include "HAL/PlatformFilemanager.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/DateTime.h"
 
@@ -558,139 +557,138 @@ void UImGuiUtil::DisplayResetDroneButtons()
 
 void UImGuiUtil::DisplayDesiredVelocities()
 {
-    ImGui::Text("Desired Velocities");
+	ImGui::Text("Desired Velocities");
 
-    // Static variables to hold previous slider values
-    static float prevVx = 0.0f;
-    static float prevVy = 0.0f;
-    static float prevVz = 0.0f;
-    static bool firstRun = true;
-    
-    // Reset checkboxes states (we need separate variables for these)
-    static bool resetXChecked = false;
-    static bool resetYChecked = false;
-    static bool resetZChecked = false;
-    
-    FVector currentDesiredVelocity = Controller->GetDesiredVelocity();
-    bool hoverModeActive = Controller->IsHoverModeActive();  // Get hover mode state from controller
+	// Static variables to hold previous slider values.
+	static float prevVx = 0.0f;
+	static float prevVy = 0.0f;
+	static float prevVz = 0.0f;
+	static bool firstRun = true;
+	static bool hoverModeActive = false;  // Hover mode flag
 
-    float tempVx = currentDesiredVelocity.X;
-    float tempVy = currentDesiredVelocity.Y;
-    float tempVz = currentDesiredVelocity.Z;
-    bool velocityChanged = false;
+	// Reset checkboxes states (we need separate variables for these)
+	static bool resetXChecked = false;
+	static bool resetYChecked = false;
+	static bool resetZChecked = false;
+	
+	FVector currentDesiredVelocity = Controller->GetDesiredVelocity();
 
-    // Add hover mode button with distinctive styling
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.6f, 0.8f, 1.0f)); // Blue button
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.7f, 0.9f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.0f, 0.5f, 0.7f, 1.0f));
+	float tempVx = currentDesiredVelocity.X;
+	float tempVy = currentDesiredVelocity.Y;
+	float tempVz = currentDesiredVelocity.Z;
+	bool velocityChanged = false;
 
-    if (ImGui::Button(hoverModeActive ? "HOVER MODE ACTIVE" : "ACTIVATE HOVER MODE", ImVec2(200, 35)))
-    {
-        // Toggle hover mode through the controller
-        Controller->SetHoverMode(!hoverModeActive);
-        
-        // Update local values to match the new state
-        if (!hoverModeActive)  // It's about to be activated
-            tempVz = 28.0f;
-            
-        velocityChanged = true;
-    }
-    ImGui::PopStyleColor(3);
+	// Add hover mode button with distinctive styling
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.6f, 0.8f, 1.0f)); // Blue button
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.7f, 0.9f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.0f, 0.5f, 0.7f, 1.0f));
 
-    if (hoverModeActive)
-    {
-        ImGui::SameLine();
-        ImGui::TextColored(ImVec4(0.1f, 0.6f, 0.8f, 1.0f), "Z-velocity locked at 28.0");
-    }
+	if (ImGui::Button(hoverModeActive ? "HOVER MODE ACTIVE" : "ACTIVATE HOVER MODE", ImVec2(200, 35)))
+	{
+		hoverModeActive = !hoverModeActive;
+		if (hoverModeActive)
+		{
+			// Set Z velocity to 70 when activating hover mode
+			tempVz = 28.0f;
+			velocityChanged = true;
+		}
+	}
+	ImGui::PopStyleColor(3);
 
-    ImGui::Spacing();
+	if (hoverModeActive)
+	{
+		ImGui::SameLine();
+		ImGui::TextColored(ImVec4(0.1f, 0.6f, 0.8f, 1.0f), "Z-velocity locked at 70.0");
+	}
 
-    // X velocity slider with reset checkbox
-    velocityChanged |= ImGui::SliderFloat("Desired Velocity X", &tempVx, -maxVelocity, maxVelocity);
-    ImGui::SameLine();
-    if (ImGui::Checkbox("Reset X to 0", &resetXChecked))
-    {
-        if (resetXChecked)
-        {
-            tempVx = 0.0f;
-            velocityChanged = true;
-        }
-        // Auto-uncheck after resetting
-        resetXChecked = false;
-    }
+	ImGui::Spacing();
 
-    // Y velocity slider with reset checkbox
-    velocityChanged |= ImGui::SliderFloat("Desired Velocity Y", &tempVy, -maxVelocity, maxVelocity);
-    ImGui::SameLine();
-    if (ImGui::Checkbox("Reset Y to 0", &resetYChecked))
-    {
-        if (resetYChecked)
-        {
-            tempVy = 0.0f;
-            velocityChanged = true;
-        }
-        // Auto-uncheck after resetting
-        resetYChecked = false;
-    }
+	// X velocity slider with reset checkbox
+	velocityChanged |= ImGui::SliderFloat("Desired Velocity X", &tempVx, -maxVelocity, maxVelocity);
+	ImGui::SameLine();
+	if (ImGui::Checkbox("Reset X to 0", &resetXChecked))
+	{
+		if (resetXChecked)
+		{
+			tempVx = 0.0f;
+			velocityChanged = true;
+		}
+		// Auto-uncheck after resetting
+		resetXChecked = false;
+	}
 
-    // Only show Z slider control if hover mode is not active
-    if (!hoverModeActive)
-    {
-        velocityChanged |= ImGui::SliderFloat("Desired Velocity Z", &tempVz, -maxVelocity, maxVelocity);
-        ImGui::SameLine();
-        if (ImGui::Checkbox("Reset Z to 0", &resetZChecked))
-        {
-            if (resetZChecked)
-            {
-                tempVz = 0.0f;
-                velocityChanged = true;
-            }
-            // Auto-uncheck after resetting
-            resetZChecked = false;
-        }
-    }
-    else
-    {
-        // Display a disabled slider for Z when in hover mode
-        ImGui::PushStyleColor(ImGuiCol_SliderGrab, ImVec4(0.1f, 0.6f, 0.8f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
-        ImGui::SliderFloat("Desired Velocity Z (Locked)", &tempVz, -maxVelocity, maxVelocity);
-        ImGui::PopStyleColor(2);
+	// Y velocity slider with reset checkbox
+	velocityChanged |= ImGui::SliderFloat("Desired Velocity Y", &tempVy, -maxVelocity, maxVelocity);
+	ImGui::SameLine();
+	if (ImGui::Checkbox("Reset Y to 0", &resetYChecked))
+	{
+		if (resetYChecked)
+		{
+			tempVy = 0.0f;
+			velocityChanged = true;
+		}
+		// Auto-uncheck after resetting
+		resetYChecked = false;
+	}
 
-        // In hover mode, Z velocity is always 28.0
-        tempVz = 28.0f;
-    }
+	// Only show Z slider control if hover mode is not active
+	if (!hoverModeActive)
+	{
+		velocityChanged |= ImGui::SliderFloat("Desired Velocity Z", &tempVz, -maxVelocity, maxVelocity);
+		ImGui::SameLine();
+		if (ImGui::Checkbox("Reset Z to 0", &resetZChecked))
+		{
+			if (resetZChecked)
+			{
+				tempVz = 0.0f;
+				velocityChanged = true;
+			}
+			// Auto-uncheck after resetting
+			resetZChecked = false;
+		}
+	}
+	else
+	{
+		// Display a disabled slider for Z when in hover mode
+		ImGui::PushStyleColor(ImGuiCol_SliderGrab, ImVec4(0.1f, 0.6f, 0.8f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
+		ImGui::SliderFloat("Desired Velocity Z (Locked)", &tempVz, -maxVelocity, maxVelocity);
+		ImGui::PopStyleColor(2);
 
-    // On first run, initialize previous values
-    if (firstRun)
-    {
-        prevVx = tempVx;
-        prevVy = tempVy;
-        prevVz = tempVz;
-        firstRun = false;
-    }
+		// In hover mode, Z velocity is always 70
+		tempVz = 28.0f;
+	}
 
-    // Set a deadzone threshold (adjust as needed)
-    const float threshold = 0.01f;
-    bool significantChange = (FMath::Abs(tempVx - prevVx) > threshold) ||
-        (FMath::Abs(tempVy - prevVy) > threshold) ||
-        (FMath::Abs(tempVz - prevVz) > threshold);
+	// On first run, initialize previous values.
+	if (firstRun)
+	{
+		prevVx = tempVx;
+		prevVy = tempVy;
+		prevVz = tempVz;
+		firstRun = false;
+	}
 
-    // Only update the desired velocity if there's a significant change or if we just entered hover mode
-    if (significantChange || velocityChanged)
-    {
-        FVector desiredNewVelocity = FVector(tempVx, tempVy, tempVz);
-        if (Controller)
-        {
-            Controller->SetDesiredVelocity(desiredNewVelocity);
-        }
-        // Update previous values so that subsequent small changes are ignored
-        prevVx = tempVx;
-        prevVy = tempVy;
-        prevVz = tempVz;
-    }
+	// Set a deadzone threshold (adjust as needed)
+	const float threshold = 0.01f;
+	bool significantChange = (FMath::Abs(tempVx - prevVx) > threshold) ||
+		(FMath::Abs(tempVy - prevVy) > threshold) ||
+		(FMath::Abs(tempVz - prevVz) > threshold);
 
-    ImGui::Separator();
+	// Only update the desired velocity if there's a significant change or if we just entered hover mode
+	if (significantChange || velocityChanged)
+	{
+		FVector desiredNewVelocity = FVector(tempVx, tempVy, tempVz);
+		if (Controller)
+		{
+			Controller->SetDesiredVelocity(desiredNewVelocity);
+		}
+		// Update previous values so that subsequent small changes are ignored.
+		prevVx = tempVx;
+		prevVy = tempVy;
+		prevVz = tempVz;
+	}
+
+	ImGui::Separator();
 }
 
 void UImGuiUtil::DisplayPIDHistoryWindow()

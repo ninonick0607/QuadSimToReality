@@ -12,7 +12,7 @@
 #define ACCEPTABLE_DIST 200
 
 // -- Waypoint Mode related types --
-// These are used for navigation / waypoint input. If you’re not implementing 
+// These are used for navigation / waypoint input. If youï¿½re not implementing 
 // autonomous waypoint control right now, you could remove these.
 enum class EWaypointMode
 {
@@ -84,7 +84,7 @@ public:
 	void ToggleImguiInput();
 	void ReloadJSONConfig();
 
-	// This helper is used by the controller to get the drone’s mass.
+	// This helper is used by the controller to get the droneï¿½s mass.
 	float GetMass() { return DroneBody->GetMass(); };
 
 protected:

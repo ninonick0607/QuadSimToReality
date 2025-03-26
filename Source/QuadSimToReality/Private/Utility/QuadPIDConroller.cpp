@@ -6,12 +6,12 @@ QuadPIDController::QuadPIDController()
     : ProportionalGain(0.0f)
     , IntegralGain(0.0f)
     , DerivativeGain(0.0f)
-    , minOutput(0.0f)
-    , maxOutput(1.0f)
     , prevError(0.0f)
     , lastOutput(0.0f)
     , absoluteTime(0.0f)
     , currentBufferSum(0.0f)
+    , minOutput(0.0f)
+    , maxOutput(1.0f)
     , filteredDerivative(0.0f)
     , derivativeFilterAlpha(0.6f)
 {
@@ -25,7 +25,6 @@ void QuadPIDController::SetGains(float pGain, float iGain, float dGain, float fi
     IntegralGain = iGain;
     DerivativeGain = dGain;
     
-    // Set the derivative filter alpha when gains are set
     SetDerivativeFilterAlpha(filterAlpha);
 }
 
@@ -51,7 +50,6 @@ double QuadPIDController::Calculate(float error, float dt)
 
     absoluteTime += dt;
 
-    // Remove expired points from the sliding window
     RemoveExpiredPoints();
 
     // Proportional term

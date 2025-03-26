@@ -5,12 +5,10 @@ import time
 import cv2  
 import glob 
 import os
-import struct
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback, BaseCallback
 from stable_baselines3.common.monitor import Monitor
 
-import tensorboard
 # --- QuadSimEnv definition ---
 class QuadSimEnv(gym.Env):
     def __init__(self):
@@ -56,10 +54,6 @@ class QuadSimEnv(gym.Env):
         self.control_socket.connect("tcp://localhost:5558")
         self.control_socket.setsockopt_string(zmq.SUBSCRIBE, '')
 
-        # Publisher socket for sending obstacle commands
-        self.obstacle_socket = self.context.socket(zmq.PUB)
-        self.obstacle_socket.bind("tcp://*:5559")
-        
         self.steps = 0
         time.sleep(0.1)
 
@@ -133,25 +127,13 @@ class QuadSimEnv(gym.Env):
         command_topic = "VELOCITY"
         message = np.array(velocity, dtype=np.float32).tobytes()
         self.command_socket.send_multipart([command_topic.encode(), message])
-        
+ 
     def send_reset_command(self):
         command_topic = "RESET"
         self.prev_goal_state = self.goal_state.copy()
         self.command_socket.send_string(command_topic)
         time.sleep(0.1)
 
-    def send_obstacle_command(self, obstacleNum, bObstacleRand):
-        print("Obstacles called")
-        obstacle_topic = "CREATE_OBSTACLE"
-        float_data = struct.pack('f', float(obstacleNum))
-        bool_data = struct.pack('?', bool(bObstacleRand))
-        
-        self.obstacle_socket.send_multipart([
-            obstacle_topic.encode(), 
-            float_data,
-            bool_data
-        ])
-        
     def handle_data(self):
         try:
             if self.control_socket.poll(100, zmq.POLLIN):
@@ -193,35 +175,59 @@ class QuadSimEnv(gym.Env):
         except (zmq.Again, Exception) as e:
             return None
 
-# Lower architecture to 8x8, 16x16 or even 32x32
-# Increase learning rate a little bit
-# Simplify reward functions
 
+'''
+class ImageDisplayCallback(BaseCallback):
+    def __init__(self, update_freq=10, verbose=0):
+        super(ImageDisplayCallback, self).__init__(verbose)
+        self.update_freq = update_freq
+        self.fig, self.ax = plt.subplots()
+        self.img_disp = None
+        plt.ion()
+        plt.show()
+        self.counter = 0
 
+    def _on_step(self) -> bool:
+        self.counter += 1
+        if self.counter % self.update_freq == 0:
+            try:
+                env = self.training_env.envs[0].unwrapped
+                image = env.get_data()
+                # If no new image is available, use the last displayed image
+                if image is None and self.img_disp is not None:
+                    image = self.img_disp.get_array()
+                elif image is None:
+                    image = np.zeros((128, 128, 3), dtype=np.uint8)
+
+                if self.img_disp is None:
+                    self.img_disp = self.ax.imshow(image)
+                else:
+                    self.img_disp.set_data(image)
+                self.fig.canvas.draw_idle()
+                self.fig.canvas.flush_events()
+            except Exception as e:
+                print("Error updating image:", e)
+        return True
+'''
 # New code for loading the best model and running it
 if __name__ == "__main__":
-    #best_model_path = "./RL_training/checkpoints/quad_model_420000_steps.zip"
-    
-
-    best_model_path = "./RL_training/best_model/best_model.zip"
+    best_model_path = "./RL_training/checkpoints/quad_model_420000_steps.zip"
+    #best_model_path = "./RL_training/best_model/best_model.zip"
 
     # Create the environment
     env = QuadSimEnv()
-    time.sleep(2.0)  # Give time for the subscriber to connect
-    env.send_obstacle_command(150,True)
+
     # Load the model
-    # model = PPO.load(best_model_path)
+    model = PPO.load(best_model_path)
 
-    # # Run the model
-    # obs, _ = env.reset()
-    # while True:
-    #     action, _states = model.predict(obs, deterministic=True)
-    #     obs, reward, done, truncated, info = env.step(action)
-    #     if done or truncated:
-    #         obs, _ = env.reset()
+    # Run the model
+    obs, _ = env.reset()
+    while True:
+        action, _states = model.predict(obs, deterministic=True)
+        obs, reward, done, truncated, info = env.step(action)
+        if done or truncated:
+            obs, _ = env.reset()
 
-
-            
 '''
 if __name__ == "__main__":
     # Hard-coded paths
@@ -279,7 +285,6 @@ if __name__ == "__main__":
         )
         # Update learning rate and other hyperparameters if needed
         model.learning_rate = 2e-4
-    ### TODO: Lower network architecture, 32x32
     else:
         print("Starting new training run")
         model = PPO(
@@ -302,40 +307,8 @@ if __name__ == "__main__":
         )
     except KeyboardInterrupt:
         print("Training interrupted by user.")
+            
 
-'''
 
 
-'''
-class ImageDisplayCallback(BaseCallback):
-    def __init__(self, update_freq=10, verbose=0):
-        super(ImageDisplayCallback, self).__init__(verbose)
-        self.update_freq = update_freq
-        self.fig, self.ax = plt.subplots()
-        self.img_disp = None
-        plt.ion()
-        plt.show()
-        self.counter = 0
-
-    def _on_step(self) -> bool:
-        self.counter += 1
-        if self.counter % self.update_freq == 0:
-            try:
-                env = self.training_env.envs[0].unwrapped
-                image = env.get_data()
-                # If no new image is available, use the last displayed image
-                if image is None and self.img_disp is not None:
-                    image = self.img_disp.get_array()
-                elif image is None:
-                    image = np.zeros((128, 128, 3), dtype=np.uint8)
-
-                if self.img_disp is None:
-                    self.img_disp = self.ax.imshow(image)
-                else:
-                    self.img_disp.set_data(image)
-                self.fig.canvas.draw_idle()
-                self.fig.canvas.flush_events()
-            except Exception as e:
-                print("Error updating image:", e)
-        return True
 '''

@@ -5,7 +5,7 @@
 #include "DroneManager.generated.h"
 
 class AQuadPawn;
-class AZMQController;
+class AROS2Controller;
 
 UCLASS()
 class QUADSIMTOREALITY_API ADroneManager : public AActor
@@ -24,9 +24,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Drone Manager")
 	TArray<AQuadPawn*> GetDroneList() const;
 
-	// Function for ZMQControllers to register themselves.
+	// Function for ROS2Controllers to register themselves.
 	UFUNCTION(BlueprintCallable, Category = "Drone Manager")
-	void RegisterZMQController(AZMQController* Controller);
+	void RegisterROS2Controller(AROS2Controller* Controller);
 
 	UPROPERTY(VisibleAnywhere, Category = "Drone Manager")
 	int32 SelectedDroneIndex;
@@ -38,16 +38,16 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Drone Manager")
 	TSubclassOf<AQuadPawn> QuadPawnClass;
 
-	// New: The blueprint class for ZMQController.
+	// The blueprint class for ROS2Controller.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Drone Manager")
-	TSubclassOf<AZMQController> ZMQControllerClass;
+	TSubclassOf<AROS2Controller> ROS2ControllerClass;
 
 	UPROPERTY(VisibleAnywhere, Category = "Drone Manager")
 	TArray<TWeakObjectPtr<AQuadPawn>> AllDrones;
 
-	// New: Array to keep track of all spawned ZMQControllers.
+	// Array to keep track of all spawned ROS2Controllers.
 	UPROPERTY(VisibleAnywhere, Category = "Drone Manager")
-	TArray<TWeakObjectPtr<AZMQController>> AllZMQControllers;
+	TArray<TWeakObjectPtr<AROS2Controller>> AllROS2Controllers;
 
 	void OnActorSpawned(AActor* SpawnedActor);
 
