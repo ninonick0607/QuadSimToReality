@@ -52,12 +52,9 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Obstacles")
     void MoveDroneToOppositeOfGoal(EGoalPosition GoalPos);
 
-    //UFUNCTION(BlueprintCallable, Category = "Obstacles")
-    //FVector GetObstaclePosition() const { return GoalPosition; }
+    UFUNCTION(BlueprintCallable, Category = "Obstacles")
+    FVector GetObstaclePosition() const { return GoalPosition; }
    
-    UFUNCTION(BlueprintCallable, Category = "Goal")
-    FVector GetGoalPosition() const;
-
 protected:
     virtual void BeginPlay() override;
    

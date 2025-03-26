@@ -339,10 +339,3 @@ void AObstacleManager::MoveDroneToOppositeOfGoal(EGoalPosition GoalPos) {
         UE_LOG(LogTemp, Warning, TEXT("No drones found in the world!"));
     }
 }
-
-FVector AObstacleManager::GetGoalPosition() const {
-    if (SpawnedGoal) {
-        return SpawnedGoal->GetActorLocation();
-    }
-    return FVector::ZeroVector;
-}

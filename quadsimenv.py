@@ -165,6 +165,8 @@ class QuadSimEnv(gym.Env):
                 })
                 self.goal_state = np.array(parsed_data["GOAL"])
                 
+                print(f"Current Goal Position: X={self.goal_state[0]}, Y={self.goal_state[1]}, Z={self.goal_state[2]}")
+                
         except Exception as e:
             print(f"Data handling error: {str(e)}")
             self.reset()

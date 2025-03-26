@@ -352,9 +352,7 @@ void AZMQController::SendStateData()
 
     FVector CurrentVelocity = RootPrimitive->GetPhysicsLinearVelocity();
     FVector CurrentPosition = DronePawn->GetActorLocation();
-    if (ObstacleManagerInstance) {
-        CurrentGoalPosition = ObstacleManagerInstance->GetGoalPosition();
-    }
+    CurrentGoalPosition = ObstacleManagerInstance->GetObstaclePosition();
     UE_LOG(LogTemp, Display, TEXT("Goal Position is: %f %f %f"),CurrentGoalPosition.X, CurrentGoalPosition.Y,CurrentGoalPosition.Z);
 
     try
