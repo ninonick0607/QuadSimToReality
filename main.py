@@ -2,15 +2,24 @@ from RL import RL_Algorithm
 import torch
 import yaml
 
-NAME = "mlp_1"
+NAME = "No_op_MLP_1"
 TRAIN = False
+LOG = False
 
 if __name__ == "__main__":
     
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
-    alg = RL_Algorithm(config={}, log_dir=f"runs/{NAME}", device=device)
+    config = {
+        "obs_norm": {
+            "loc": [0] * 9,
+            "scale": [1/12000] * 3 + [1/250] * 3 + [1/12000] + [1] * 2
+        }
+    }
+
+    log_dir = f"runs/{NAME}" if LOG else None
+    alg = RL_Algorithm(config=config, log_dir=log_dir, device=device)
     alg.create_env()
     alg.create_modules()
     alg.create_training_utils()

@@ -6,6 +6,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torchrl.collectors import SyncDataCollector
 from torchrl.envs import TransformedEnv, GymWrapper
 from torchrl.envs.transforms import ToTensorImage, Resize, Transform, InitTracker, DoubleToFloat, ObservationNorm
+from torchrl.envs.utils import set_exploration_type, ExplorationType
 from torchrl.objectives import ClipPPOLoss
 from torchrl.objectives.value import GAE
 from torchrl.modules import ProbabilisticActor, TanhNormal, ValueOperator, SafeProbabilisticTensorDictSequential, SafeSequential
@@ -60,7 +61,7 @@ class RL_Algorithm:
 
         Args:
             config (dict): !!! Not implemnented yet !!! Configuration dictionary for the RL algorithm
-            log_dir (str, optional): Directory for logging. Defaults to False.
+            log_dir (str, optional): Directory for logging. Defaults to None.
             device (str, optional): Device to use for training. Defaults to "cpu".
         """
 
@@ -83,11 +84,11 @@ class RL_Algorithm:
         env = GymWrapper(QuadSimEnv()).to(self.device)
         env = TransformedEnv(env, DoubleToFloat())
         env = TransformedEnv(env, InitTracker())
-        self.obs_norm = ObservationNorm(in_keys=["observation"], loc=0, scale=(1, 1, 8), standard_normal=True)
-        # env = TransformedEnv(env, self.obs_norm)
+        self.obs_norm = ObservationNorm(in_keys=["observation"], loc=self.config["obs_norm"]["loc"], scale=self.config["obs_norm"]["scale"], standard_normal=True)
+        env = TransformedEnv(env, self.obs_norm)
         # self.obs_norm.init_stats(1000)
-        # env.append_transform(ToTensorImage(True, in_keys=["pixels"], out_keys=["pixels_transformed"]))
-        # env.append_transform(Resize(64, 64, in_keys=["pixels_transformed"]))
+        env.append_transform(ToTensorImage(True, in_keys=["pixels"], out_keys=["pixels_transformed"]))
+        env.append_transform(Resize(64, 64, in_keys=["pixels_transformed"]))
         self.env = env
         return self.env
     
@@ -106,7 +107,7 @@ class RL_Algorithm:
         # TODO: Add support for aux heads, and use config
         # features_extractor_arch = LSTM(device=self.device)
         critic_arch = nn.Sequential(
-            nn.Linear(2, 128),
+            nn.Linear(9, 128),
             nn.Tanh(),
             nn.Linear(128, 128),
             nn.Tanh(),
@@ -115,13 +116,13 @@ class RL_Algorithm:
             nn.Linear(128, 1),
         )
         actor_arch = nn.Sequential(
-            nn.Linear(2, 128),
+            nn.Linear(9, 128),
             nn.Tanh(),
             nn.Linear(128, 128),
             nn.Tanh(),
             nn.Linear(128, 128),
             nn.Tanh(),
-            nn.Linear(128, 2),
+            nn.Linear(128, 6),
             NormalParamExtractor()
         )
         critic = ValueOperator(critic_arch, in_keys=["observation"]).to(self.device)
@@ -260,19 +261,20 @@ class RL_Algorithm:
             episode_angular_velocity_loss = np.mean(logs["angular_velocity_loss"])
             explained_var = np.mean(logs["explained_variance"])
             print(f"Episode {i}, Loss: {episode_loss:.4f}, Angle Loss: {episode_angle_loss:.4f}, Angular Velocity Loss: {episode_angular_velocity_loss:.4f}, Critic Loss: {np.mean(logs['critic']):.4f}, Explained Variance: {explained_var:.4f}")
-            self.writer.add_scalar("losses/total_loss", episode_loss, i)
-            self.writer.add_scalar("losses/angle", episode_angle_loss, i)
-            self.writer.add_scalar("losses/angular_velocity", episode_angular_velocity_loss, i)
-            self.writer.add_scalar("losses/critic", np.mean(logs["critic"]), i)
-            self.writer.add_scalar("losses/objective", np.mean(logs["objective"]), i)
-            self.writer.add_scalar("losses/entropy", np.mean(logs["entropy"]), i)
-            self.writer.add_scalar("training/explained_variance", explained_var, i)
-            self.writer.add_scalar("training/episode_reward", logs["mean_episode_reward"], i)
-            self.writer.add_scalar("misc/memory_usage", torch.cuda.memory_allocated() / 1e9, i)
-            self.writer.flush()
+            if hasattr(self, "writer"):
+                self.writer.add_scalar("losses/total_loss", episode_loss, i)
+                self.writer.add_scalar("losses/angle", episode_angle_loss, i)
+                self.writer.add_scalar("losses/angular_velocity", episode_angular_velocity_loss, i)
+                self.writer.add_scalar("losses/critic", np.mean(logs["critic"]), i)
+                self.writer.add_scalar("losses/objective", np.mean(logs["objective"]), i)
+                self.writer.add_scalar("losses/entropy", np.mean(logs["entropy"]), i)
+                self.writer.add_scalar("training/explained_variance", explained_var, i)
+                self.writer.add_scalar("training/episode_reward", logs["mean_episode_reward"], i)
+                self.writer.add_scalar("misc/memory_usage", torch.cuda.memory_allocated() / 1e9, i)
+                self.writer.flush()
 
-            if i % 50 == 0:
-                self.save(f"{self.writer.log_dir}/checkpoint_{i}.pt")
+                if i % 50 == 0:
+                    self.save(f"{self.writer.log_dir}/checkpoint_{i}.pt")
 
             if i == 255:
                 return
@@ -292,12 +294,12 @@ class RL_Algorithm:
 
         env = self.env # .append_transform(RenderPixels(display=display, in_keys=["pixels"], out_keys=["pixels"]))
         actor_op = self.modules["actor"].to(self.device)
-        # actor_op.eval()
         i=0
-        while True:
-            env.rollout(200, actor_op)
-            print(f"reset {i}")
-            i+=1
+        with set_exploration_type(ExplorationType.RANDOM):
+            while True:
+                td = env.rollout(200, actor_op)
+                print(f"reset {i}")
+                i+=1
 
 
 

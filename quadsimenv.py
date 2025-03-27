@@ -18,22 +18,29 @@ class QuadSimEnv(gym.Env):
     def __init__(self):
         super(QuadSimEnv, self).__init__()  
 
-        # Modify action space to only control Z
         self.action_space = gym.spaces.Box(
-            low=np.array([-1]),  # Just Z control
-            high=np.array([1]),
+            low=-1,  
+            high=1,
+            shape=(3,),
             dtype=np.float32
         )
 
-        # Simplified observation space for dZ only (z_velocity, z_distance_to_goal)
-        self.observation_space = gym.spaces.Box(
-            low=np.array([-1, -1]), 
-            high=np.array([1, 1]), 
-            dtype=np.float32
-        )
+        self.observation_space = gym.spaces.Dict({
+            "observation": gym.spaces.Box(
+                low=-np.inf,
+                high=np.inf,
+                shape=(9,),
+                dtype=np.float32
+            ),
+            "pixels": gym.spaces.Box(
+                low=0,
+                high=255,
+                shape=(128, 128, 3),
+                dtype=np.uint8
+            )
+        })
 
         self.state = {
-            'image': np.zeros((128, 128, 3), dtype=np.uint8),
             'velocity': np.zeros(3, dtype=np.float32),
             'position': np.zeros(3, dtype=np.float32)
         }
@@ -69,54 +76,64 @@ class QuadSimEnv(gym.Env):
         time.sleep(0.1)
 
     def get_observation(self):
-        # MODIFIED: Changed normalization scaling to be more sensitive around the operating range
-        z_vel = self.state['velocity'][2] / 100.0  # More sensitive velocity normalization
-        z_to_goal = (self.goal_state[2] - self.state['position'][2]) / 2000.0  # More focused distance scaling
-        return np.array([z_vel, z_to_goal])
+        """
+        Returns a vector with the state information relevant to training:
+        (0-2) Quadrotor position (x, y, z)
+        (3-5) Quadrotor velocity (vx, vy, vz)
+        (6) Distance to goal (scalar)
+        (7-8) Angle to goal (cosine and sine)
+        """
+        
+        pos = self.state['position']
+        vel = self.state['velocity']
+        distance_to_goal = np.linalg.norm(self.state['position'][:-1] - self.goal_state[:-1])
+        angle_to_goal = np.arctan2(self.goal_state[1] - self.state['position'][1], self.goal_state[0] - self.state['position'][0])
+
+        return np.array([*pos, *vel, distance_to_goal, np.cos(angle_to_goal), np.sin(angle_to_goal)], dtype=np.float32)
 
     def reset(self, seed=None):
-        self.send_reset_command()
+        # self.send_reset_command()
+        self.send_obstacle_command(1, True)
+        time.sleep(0.1)  # Wait for the reset to take effect
         self.handle_data()
         self.steps = 0
-        return self.get_observation(), {}
+        obs = self.get_observation()
+        # self.image = self.retrieve_image()
+        complete_obs = OrderedDict([
+            ('pixels', self.image),
+            ('observation', obs)
+        ])
+        return complete_obs, {}
     
-    def calculate_z_distance(self, pos1, pos2):
-        return abs(pos1[2] - pos2[2])
     
     def step(self, action):
         # Apply action and update environment (keep your existing code here)
         # self.prev_action = 0.7 * self.prev_action + 0.3 * action[0]
-        self.prev_action = action[0]
-        full_action = np.array([0.0, 0.0, self.prev_action]) * 250.0
+        full_action = np.array(action) * 250.0
         
         self.send_velocity_command(full_action)
         time.sleep(0.05) # Action frequency is ~20 Hz
 
         self.handle_data()
-
-        current_z = self.state['position'][2]
-        target_z = self.goal_state[2]
-        z_distance = abs(current_z - target_z)
-        
-        reward = 1 - (z_distance / 500) # 0 -> 1 for z_distance in [0, 1000]
-        
-        # Termination conditions
-        self.prev_z_distance = z_distance
-        if z_distance > 505:
-            print("Terminating episode due to distance:", z_distance)
-        done = (self.steps >= 128) or (z_distance > 505) # 128 steps or more than 505 cm away from target (505 instead of 500 so that the ground is not terminal)
-        info = {'height': current_z, 'target': target_z, 'distance': z_distance}
-        
         observation = self.get_observation()
-        if self.steps % 5 == 0:
-            self.image = self.get_data()
+        # if self.steps % 5 == 0:
+        #     self.image = self.retrieve_image()
         complete_obs = OrderedDict([
             ('pixels', self.image),
             ('observation', observation)
         ])
 
+        reward = 1 - (observation[6] / 13000) # Reward based on distance to goal (normalized to ~[0, 1])
+        reward += 1 - np.abs((observation[2] - 250) / 250) # Reward based on altitude (reward 1 is 250cm, reward 0 = 0cm or 500cm)
+
+        # Termination conditions
+        done = False
+        if self.steps >= 256: done = True; print("Max steps reached")
+        if observation[2] > 500: done = True; print("Quadrotor too high")
+        if observation[2] < 5: done = True; print("Quadrotor too low")
+        
         self.steps += 1
-        return complete_obs, reward, done, False, info
+        return complete_obs, reward, done, False, {}
 
     def send_velocity_command(self, velocity):
         command_topic = "VELOCITY"
@@ -131,7 +148,7 @@ class QuadSimEnv(gym.Env):
         time.sleep(0.1)
 
     def send_obstacle_command(self, obstacleNum, bObstacleRand):
-        print("Obstacles called")
+        # print("Obstacles called")
         obstacle_topic = "CREATE_OBSTACLE"
         float_data = struct.pack('f', float(obstacleNum))
         bool_data = struct.pack('?', bool(bObstacleRand))
@@ -165,13 +182,11 @@ class QuadSimEnv(gym.Env):
                 })
                 self.goal_state = np.array(parsed_data["GOAL"])
                 
-                print(f"Current Goal Position: X={self.goal_state[0]}, Y={self.goal_state[1]}, Z={self.goal_state[2]}")
-                
         except Exception as e:
             print(f"Data handling error: {str(e)}")
             self.reset()
         
-    def get_data(self):
+    def retrieve_image(self):
         try:
             message = self.image_socket.recv_multipart(flags=zmq.NOBLOCK)[0]
             image_data = np.frombuffer(message, dtype=np.uint8)
@@ -179,14 +194,14 @@ class QuadSimEnv(gym.Env):
             if image is not None:
                 print("Image received! Shape:", image.shape)
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                return image
             else:
-                print("Image decode failed.")
-            return image if image is not None else None
+                raise Exception("Failed to decode image")
         except zmq.Again:
-            return None
+            return self.image  # Return the last image if no new one is available
         except Exception as e:
             print(f"Error receiving image: {str(e)}")
-            return None
+            return self.image
 
 # Lower architecture to 8x8, 16x16 or even 32x32
 # Increase learning rate a little bit
