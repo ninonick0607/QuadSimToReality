@@ -15,7 +15,7 @@ fi
 echo "[+] Updating package lists..."
 apt-get update
 
-# Install basic dependencies
+# Install basic dev dependencies
 echo "[+] Installing basic dev dependencies..."
 apt-get install -y build-essential cmake git python3-pip python3-dev curl gnupg2 lsb-release
 
@@ -37,7 +37,7 @@ apt-get install -y libzmq3-dev
 
 # Install Python packages for simulation and visualization
 echo "[+] Installing Python packages..."
-pip3 install gymnasium zmq stable-baselines3 opencv-python numpy
+pip3 install gymnasium numpy stable-baselines3 opencv-python zmq
 
 # Add ROS2 setup to user's bashrc if not already there
 USER_HOME=$(eval echo ~${SUDO_USER})

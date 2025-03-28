@@ -150,7 +150,7 @@ void AROS2Controller::InitializeImageCapture()
     // Configure scene capture settings
     SceneCapture->FOVAngle = QuadPawn->CameraFPV->FieldOfView;
     SceneCapture->PostProcessSettings = QuadPawn->CameraFPV->PostProcessSettings;
-    SceneCapture->ShowFlags.SetTonemapper(false);
+    SceneCapture->ShowFlags.SetTonemapper(true);
     SceneCapture->ShowFlags.SetColorGrading(false);
     SceneCapture->ShowFlags.SetEyeAdaptation(false);
     SceneCapture->CaptureSource = SCS_FinalColorLDR;

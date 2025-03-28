@@ -5,7 +5,7 @@
 #include "UI/ImGuiUtil.h"
 #include "QuadDroneController.generated.h"
 
-class AQuadPawn; 
+class AQuadPawn;
 
 USTRUCT()
 struct FFullPIDSet
@@ -20,13 +20,14 @@ struct FFullPIDSet
     QuadPIDController* YawPID;
 
     FFullPIDSet()
-       : XPID(nullptr)
-       , YPID(nullptr)
-       , ZPID(nullptr)
-       , RollPID(nullptr)
-       , PitchPID(nullptr)
-       , YawPID(nullptr)
-    {}
+        : XPID(nullptr)
+        , YPID(nullptr)
+        , ZPID(nullptr)
+        , RollPID(nullptr)
+        , PitchPID(nullptr)
+        , YawPID(nullptr)
+    {
+    }
 };
 
 
@@ -36,18 +37,18 @@ class QUADSIMTOREALITY_API UQuadDroneController : public UObject
     GENERATED_BODY()
 
 public:
-    
+
     UPROPERTY()
     AQuadPawn* dronePawn;
     UPROPERTY()
     TArray<float> Thrusts;
-    
+
     UQuadDroneController(const FObjectInitializer& ObjectInitializer);
     virtual ~UQuadDroneController();
 
     void Initialize(AQuadPawn* InPawn);
     void Update(double DeltaTime);
-    
+
     void VelocityControl(double a_deltaTime);
     void ThrustMixer(double xOutput, double yOutput, double zOutput, double rollOutput, double pitchOutput);
     void YawStabilization(double DeltaTime);
@@ -56,7 +57,7 @@ public:
     void ResetDroneIntegral();
     void ResetDroneHigh();
     void ResetDroneOrigin();
-    
+
     void DrawDebugVisuals(const FVector& horizontalVelocity) const;
     void SetDesiredVelocity(const FVector& NewVelocity);
     FFullPIDSet* GetPIDSet() { return PIDMap.Num() > 0 ? &PIDMap[0] : nullptr; }
@@ -75,6 +76,7 @@ public:
     void SetDebugVisualsEnabled(bool bEnabled) { bDebugVisualsEnabled = bEnabled; }
     void SetDesiredYawRate(float NewYawRate) { desiredYawRate = NewYawRate; }
 
+
     UPROPERTY()
     float desiredYawRate;
 
@@ -88,9 +90,9 @@ public:
     void SetDesiredRoll(float NewRoll) { desiredRoll = NewRoll; }
     void SetDesiredPitch(float NewPitch) { desiredPitch = NewPitch; }
 private:
-    
+
     UPROPERTY()
-    TArray<FFullPIDSet> PIDMap; 
+    TArray<FFullPIDSet> PIDMap;
 
     float desiredYaw;
     float desiredAltitude;
@@ -99,15 +101,15 @@ private:
     float maxVelocity;
     float maxAngle;
     float maxPIDOutput;
-    float altitudeThresh; 
+    float altitudeThresh;
     float minAltitudeLocal;
     float acceptableDistance;
-    
+
     bool initialTakeoff;
     bool altitudeReached;
-    bool bDebugVisualsEnabled = false; 
+    bool bDebugVisualsEnabled = false;
 
-    
+
     double MaxAngularVelocity;
     double YawTorqueForce;
     double LastYawTorqueApplied;
@@ -115,7 +117,8 @@ private:
     FVector desiredForwardVector;
     FVector initialDronePosition;
 
+    QuadPIDController* AltitudePID;
     bool bHoverModeActive;
     float hoverTargetAltitude;
-    
+
 };
