@@ -173,6 +173,7 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 	ImGui::Text("Position Error X, Y, Z: %.2f, %.2f, %.2f", error.X, error.Y, error.Z);
 	ImGui::Spacing();
 	ImGui::Text("Velocity Command Received X, Y, Z: %.2f, %.2f, %.2f", currentDesiredVelocity.X, currentDesiredVelocity.Y, currentDesiredVelocity.Z);
+	ImGui::Text("Current Velocity X, Y, Z: %.2f, %.2f, %.2f", currentVelocity.X, currentVelocity.Y, currentVelocity.Z);
 	ImGui::Text("Current Goal State X, Y, Z: %.2f, %.2f, %.2f", currentGoalState.X, currentGoalState.Y, currentGoalState.Z);
 	ImGui::Spacing();
 
@@ -564,19 +565,23 @@ void UImGuiUtil::DisplayDesiredVelocities()
     static float prevVx = 0.0f;
     static float prevVy = 0.0f;
     static float prevVz = 0.0f;
+	static float prevYr = 0.0f;
     static bool firstRun = true;
     
     // Reset checkboxes states (we need separate variables for these)
     static bool resetXChecked = false;
     static bool resetYChecked = false;
     static bool resetZChecked = false;
+	static bool resetYrChecked = false;
     
     FVector currentDesiredVelocity = Controller->GetDesiredVelocity();
+	float currentYawRate = Controller->GetDesiredYawRate();
     bool hoverModeActive = Controller->IsHoverModeActive();  // Get hover mode state from controller
 
     float tempVx = currentDesiredVelocity.X;
     float tempVy = currentDesiredVelocity.Y;
     float tempVz = currentDesiredVelocity.Z;
+	float tempYr = currentYawRate;
     bool velocityChanged = false;
 
     // Add hover mode button with distinctive styling
@@ -657,8 +662,22 @@ void UImGuiUtil::DisplayDesiredVelocities()
         ImGui::SliderFloat("Desired Velocity Z (Locked)", &tempVz, -maxVelocity, maxVelocity);
         ImGui::PopStyleColor(2);
 
-        // In hover mode, Z velocity is always 28.0
-        tempVz = 28.0f;
+        // In hover mode, Z velocity is always 0.0
+        tempVz = 0.0f;
+    }
+
+	// Yaw rate velocity slider with reset checkbox
+    velocityChanged |= ImGui::SliderFloat("Desired Yaw Rate", &tempYr, -50.f, 50.f);
+    ImGui::SameLine();
+    if (ImGui::Checkbox("Reset Yr to 0", &resetYrChecked))
+    {
+        if (resetYrChecked)
+        {
+            tempYr = 0.0f;
+            velocityChanged = true;
+        }
+        // Auto-uncheck after resetting
+        resetYrChecked = false;
     }
 
     // On first run, initialize previous values
@@ -667,6 +686,7 @@ void UImGuiUtil::DisplayDesiredVelocities()
         prevVx = tempVx;
         prevVy = tempVy;
         prevVz = tempVz;
+		prevYr = tempYr;
         firstRun = false;
     }
 
@@ -674,7 +694,8 @@ void UImGuiUtil::DisplayDesiredVelocities()
     const float threshold = 0.01f;
     bool significantChange = (FMath::Abs(tempVx - prevVx) > threshold) ||
         (FMath::Abs(tempVy - prevVy) > threshold) ||
-        (FMath::Abs(tempVz - prevVz) > threshold);
+        (FMath::Abs(tempVz - prevVz) > threshold) ||
+		(FMath::Abs(tempYr - prevYr) > threshold);
 
     // Only update the desired velocity if there's a significant change or if we just entered hover mode
     if (significantChange || velocityChanged)
@@ -683,11 +704,13 @@ void UImGuiUtil::DisplayDesiredVelocities()
         if (Controller)
         {
             Controller->SetDesiredVelocity(desiredNewVelocity);
+			Controller->SetDesiredYawRate(tempYr);
         }
         // Update previous values so that subsequent small changes are ignored
         prevVx = tempVx;
         prevVy = tempVy;
         prevVz = tempVz;
+		prevYr = tempYr;
     }
 
     ImGui::Separator();

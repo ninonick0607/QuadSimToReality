@@ -2,9 +2,9 @@ from RL import RL_Algorithm
 import torch
 import yaml
 
-NAME = "No_op_MLP_1"
+NAME = "No_op_MLP_2"
 TRAIN = False
-LOG = False
+LOG = True
 
 if __name__ == "__main__":
     

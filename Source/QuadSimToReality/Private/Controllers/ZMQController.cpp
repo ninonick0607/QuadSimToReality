@@ -355,7 +355,7 @@ void AZMQController::SendStateData()
     if (ObstacleManagerInstance) {
         CurrentGoalPosition = ObstacleManagerInstance->GetGoalPosition();
     }
-    UE_LOG(LogTemp, Display, TEXT("Goal Position is: %f %f %f"),CurrentGoalPosition.X, CurrentGoalPosition.Y,CurrentGoalPosition.Z);
+    // UE_LOG(LogTemp, Display, TEXT("Goal Position is: %f %f %f"),CurrentGoalPosition.X, CurrentGoalPosition.Y,CurrentGoalPosition.Z);
 
     try
     {
@@ -443,7 +443,7 @@ void AZMQController::ProcessImageCapture()
             
             AsyncTask(ENamedThreads::GameThread, [this, ImageDataPtr]()
             {
-                UE_LOG(LogTemp, Display, TEXT("Captured image via render command: %d pixels"), ImageDataPtr->Num());
+                // UE_LOG(LogTemp, Display, TEXT("Captured image via render command: %d pixels"), ImageDataPtr->Num());
                 
                 AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [this, ImageDataPtr]()
                 {

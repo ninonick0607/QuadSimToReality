@@ -122,7 +122,7 @@ class RL_Algorithm:
             nn.Tanh(),
             nn.Linear(128, 128),
             nn.Tanh(),
-            nn.Linear(128, 6),
+            nn.Linear(128, 2 * self.env.action_spec.shape[0]),  # 2 * for loc and scale
             NormalParamExtractor()
         )
         critic = ValueOperator(critic_arch, in_keys=["observation"]).to(self.device)
@@ -295,7 +295,7 @@ class RL_Algorithm:
         env = self.env # .append_transform(RenderPixels(display=display, in_keys=["pixels"], out_keys=["pixels"]))
         actor_op = self.modules["actor"].to(self.device)
         i=0
-        with set_exploration_type(ExplorationType.RANDOM):
+        with set_exploration_type(ExplorationType.DETERMINISTIC):
             while True:
                 td = env.rollout(200, actor_op)
                 print(f"reset {i}")

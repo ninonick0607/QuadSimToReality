@@ -21,7 +21,7 @@ class QuadSimEnv(gym.Env):
         self.action_space = gym.spaces.Box(
             low=-1,  
             high=1,
-            shape=(3,),
+            shape=(2,), # X and Y velocity commands
             dtype=np.float32
         )
 
@@ -109,7 +109,7 @@ class QuadSimEnv(gym.Env):
     def step(self, action):
         # Apply action and update environment (keep your existing code here)
         # self.prev_action = 0.7 * self.prev_action + 0.3 * action[0]
-        full_action = np.array(action) * 250.0
+        full_action = np.array([*action, 0.0]) * 250.0
         
         self.send_velocity_command(full_action)
         time.sleep(0.05) # Action frequency is ~20 Hz
@@ -124,7 +124,7 @@ class QuadSimEnv(gym.Env):
         ])
 
         reward = 1 - (observation[6] / 13000) # Reward based on distance to goal (normalized to ~[0, 1])
-        reward += 1 - np.abs((observation[2] - 250) / 250) # Reward based on altitude (reward 1 is 250cm, reward 0 = 0cm or 500cm)
+        # reward += 1 - np.abs((observation[2] - 250) / 250) # Reward based on altitude (reward 1 is 250cm, reward 0 = 0cm or 500cm)
 
         # Termination conditions
         done = False

@@ -50,7 +50,7 @@ public:
     void Update(double DeltaTime);
 
     void VelocityControl(double a_deltaTime);
-    void ThrustMixer(double xOutput, double yOutput, double zOutput, double rollOutput, double pitchOutput);
+    void ThrustMixer(double currentRoll, double currentPitch, double zOutput, double rollOutput, double pitchOutput);
     void YawStabilization(double DeltaTime);
     void YawRateControl(double DeltaTime);
     void ResetPID();
@@ -75,6 +75,7 @@ public:
     bool GetDebugVisualsEnabled() const { return bDebugVisualsEnabled; }
     void SetDebugVisualsEnabled(bool bEnabled) { bDebugVisualsEnabled = bEnabled; }
     void SetDesiredYawRate(float NewYawRate) { desiredYawRate = NewYawRate; }
+    float GetDesiredYawRate() const { return desiredYawRate; }
 
 
     UPROPERTY()
