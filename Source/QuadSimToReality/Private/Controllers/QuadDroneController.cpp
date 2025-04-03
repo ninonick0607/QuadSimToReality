@@ -61,7 +61,7 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 
 	VelocitySet.YawPID = new QuadPIDController();
 	VelocitySet.YawPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-	VelocitySet.YawPID->SetGains(1.4f, 1.3f, 1.1f);
+	VelocitySet.YawPID->SetGains(1.f, 0.f, 0.f);
 	PIDMap.Add(VelocitySet);
 
 	AltitudePID = new QuadPIDController();

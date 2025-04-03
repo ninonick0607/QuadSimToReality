@@ -21,7 +21,7 @@ class QuadSimEnv(gym.Env):
         self.action_space = gym.spaces.Box(
             low=-1,  
             high=1,
-            shape=(2,), # X and Y velocity commands
+            shape=(1,), # Yaw Rate command
             dtype=np.float32
         )
 
@@ -29,7 +29,7 @@ class QuadSimEnv(gym.Env):
             "observation": gym.spaces.Box(
                 low=-np.inf,
                 high=np.inf,
-                shape=(9,),
+                shape=(6,),
                 dtype=np.float32
             ),
             "pixels": gym.spaces.Box(
@@ -42,7 +42,8 @@ class QuadSimEnv(gym.Env):
 
         self.state = {
             'velocity': np.zeros(3, dtype=np.float32),
-            'position': np.zeros(3, dtype=np.float32)
+            'position': np.zeros(3, dtype=np.float32),
+            'attitude': np.zeros(3, dtype=np.float32)
         }
 
         self.goal_state = np.zeros(3, dtype=np.float32)
@@ -78,18 +79,18 @@ class QuadSimEnv(gym.Env):
     def get_observation(self):
         """
         Returns a vector with the state information relevant to training:
-        (0-2) Quadrotor position (x, y, z)
-        (3-5) Quadrotor velocity (vx, vy, vz)
-        (6) Distance to goal (scalar)
-        (7-8) Angle to goal (cosine and sine)
+        (0-2) Quadrotor velocity (vx, vy, vz)
+        (3) Distance to goal (scalar)
+        (4-5) Angle to goal (relative to drone body, cosine and sine)
         """
         
-        pos = self.state['position']
         vel = self.state['velocity']
         distance_to_goal = np.linalg.norm(self.state['position'][:-1] - self.goal_state[:-1])
-        angle_to_goal = np.arctan2(self.goal_state[1] - self.state['position'][1], self.goal_state[0] - self.state['position'][0])
+        global_angle_to_goal = np.arctan2(self.goal_state[1] - self.state['position'][1], self.goal_state[0] - self.state['position'][0])
+        local_angle_to_goal = np.rad2deg(global_angle_to_goal) - self.state['attitude'][2]
+        local_angle_to_goal = np.deg2rad(local_angle_to_goal)
 
-        return np.array([*pos, *vel, distance_to_goal, np.cos(angle_to_goal), np.sin(angle_to_goal)], dtype=np.float32)
+        return np.array([*vel, distance_to_goal, np.cos(local_angle_to_goal), np.sin(local_angle_to_goal)], dtype=np.float32)
 
     def reset(self, seed=None):
         # self.send_reset_command()
@@ -107,12 +108,12 @@ class QuadSimEnv(gym.Env):
     
     
     def step(self, action):
-        # Apply action and update environment (keep your existing code here)
-        # self.prev_action = 0.7 * self.prev_action + 0.3 * action[0]
-        full_action = np.array([*action, 0.0]) * 250.0
+        # Apply action and update environment
+        # full_action = np.array([*action, 0.0]) * 250.0
+        full_action = np.array([0, 0, 0, action[0]]) * 50
         
         self.send_velocity_command(full_action)
-        time.sleep(0.05) # Action frequency is ~20 Hz
+        time.sleep(0.1) # Action frequency is ~10 Hz
 
         self.handle_data()
         observation = self.get_observation()
@@ -123,19 +124,23 @@ class QuadSimEnv(gym.Env):
             ('observation', observation)
         ])
 
-        reward = 1 - (observation[6] / 13000) # Reward based on distance to goal (normalized to ~[0, 1])
+        # reward = 1 - (observation[6] / 13000) # Reward based on distance to goal (normalized to ~[0, 1])
         # reward += 1 - np.abs((observation[2] - 250) / 250) # Reward based on altitude (reward 1 is 250cm, reward 0 = 0cm or 500cm)
+        local_angle = np.abs(np.rad2deg(np.arctan2(observation[5], observation[4])))
+        # Reward based on angle to goal
+        reward = np.maximum(0, np.maximum(0.5 - (local_angle - 5) / 170, 1 - local_angle / 10))
 
         # Termination conditions
         done = False
         if self.steps >= 256: done = True; print("Max steps reached")
-        if observation[2] > 500: done = True; print("Quadrotor too high")
-        if observation[2] < 5: done = True; print("Quadrotor too low")
+        # if observation[2] > 500: done = True; print("Quadrotor too high")
+        # if observation[2] < 5: done = True; print("Quadrotor too low")
         
         self.steps += 1
         return complete_obs, reward, done, False, {}
 
     def send_velocity_command(self, velocity):
+        # Should be a 1D numpy array with 4 elements: [vx, vy, vz, yaw_rate]
         command_topic = "VELOCITY"
         message = np.array(velocity, dtype=np.float32).tobytes()
         self.command_socket.send_multipart([command_topic.encode(), message])
@@ -164,7 +169,7 @@ class QuadSimEnv(gym.Env):
             if self.control_socket.poll(100, zmq.POLLIN):
                 unified_data = self.control_socket.recv_string()
                 data_parts = unified_data.split(";")
-                if len(data_parts) != 3:
+                if len(data_parts) != 4:
                     raise ValueError("Invalid data format")
                     
                 parsed_data = {}
@@ -172,13 +177,14 @@ class QuadSimEnv(gym.Env):
                     key, values = part.split(":")
                     parsed_data[key] = list(map(float, values.split(",")))
                 
-                for k in ["VELOCITY", "POSITION", "GOAL"]:
+                for k in ["VELOCITY", "POSITION", "GOAL", "ATTITUDE"]:
                     if len(parsed_data.get(k, [])) != 3:
                         raise ValueError(f"Invalid {k} data")
                         
                 self.state.update({
                     'velocity': np.array(parsed_data["VELOCITY"]),
-                    'position': np.array(parsed_data["POSITION"])
+                    'position': np.array(parsed_data["POSITION"]),
+                    'attitude': np.array(parsed_data["ATTITUDE"])
                 })
                 self.goal_state = np.array(parsed_data["GOAL"])
                 

@@ -2,9 +2,9 @@ from RL import RL_Algorithm
 import torch
 import yaml
 
-NAME = "No_op_MLP_2"
+NAME = "Yaw_only_MLP_6"
 TRAIN = False
-LOG = True
+LOG = False
 
 if __name__ == "__main__":
     
@@ -12,9 +12,10 @@ if __name__ == "__main__":
     print(f"Using device: {device}")
 
     config = {
+        # obs_norm should contain the parameters for the distribution of the observations: normalized = (original - loc) / scale
         "obs_norm": {
-            "loc": [0] * 9,
-            "scale": [1/12000] * 3 + [1/250] * 3 + [1/12000] + [1] * 2
+            "loc": [0] * 6,
+            "scale": [250] * 3 + [12000] + [1] * 2
         }
     }
 

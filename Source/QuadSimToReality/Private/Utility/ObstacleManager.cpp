@@ -324,6 +324,7 @@ void AObstacleManager::MoveDroneToOppositeOfGoal(EGoalPosition GoalPos) {
             FRotator CurrentRotation = Drone->GetActorRotation();
             FacingRotation.Pitch = CurrentRotation.Pitch;
             FacingRotation.Roll = CurrentRotation.Roll;
+            FacingRotation.Yaw += FMath::RandRange(-90.0f, 90.0f); // Add random yaw offset
             
             // Teleport the drone to the exact location with rotation to face center
             Drone->SetActorLocationAndRotation(DroneLocation, FacingRotation);

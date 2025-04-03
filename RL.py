@@ -106,8 +106,9 @@ class RL_Algorithm:
 
         # TODO: Add support for aux heads, and use config
         # features_extractor_arch = LSTM(device=self.device)
+        obs_shape = self.env.observation_spec["observation"].shape[0]
         critic_arch = nn.Sequential(
-            nn.Linear(9, 128),
+            nn.Linear(obs_shape, 128),
             nn.Tanh(),
             nn.Linear(128, 128),
             nn.Tanh(),
@@ -116,7 +117,7 @@ class RL_Algorithm:
             nn.Linear(128, 1),
         )
         actor_arch = nn.Sequential(
-            nn.Linear(9, 128),
+            nn.Linear(obs_shape, 128),
             nn.Tanh(),
             nn.Linear(128, 128),
             nn.Tanh(),
@@ -295,7 +296,7 @@ class RL_Algorithm:
         env = self.env # .append_transform(RenderPixels(display=display, in_keys=["pixels"], out_keys=["pixels"]))
         actor_op = self.modules["actor"].to(self.device)
         i=0
-        with set_exploration_type(ExplorationType.DETERMINISTIC):
+        with set_exploration_type(ExplorationType.RANDOM):
             while True:
                 td = env.rollout(200, actor_op)
                 print(f"reset {i}")

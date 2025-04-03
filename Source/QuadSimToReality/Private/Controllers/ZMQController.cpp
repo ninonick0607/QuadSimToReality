@@ -262,15 +262,16 @@ void AZMQController::HandleVelocityCommand(zmq::multipart_t& Message)
     if (!DroneController || Message.empty()) return;
 
     zmq::message_t VelocityData = Message.pop();
-    if (VelocityData.size() == sizeof(float) * 3 && VelocityData.data())
+    if (VelocityData.size() == sizeof(float) * 4 && VelocityData.data())
     {
         float* VelocityArray = reinterpret_cast<float*>(VelocityData.data());
 
-        UE_LOG(LogTemp, Display, TEXT("[ZMQController] Velocity array from Python: %f, %f, %f"),
-            VelocityArray[0], VelocityArray[1], VelocityArray[2]);
+        UE_LOG(LogTemp, Display, TEXT("[ZMQController] Velocity array from Python: %f, %f, %f, %f"),
+            VelocityArray[0], VelocityArray[1], VelocityArray[2], VelocityArray[3]);
 
         FVector DesiredVelocity(VelocityArray[0], VelocityArray[1], VelocityArray[2]);
         DroneController->SetDesiredVelocity(DesiredVelocity);
+        DroneController->SetDesiredYawRate(VelocityArray[3]);
     }
     else
     {
@@ -352,6 +353,7 @@ void AZMQController::SendStateData()
 
     FVector CurrentVelocity = RootPrimitive->GetPhysicsLinearVelocity();
     FVector CurrentPosition = DronePawn->GetActorLocation();
+    FRotator CurrentRotation = DronePawn->GetActorRotation();
     if (ObstacleManagerInstance) {
         CurrentGoalPosition = ObstacleManagerInstance->GetGoalPosition();
     }
@@ -360,10 +362,11 @@ void AZMQController::SendStateData()
     try
     {
         FString StateData = FString::Printf(
-            TEXT("VELOCITY:%f,%f,%f;POSITION:%f,%f,%f;GOAL:%f,%f,%f"),
+            TEXT("VELOCITY:%f,%f,%f;POSITION:%f,%f,%f;GOAL:%f,%f,%f;ATTITUDE:%f,%f,%f"),
             CurrentVelocity.X, CurrentVelocity.Y, CurrentVelocity.Z,
             CurrentPosition.X, CurrentPosition.Y, CurrentPosition.Z,
-            CurrentGoalPosition.X, CurrentGoalPosition.Y, CurrentGoalPosition.Z
+            CurrentGoalPosition.X, CurrentGoalPosition.Y, CurrentGoalPosition.Z,
+            CurrentRotation.Roll, CurrentRotation.Pitch, CurrentRotation.Yaw
         );
 
         zmq::multipart_t Message;
