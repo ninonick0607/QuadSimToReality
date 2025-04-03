@@ -4,115 +4,140 @@
 #include "GameFramework/Actor.h"
 #include "ROS2NodeComponent.h"
 #include "ROS2Publisher.h"
-#include "Msgs/ROS2Img.h"
-#include "Msgs/ROS2Point.h"
+#include "ROS2Subscriber.h"
 #include "Components/SceneCaptureComponent2D.h"
 #include "Engine/TextureRenderTarget2D.h"
-#include "ROS2Subscriber.h"
+#include "Msgs/ROS2Point.h"
+#include "Msgs/ROS2Img.h"
+#include "Msgs/ROS2Float64.h"
+#include "Msgs/ROS2Twist.h"
 #include "Msgs/ROS2Str.h"
-#include "Utility/ObstacleManager.h"
-#include "Pawns/QuadPawn.h"
+
+class AObstacleManager;
+class AQuadPawn;
 
 #include "ROS2Controller.generated.h"
 
 UCLASS()
 class QUADSIMTOREALITY_API AROS2Controller : public AActor
 {
-    GENERATED_BODY()
+	GENERATED_BODY()
 
 public:
-    AROS2Controller();
+	AROS2Controller();
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2")
-    FString NodeName = TEXT("quad_controller_node");
+    // --- ROS2 Node Configuration ---
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2")
+	FString NodeName = TEXT("quad_controller_node");
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2")
-    FString Namespace = TEXT("quad");
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2")
+	FString Namespace = TEXT("");
 
-    // Position Publishing
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2")
-    FString PositionTopicName = TEXT("/drone/position");
+    // --- Publisher Topics & Config ---
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Publishers|Position")
+	FString PositionTopicName = TEXT("/drone/position");
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2")
-    float PositionFrequencyHz = 10.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Publishers|Position")
+	float PositionFrequencyHz = 30.f;
 
-    // Goal Publishing
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2")
-    FString PositionGoalTopicName = TEXT("/goal/position");
-    
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2")
-    float GoalFrequenzyHz = 10.f;
-    
-    // Image Publishing
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Image")
-    FString ImageTopicName = TEXT("/camera/image");
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Publishers|Goal")
+	FString PositionGoalTopicName = TEXT("/goal/position");
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Image")
-    float ImageFrequencyHz = 15.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Publishers|Goal")
+	float GoalFrequenzyHz = 1.f;
 
-    UPROPERTY(EditAnywhere, Category = "ROS2|Image")
-    FVector2D ImageResolution = FVector2D(128, 128);
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Publishers|Image")
+	FString ImageTopicName = TEXT("/camera/image");
 
-    UPROPERTY(EditAnywhere, Category = "ROS2")
-    AQuadPawn* QuadPawn;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Publishers|Image")
+	float ImageFrequencyHz = 15.f;
 
-    UPROPERTY(EditAnywhere, Category = "ROS2")
-    AObstacleManager* ObstacleManager;
-    
-    // Image Capture System
-    UPROPERTY()
-    TArray<UTextureRenderTarget2D*> RenderTargets;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Publishers|Image")
+	FIntPoint ImageResolution = FIntPoint(128, 128);
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Image")
+    // --- Subscriber Topics ---
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Subscribers")
+    FString ObstacleTopicName = TEXT("/obstacles");
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Subscribers") // <--- ADDED PROPERTY
+    FString CmdVelTopicName = TEXT("/cmd_vel");
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Subscribers") // <--- ADDED PROPERTY
+    FString ResetTopicName = TEXT("/reset");
+
+    // --- Pawn & Manager References ---
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Control")
+	AQuadPawn* QuadPawn;
+
+    // --- Goal Altitude (Temporary) ---
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Control|Goal") // <--- ADDED PROPERTY
+    float TargetAltitude = 1000.0f; // Target Z in cm
+
+    // --- Image Capture Component ---
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Image Capture")
     USceneCaptureComponent2D* SceneCapture;
 
-    UPROPERTY(EditAnywhere, Category = "ROS2")
-    FString ObstacleTopicName = TEXT("/obstacles");
-    
 protected:
-    virtual void BeginPlay() override;
-    virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
-    void InitializeImageCapture();
-    void CaptureImage();
-    void ProcessCapturedImage(const TArray<FColor>& Pixels);
-    void SetupObstacleManager();
+    // --- Helper Functions ---
+	void InitializeImageCapture();
+	void CaptureImage();
+	void ProcessCapturedImage(const TArray<FColor>& Pixels);
+	void SetupObstacleManager();
 
-    UFUNCTION()
-    void UpdatePositionMessage(UROS2GenericMsg* InMessage);
+    // --- Publisher Update Callbacks ---
+	UFUNCTION()
+	void UpdatePositionMessage(UROS2GenericMsg* InMessage); // Still uses GenericMsg as base type
 
-    UFUNCTION()
-    void UpdateGoalPositionMessage(UROS2GenericMsg* InMessage);
+	UFUNCTION()
+	void UpdateGoalPositionMessage(UROS2GenericMsg* InMessage);
 
-    UFUNCTION()
-    void UpdateImageMessage(UROS2GenericMsg* InMessage);
+	UFUNCTION()
+	void UpdateImageMessage(UROS2GenericMsg* InMessage);
 
-    UFUNCTION()
-    void HandleObstacleMessage(const UROS2GenericMsg* InMsg);
-    
-    // ROS2 Components
-    UPROPERTY()
-    UROS2NodeComponent* Node;
+    // --- Subscriber Handler Callbacks ---
+	UFUNCTION()
+	void HandleObstacleMessage(const UROS2GenericMsg* InMsg); // Still uses GenericMsg as base type
 
-    UPROPERTY()
-    UROS2Publisher* PositionPublisher;
+    UFUNCTION() // <--- ADDED FUNCTION DECLARATION
+    void HandleVelocityCommand(const UROS2GenericMsg* InMsg);
 
-    UPROPERTY()
-    UROS2Publisher* ImagePublisher;
-    
-    UPROPERTY()
-    UROS2Publisher* GoalPosition;
+    UFUNCTION() // <--- ADDED FUNCTION DECLARATION
+    void HandleResetCommand(const UROS2GenericMsg* InMsg);
 
-    UPROPERTY()
-    AObstacleManager* ObstacleManagerInstance;
+	// --- ROS2 Components (Internal) ---
+	UPROPERTY()
+	UROS2NodeComponent* Node;
 
-    // Subscriber for obstacle commands
-    UPROPERTY()
-    UROS2Subscriber* ObstacleSubscriber;
+	UPROPERTY()
+	UROS2Publisher* PositionPublisher;
 
-    FTimerHandle CaptureTimerHandle;
-    int32 CurrentRenderTargetIndex = 0;
-    bool bIsProcessingImage = false;
-    int32 UpdateCount = 0;
+	UPROPERTY()
+	UROS2Publisher* ImagePublisher;
+
+	UPROPERTY()
+	UROS2Publisher* GoalPosition;
+
+	UPROPERTY()
+	UROS2Subscriber* ObstacleSubscriber;
+
+    UPROPERTY() // <--- ADDED SUBSCRIBER REFERENCE
+    UROS2Subscriber* CmdVelSubscriber;
+
+    UPROPERTY() // <--- ADDED SUBSCRIBER REFERENCE
+    UROS2Subscriber* ResetSubscriber;
+
+    // --- Internal State ---
+	UPROPERTY()
+	AObstacleManager* ObstacleManagerInstance;
+
+	UPROPERTY()
+	TArray<UTextureRenderTarget2D*> RenderTargets;
+
+	FTimerHandle CaptureTimerHandle;
+	int32 CurrentRenderTargetIndex = 0;
+	bool bIsProcessingImage = false;
 };
