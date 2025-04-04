@@ -53,18 +53,14 @@ void AROS2Controller::BeginPlay()
     Node->Init();
 
     // --- Setup Publishers ---
-    // Log the fully qualified topic names
     UE_LOG(LogTemp, Log, TEXT("Setting up Publisher: %s"), *PositionTopicName);
     ROS2_CREATE_LOOP_PUBLISHER_WITH_QOS(
         Node, this, PositionTopicName, UROS2Publisher::StaticClass(), UROS2PointMsg::StaticClass(), 
         PositionFrequencyHz, &AROS2Controller::UpdatePositionMessage, UROS2QoS::Default, PositionPublisher); // Try Services if not working
-
-
     UE_LOG(LogTemp, Log, TEXT("Setting up Publisher: %s"), *PositionGoalTopicName);
     ROS2_CREATE_LOOP_PUBLISHER_WITH_QOS(
         Node, this, PositionGoalTopicName, UROS2Publisher::StaticClass(), UROS2PointMsg::StaticClass(), 
         GoalFrequenzyHz, &AROS2Controller::UpdateGoalPositionMessage, UROS2QoS::Default, GoalPosition); // Try services if not working
-
     UE_LOG(LogTemp, Log, TEXT("Setting up Publisher: %s"), *ImageTopicName);
     ROS2_CREATE_LOOP_PUBLISHER_WITH_QOS(
         Node, this, ImageTopicName, UROS2Publisher::StaticClass(), UROS2ImgMsg::StaticClass(), 
@@ -75,28 +71,22 @@ void AROS2Controller::BeginPlay()
     
     // --- Setup Subscribers ---
     UE_LOG(LogTemp, Log, TEXT("Setting up Subscriber: %s"), *ObstacleTopicName);
-    ROS2_CREATE_SUBSCRIBER( // Macros use the wrapper classes
-        Node, this, ObstacleTopicName, UROS2Float64Msg::StaticClass(), &AROS2Controller::HandleObstacleMessage, ObstacleSubscriber); // Possibly remove Obstacle Subscriber
+    ROS2_CREATE_SUBSCRIBER( 
+        Node, this, ObstacleTopicName, UROS2Float64Msg::StaticClass(), &AROS2Controller::HandleObstacleMessage);
 
     UE_LOG(LogTemp, Log, TEXT("Setting up Subscriber: %s"), *CmdVelTopicName);
-    ROS2_CREATE_SUBSCRIBER(
-        Node, this, CmdVelTopicName, UROS2TwistMsg::StaticClass(), &AROS2Controller::HandleVelocityCommand, CmdVelSubscriber);
+    ROS2_CREATE_SUBSCRIBER( 
+        Node, this, CmdVelTopicName, UROS2TwistMsg::StaticClass(), &AROS2Controller::HandleVelocityCommand);
 
     UE_LOG(LogTemp, Log, TEXT("Setting up Subscriber: %s"), *ResetTopicName);
-    ROS2_CREATE_SUBSCRIBER(
-        Node, this, ResetTopicName, UROS2StrMsg::StaticClass(), &AROS2Controller::HandleResetCommand, ResetSubscriber);
+    ROS2_CREATE_SUBSCRIBER( 
+        Node, this, ResetTopicName, UROS2StrMsg::StaticClass(), &AROS2Controller::HandleResetCommand);
 
-    UE_LOG(LogTemp, Warning, TEXT("Obstacle subscriber created successfully"));
-
-    // Initialize image capture system
     InitializeImageCapture();
-
-    if (ImageFrequencyHz > 0 && GetWorld())
-    {
-        UE_LOG(LogTemp, Log, TEXT("Starting image capture timer with frequency: %.2f Hz (Interval: %.4f s)"), ImageFrequencyHz, 1.0f / ImageFrequencyHz);
+    if (ImageFrequencyHz > 0 && GetWorld()) {
+        UE_LOG(LogTemp, Log, TEXT("Starting image capture timer (Interval: %.4f s)"), 1.0f / ImageFrequencyHz);
         GetWorld()->GetTimerManager().SetTimer(CaptureTimerHandle, this, &AROS2Controller::CaptureImage, 1.0f / ImageFrequencyHz, true);
-    }
-    else if (ImageFrequencyHz <= 0) { UE_LOG(LogTemp, Warning, TEXT("Image capture frequency is <= 0, timer not started.")); }
+    } else if (ImageFrequencyHz <= 0) { UE_LOG(LogTemp, Warning, TEXT("Image capture timer not started (Frequency <= 0).")); }
 
     UE_LOG(LogTemp, Warning, TEXT("AROS2Controller initialization complete."));
 }
@@ -239,7 +229,7 @@ void AROS2Controller::UpdatePositionMessage(UROS2GenericMsg* InMessage)
 
     FROSPoint PositionData; 
     const FVector WorldPosition = QuadPawn->GetActorLocation();
-    const float ScaleFactor = 1;//0.01f; // cm to m
+    const float ScaleFactor = 1.f;//0.01f; // cm to m
 
     PositionData.X = WorldPosition.X * ScaleFactor;
     PositionData.Y = WorldPosition.Y * ScaleFactor;
@@ -344,35 +334,31 @@ void AROS2Controller::HandleObstacleMessage(const UROS2GenericMsg* InMsg)
 
 void AROS2Controller::HandleVelocityCommand(const UROS2GenericMsg* InMsg)
 {
+    UE_LOG(LogTemp, Warning, TEXT("!!! HandleVelocityCommand CALLBACK EXECUTED !!!")); // <-- ADD THIS LINE
+
     if (!InMsg) { UE_LOG(LogTemp, Error, TEXT("HandleVelocityCommand: InMsg is null")); return; }
-	const UROS2TwistMsg* TwistMsgWrapper = Cast<UROS2TwistMsg>(InMsg);
-	if (!TwistMsgWrapper) { UE_LOG(LogTemp, Error, TEXT("HandleVelocityCommand: Invalid msg type")); return; }
+    const UROS2TwistMsg* TwistMsgWrapper = Cast<UROS2TwistMsg>(InMsg);
+    if (!TwistMsgWrapper) { UE_LOG(LogTemp, Error, TEXT("HandleVelocityCommand: Invalid msg type")); return; }
 
-	if (!IsValid(QuadPawn)) { return; } 
-    UQuadDroneController* DroneController = QuadPawn->QuadController; 
-    
-    if (!IsValid(DroneController))
-    {
-        UE_LOG(LogTemp, Warning, TEXT("HandleVelocityCommand: Cannot find valid DroneController for QuadPawn!"));
-        return;
-    }
+    if (!IsValid(QuadPawn)) { return; }
+    UQuadDroneController* DroneController = QuadPawn->QuadController;
+    if (!IsValid(DroneController)) { UE_LOG(LogTemp, Warning, TEXT("HandleVelocityCommand: QuadPawn->QuadController is invalid!")); return; }
 
-	FROSTwist TwistData;
-	TwistMsgWrapper->GetMsg(TwistData);
-
-    const float MPS_TO_CMPS = 1.f;//100.0f;
-
-	const float TargetLinearZVelocity_cms = TwistData.Linear.Z * MPS_TO_CMPS; 
+    FROSTwist TwistData;
+    TwistMsgWrapper->GetMsg(TwistData);
+    const float MPS_TO_CMPS = 1.f; // Assuming incoming is cm/s
+    const float TargetLinearZVelocity_cms = TwistData.Linear.Z * MPS_TO_CMPS;
     const float TargetLinearXVelocity_cms = 0.0f;
     const float TargetLinearYVelocity_cms = 0.0f;
-
     FVector DesiredVelocityVector = FVector(TargetLinearXVelocity_cms, TargetLinearYVelocity_cms, TargetLinearZVelocity_cms);
-    DroneController->SetDesiredVelocity(DesiredVelocityVector); 
+    // UE_LOG(LogTemp, Log, TEXT("Setting Desired Velocity via Controller: %s (cm/s)"), *DesiredVelocityVector.ToString());
+    DroneController->SetDesiredVelocity(DesiredVelocityVector);
 }
-
 
 void AROS2Controller::HandleResetCommand(const UROS2GenericMsg* InMsg)
 {
+    UE_LOG(LogTemp, Warning, TEXT("!!! HandleResetCommand CALLBACK EXECUTED !!!")); 
+
     if (!InMsg) { UE_LOG(LogTemp, Error, TEXT("HandleResetCommand: InMsg is null")); return; }
     const UROS2StrMsg* StringMsgWrapper = Cast<UROS2StrMsg>(InMsg);
     if (!StringMsgWrapper) { UE_LOG(LogTemp, Error, TEXT("HandleResetCommand: Invalid msg type")); return; }
@@ -382,27 +368,20 @@ void AROS2Controller::HandleResetCommand(const UROS2GenericMsg* InMsg)
 
     if (StringData.Data.Equals(TEXT("reset"), ESearchCase::IgnoreCase))
     {
-        UE_LOG(LogTemp, Warning, TEXT("AROS2Controller: Received Reset Command via ROS!"));
+        UE_LOG(LogTemp, Warning, TEXT("AROS2Controller: Processing 'reset' command...")); // Changed log level
 
         if (!IsValid(QuadPawn)) { UE_LOG(LogTemp, Error, TEXT("HandleResetCommand: QuadPawn invalid")); return; }
-
-        UQuadDroneController* DroneController = QuadPawn->QuadController; 
-        if (!IsValid(DroneController))
-        {
-            UE_LOG(LogTemp, Warning, TEXT("HandleResetCommand: Cannot find valid DroneController for QuadPawn! Cannot reset via controller."));
-            return;
-        }
+        UQuadDroneController* DroneController = QuadPawn->QuadController;
+        if (!IsValid(DroneController)) { UE_LOG(LogTemp, Warning, TEXT("HandleResetCommand: QuadPawn->QuadController invalid! Cannot reset.")); return; }
 
         UE_LOG(LogTemp, Log, TEXT("Calling DroneController->ResetDroneOrigin()"));
-        DroneController->ResetDroneOrigin(); 
-
-        // Optional: Reset Obstacle Manager state if needed (keep this logic if required)
-        /*
-        if (IsValid(ObstacleManagerInstance)) {
-             ObstacleManagerInstance->ClearObstacles();
-             UE_LOG(LogTemp, Log, TEXT("Reset - Cleared Obstacles via Manager."));
-        }
-        */
+        DroneController->ResetDroneOrigin();
         UE_LOG(LogTemp, Warning, TEXT("AROS2Controller: Drone Reset via Controller Complete."));
     }
+    // else { UE_LOG(LogTemp, Verbose, TEXT("Received Str on ResetTopic != 'reset': %s"), *StringData.Data); }
+}
+
+void AROS2Controller::UpdateImageMessage(UROS2GenericMsg* InMessage)
+{
+    // Empty - now handled by timer-based capture system
 }

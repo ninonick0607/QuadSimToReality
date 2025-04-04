@@ -15,6 +15,7 @@
 
 class AObstacleManager;
 class AQuadPawn;
+class UQuadDroneController; 
 
 #include "ROS2Controller.generated.h"
 
@@ -36,33 +37,25 @@ public:
     // --- Publisher Topics & Config ---
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Publishers|Position")
 	FString PositionTopicName = TEXT("/drone/position");
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Publishers|Position")
 	float PositionFrequencyHz = 30.f;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Publishers|Goal")
 	FString PositionGoalTopicName = TEXT("/goal/position");
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Publishers|Goal")
 	float GoalFrequenzyHz = 1.f;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Publishers|Image")
 	FString ImageTopicName = TEXT("/camera/image");
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Publishers|Image")
 	float ImageFrequencyHz = 15.f;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Publishers|Image")
 	FIntPoint ImageResolution = FIntPoint(128, 128);
 
     // --- Subscriber Topics ---
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Subscribers")
     FString ObstacleTopicName = TEXT("/obstacles");
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Subscribers") // <--- ADDED PROPERTY
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Subscribers") 
     FString CmdVelTopicName = TEXT("/cmd_vel");
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Subscribers") // <--- ADDED PROPERTY
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Subscribers") 
     FString ResetTopicName = TEXT("/reset");
 
     // --- Pawn & Manager References ---
@@ -91,52 +84,39 @@ private:
     // --- Publisher Update Callbacks ---
 	UFUNCTION()
 	void UpdatePositionMessage(UROS2GenericMsg* InMessage); // Still uses GenericMsg as base type
-
 	UFUNCTION()
 	void UpdateGoalPositionMessage(UROS2GenericMsg* InMessage);
-
 	UFUNCTION()
 	void UpdateImageMessage(UROS2GenericMsg* InMessage);
-
     // --- Subscriber Handler Callbacks ---
 	UFUNCTION()
-	void HandleObstacleMessage(const UROS2GenericMsg* InMsg); // Still uses GenericMsg as base type
-
-    UFUNCTION() // <--- ADDED FUNCTION DECLARATION
+	void HandleObstacleMessage(const UROS2GenericMsg* InMsg); 
+    UFUNCTION() 
     void HandleVelocityCommand(const UROS2GenericMsg* InMsg);
-
-    UFUNCTION() // <--- ADDED FUNCTION DECLARATION
+    UFUNCTION() 
     void HandleResetCommand(const UROS2GenericMsg* InMsg);
 
 	// --- ROS2 Components (Internal) ---
 	UPROPERTY()
 	UROS2NodeComponent* Node;
-
 	UPROPERTY()
 	UROS2Publisher* PositionPublisher;
-
 	UPROPERTY()
 	UROS2Publisher* ImagePublisher;
-
 	UPROPERTY()
 	UROS2Publisher* GoalPosition;
-
 	UPROPERTY()
 	UROS2Subscriber* ObstacleSubscriber;
-
-    UPROPERTY() // <--- ADDED SUBSCRIBER REFERENCE
+    UPROPERTY()
     UROS2Subscriber* CmdVelSubscriber;
-
-    UPROPERTY() // <--- ADDED SUBSCRIBER REFERENCE
+    UPROPERTY()
     UROS2Subscriber* ResetSubscriber;
 
     // --- Internal State ---
 	UPROPERTY()
 	AObstacleManager* ObstacleManagerInstance;
-
 	UPROPERTY()
 	TArray<UTextureRenderTarget2D*> RenderTargets;
-
 	FTimerHandle CaptureTimerHandle;
 	int32 CurrentRenderTargetIndex = 0;
 	bool bIsProcessingImage = false;

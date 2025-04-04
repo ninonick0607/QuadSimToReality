@@ -351,7 +351,7 @@ void UQuadDroneController::ResetDroneOrigin()
 		}
 
 		// Reset position and rotation
-		dronePawn->SetActorLocation(FVector(0.0f, 0.0f, 10.0f), false, nullptr, ETeleportType::TeleportPhysics);
+		dronePawn->SetActorLocation(FVector(0.0f, 0.0f, 10000.0f), false, nullptr, ETeleportType::TeleportPhysics);
 		dronePawn->SetActorRotation(FRotator::ZeroRotator);
 
 		if (dronePawn->DroneBody)
