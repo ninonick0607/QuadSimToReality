@@ -81,9 +81,12 @@ class RL_Algorithm:
         """
 
         # TODO: Add support for other envs, and use config
-        env = GymWrapper(QuadSimEnv()).to(self.device)
+        freq = self.config.get("action_frequency", 10)
+        reward_fn = self.config.get("reward_fn", None)
+        env = GymWrapper(QuadSimEnv(action_frequency=freq, reward_fn=reward_fn)).to(self.device)
         env = TransformedEnv(env, DoubleToFloat())
         env = TransformedEnv(env, InitTracker())
+        loc, scale = self.config.get("obs_norm", {}).get("loc", 0), self.config.get("obs_norm", {}).get("scale", 1)
         self.obs_norm = ObservationNorm(in_keys=["observation"], loc=self.config["obs_norm"]["loc"], scale=self.config["obs_norm"]["scale"], standard_normal=True)
         env = TransformedEnv(env, self.obs_norm)
         # self.obs_norm.init_stats(1000)
@@ -180,8 +183,7 @@ class RL_Algorithm:
         # outside of just this module (for auxialiary losses, debugging, etc.)
         self.loss_module = ClipPPOLoss(
             actor_network=self.modules["actor"],
-            critic_network=self.modules["critic"],
-            critic_coef=0.01
+            critic_network=self.modules["critic"]
         )
         self.optim = torch.optim.Adam(self.params, lr=3e-4)
         self.loss_fn = torch.nn.SmoothL1Loss()

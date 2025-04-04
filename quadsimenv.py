@@ -8,6 +8,7 @@ import glob
 import os
 import struct
 from collections import OrderedDict
+from typing import Callable
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback, BaseCallback
 from stable_baselines3.common.monitor import Monitor
@@ -15,7 +16,7 @@ from stable_baselines3.common.monitor import Monitor
 import tensorboard
 # --- QuadSimEnv definition ---
 class QuadSimEnv(gym.Env):
-    def __init__(self):
+    def __init__(self, action_frequency: int=10, reward_fn: Callable[[float], float]=None):
         super(QuadSimEnv, self).__init__()  
 
         self.action_space = gym.spaces.Box(
@@ -50,8 +51,13 @@ class QuadSimEnv(gym.Env):
         self.prev_goal_state = np.zeros(3, dtype=np.float32)
         self.prev_action = 0.0  
         self.prev_velocity = 0.0
-        self.image = np.zeros((128, 128, 3), dtype=np.uint8)  # Placeholder for image 
+        self.image = np.zeros((128, 128, 3), dtype=np.uint8)  # Placeholder for image
+        self.action_frequency = action_frequency
         self.context = zmq.Context()
+
+        if reward_fn is not None: self.reward_fn = reward_fn
+        else:
+            self.reward_fn = lambda angle: np.maximum(0, np.maximum(0.5 - (angle - 5) / 170, 1 - angle / 10))
 
         # Subscriber socket for receiving images
         self.image_socket = self.context.socket(zmq.SUB)
@@ -113,7 +119,7 @@ class QuadSimEnv(gym.Env):
         full_action = np.array([0, 0, 0, action[0]]) * 50
         
         self.send_velocity_command(full_action)
-        time.sleep(0.1) # Action frequency is ~10 Hz
+        time.sleep(1 / self.action_frequency) # Action frequency is ~10 Hz
 
         self.handle_data()
         observation = self.get_observation()
@@ -128,7 +134,7 @@ class QuadSimEnv(gym.Env):
         # reward += 1 - np.abs((observation[2] - 250) / 250) # Reward based on altitude (reward 1 is 250cm, reward 0 = 0cm or 500cm)
         local_angle = np.abs(np.rad2deg(np.arctan2(observation[5], observation[4])))
         # Reward based on angle to goal
-        reward = np.maximum(0, np.maximum(0.5 - (local_angle - 5) / 170, 1 - local_angle / 10))
+        reward = self.reward_fn(local_angle)
 
         # Termination conditions
         done = False
@@ -208,6 +214,13 @@ class QuadSimEnv(gym.Env):
         except Exception as e:
             print(f"Error receiving image: {str(e)}")
             return self.image
+        
+    def close(self):
+        # Terminate the ZeroMQ context
+        if hasattr(self, 'context') and self.context:
+            self.context.destroy()
+            self.context = None
+        super().close()
 
 # Lower architecture to 8x8, 16x16 or even 32x32
 # Increase learning rate a little bit
