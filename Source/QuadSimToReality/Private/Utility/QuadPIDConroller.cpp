@@ -13,7 +13,7 @@ QuadPIDController::QuadPIDController()
     , absoluteTime(0.0f)
     , currentBufferSum(0.0f)
     , filteredDerivative(0.0f)
-    , derivativeFilterAlpha(0.6f)
+    , derivativeFilterAlpha(1.f)
 {
     // Pre-allocate buffer to avoid reallocations
     integralBuffer.Reserve(ESTIMATED_BUFFER_SIZE);
