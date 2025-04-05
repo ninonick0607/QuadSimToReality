@@ -92,7 +92,7 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 	DisplayDroneInfo();
 	ImGui::SliderFloat("Max velocity", &maxVelocity, 0.0f, 600.0f);
 	ImGui::SliderFloat("Max tilt angle", &maxAngle, 0.0f, 45.0f);
-
+	Controller->SetDesiredAngle(maxAngle);
 	DisplayDesiredVelocities();
 
 	ImGui::Separator();
@@ -178,7 +178,8 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
 	ImGui::Text("Position Error X, Y, Z: %.2f, %.2f, %.2f", error.X, error.Y, error.Z);
 	ImGui::Spacing();
 	ImGui::Text("Velocity Command Received X, Y, Z: %.2f, %.2f, %.2f", currentDesiredVelocity.X, currentDesiredVelocity.Y, currentDesiredVelocity.Z);
-	// ImGui::Text("Current Goal State X, Y, Z: %.2f, %.2f, %.2f", currentGoalState.X, currentGoalState.Y, currentGoalState.Z);
+	ImGui::Text("Current Velocity X, Y, Z: %.2f, %.2f, %.2f", currentVelocity.X, currentVelocity.Y, currentVelocity.Z);
+	//ImGui::Text("Current Goal State X, Y, Z: %.2f, %.2f, %.2f", currentGoalState.X, currentGoalState.Y, currentGoalState.Z);
 	ImGui::Spacing();
 
 	static bool syncXY = false;
@@ -352,16 +353,17 @@ void UImGuiUtil::DisplayPIDSettings(const char* headerLabel, bool& synchronizeXY
 		ImGui::Text("No PID Set found for this mode.");
 		return;
 	}
-	if (ImGui::CollapsingHeader(headerLabel, ImGuiTreeNodeFlags_DefaultOpen))
-	{
-		auto DrawPIDGainControl = [](const char* label, float* value, float minValue, float maxValue)
+
+	// Helper lambda remains the same - used for non-synced controls and other axes
+	auto DrawPIDGainControl = [](const char* label, float* value, float minValue, float maxValue)
 		{
 			float totalWidth = ImGui::GetContentRegionAvail().x;
 			float inputWidth = 80.0f;
-			float sliderWidth = totalWidth - inputWidth - 20.0f;
+			// Adjust slider width calculation slightly if necessary
+			float sliderWidth = totalWidth > (inputWidth + 20.0f) ? totalWidth - inputWidth - 20.0f : 100.0f;
 
 			ImGui::PushItemWidth(sliderWidth);
-			ImGui::SliderFloat(label, value, minValue, maxValue);
+			bool changed = ImGui::SliderFloat(label, value, minValue, maxValue);
 			ImGui::PopItemWidth();
 
 			ImGui::SameLine();
@@ -369,116 +371,229 @@ void UImGuiUtil::DisplayPIDSettings(const char* headerLabel, bool& synchronizeXY
 			ImGui::PushItemWidth(inputWidth);
 			ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 1));
 			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
-			std::string inputLabel = std::string("##") + label;
-			ImGui::InputFloat(inputLabel.c_str(), value, 0.0f, 0.0f, "%.3f");
+			std::string inputLabel = std::string("##Input_") + label; // Use unique ID prefix
+			changed |= ImGui::InputFloat(inputLabel.c_str(), value, 0.0f, 0.0f, "%.3f");
 			ImGui::PopStyleColor(2);
 			ImGui::PopItemWidth();
+			return changed; // Return true if value was changed by either widget
 		};
 
+
+	if (ImGui::CollapsingHeader(headerLabel, ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		// --- Position PID ---
 		ImGui::Text("Position PID Gains");
 		ImGui::Checkbox("Synchronize X and Y Axis Gains", &synchronizeXYGains);
-		ImGui::Indent();
+		ImGui::Indent(); // Indent Position PID section
+
+		// Define common layout widths (calculate once)
+		float totalWidth = ImGui::GetContentRegionAvail().x;
+		float inputWidth = 80.0f;
+		float sliderWidth = totalWidth > (inputWidth + 20.0f) ? totalWidth - inputWidth - 20.0f : 100.0f;
+
+		// Define gain limits based on request
+		const float minXGain = 0.0f;
+		const float maxXGain = -0.1f;
+		const float minYGain = 0.0f;
+		const float maxYGain = 0.1f;
+
+		// --- X Axis ---
 		ImGui::Text("X Axis");
-		if (synchronizeXYGains && PIDSet->XPID && PIDSet->YPID)
+		ImGui::Indent(); // Indent X controls
+		if (PIDSet->XPID)
 		{
-			DrawPIDGainControl("X P", &PIDSet->XPID->ProportionalGain, 0.0f, 10.0f);
-			PIDSet->YPID->ProportionalGain = PIDSet->XPID->ProportionalGain;
-			DrawPIDGainControl("X I", &PIDSet->XPID->IntegralGain, 0.0f, 10.0f);
-			PIDSet->YPID->IntegralGain = PIDSet->XPID->IntegralGain;
-			DrawPIDGainControl("X D", &PIDSet->XPID->DerivativeGain, 0.0f, 10.0f);
-			PIDSet->YPID->DerivativeGain = PIDSet->XPID->DerivativeGain;
-		}
-		else if (PIDSet->XPID)
-		{
-			DrawPIDGainControl("X P", &PIDSet->XPID->ProportionalGain, 0.0f, 10.0f);
-			DrawPIDGainControl("X I", &PIDSet->XPID->IntegralGain, 0.0f, 10.0f);
-			DrawPIDGainControl("X D", &PIDSet->XPID->DerivativeGain, 0.0f, 10.0f);
-		}
-		ImGui::Unindent();
+			// Temporary variables to hold current values for direct ImGui interaction
+			float xP = PIDSet->XPID->ProportionalGain;
+			float xI = PIDSet->XPID->IntegralGain;
+			float xD = PIDSet->XPID->DerivativeGain;
+			bool x_changed = false;
 
-		ImGui::Indent();
+			// X Proportional
+			ImGui::PushItemWidth(sliderWidth);
+			if (ImGui::SliderFloat("X P", &xP, minXGain, maxXGain)) x_changed = true;
+			ImGui::PopItemWidth(); ImGui::SameLine(); ImGui::PushItemWidth(inputWidth);
+			if (ImGui::InputFloat("##XP_Input", &xP, 0.0f, 0.0f, "%.3f")) x_changed = true;
+			ImGui::PopItemWidth();
+			if (x_changed)
+			{
+				PIDSet->XPID->ProportionalGain = xP;
+				if (synchronizeXYGains && PIDSet->YPID) { PIDSet->YPID->ProportionalGain = -xP; } // Mirror Y = -X
+				x_changed = false; // Reset flag for next control
+			}
+
+			// X Integral
+			ImGui::PushItemWidth(sliderWidth);
+			if (ImGui::SliderFloat("X I", &xI, minXGain, maxXGain)) x_changed = true;
+			ImGui::PopItemWidth(); ImGui::SameLine(); ImGui::PushItemWidth(inputWidth);
+			if (ImGui::InputFloat("##XI_Input", &xI, 0.0f, 0.0f, "%.3f")) x_changed = true;
+			ImGui::PopItemWidth();
+			if (x_changed)
+			{
+				PIDSet->XPID->IntegralGain = xI;
+				if (synchronizeXYGains && PIDSet->YPID) { PIDSet->YPID->IntegralGain = -xI; } // Mirror Y = -X
+				x_changed = false;
+			}
+
+			// X Derivative
+			ImGui::PushItemWidth(sliderWidth);
+			if (ImGui::SliderFloat("X D", &xD, minXGain, maxXGain)) x_changed = true;
+			ImGui::PopItemWidth(); ImGui::SameLine(); ImGui::PushItemWidth(inputWidth);
+			if (ImGui::InputFloat("##XD_Input", &xD, 0.0f, 0.0f, "%.3f")) x_changed = true;
+			ImGui::PopItemWidth();
+			if (x_changed)
+			{
+				PIDSet->XPID->DerivativeGain = xD;
+				if (synchronizeXYGains && PIDSet->YPID) { PIDSet->YPID->DerivativeGain = -xD; } // Mirror Y = -X
+				// No need to reset x_changed here
+			}
+		}
+		else { ImGui::TextDisabled("X PID Controller Unavailable"); }
+		ImGui::Unindent(); // Unindent X controls
+
+
+		// --- Y Axis ---
 		ImGui::Text("Y Axis");
-		if (synchronizeXYGains && PIDSet->YPID && PIDSet->XPID)
+		ImGui::Indent(); // Indent Y controls
+		if (PIDSet->YPID)
 		{
-			DrawPIDGainControl("Y P", &PIDSet->YPID->ProportionalGain, 0.0f, 10.0f);
-			PIDSet->XPID->ProportionalGain = PIDSet->YPID->ProportionalGain;
-			DrawPIDGainControl("Y I", &PIDSet->YPID->IntegralGain, 0.0f, 10.0f);
-			PIDSet->XPID->IntegralGain = PIDSet->YPID->IntegralGain;
-			DrawPIDGainControl("Y D", &PIDSet->YPID->DerivativeGain, 0.0f, 10.0f);
-			PIDSet->XPID->DerivativeGain = PIDSet->YPID->DerivativeGain;
-		}
-		else if (PIDSet->YPID)
-		{
-			DrawPIDGainControl("Y P", &PIDSet->YPID->ProportionalGain, 0.0f, 10.0f);
-			DrawPIDGainControl("Y I", &PIDSet->YPID->IntegralGain, 0.0f, 10.0f);
-			DrawPIDGainControl("Y D", &PIDSet->YPID->DerivativeGain, 0.0f, 10.0f);
-		}
-		ImGui::Unindent();
+			// Temporary variables to hold current values
+			float yP = PIDSet->YPID->ProportionalGain;
+			float yI = PIDSet->YPID->IntegralGain;
+			float yD = PIDSet->YPID->DerivativeGain;
+			bool y_changed = false;
 
-		ImGui::Indent();
+			// Y Proportional
+			ImGui::PushItemWidth(sliderWidth);
+			if (ImGui::SliderFloat("Y P", &yP, minYGain, maxYGain)) y_changed = true;
+			ImGui::PopItemWidth(); ImGui::SameLine(); ImGui::PushItemWidth(inputWidth);
+			if (ImGui::InputFloat("##YP_Input", &yP, 0.0f, 0.0f, "%.3f")) y_changed = true;
+			ImGui::PopItemWidth();
+			if (y_changed)
+			{
+				PIDSet->YPID->ProportionalGain = yP;
+				if (synchronizeXYGains && PIDSet->XPID) { PIDSet->XPID->ProportionalGain = -yP; } // Mirror X = -Y
+				y_changed = false; // Reset flag
+			}
+
+			// Y Integral
+			ImGui::PushItemWidth(sliderWidth);
+			if (ImGui::SliderFloat("Y I", &yI, minYGain, maxYGain)) y_changed = true;
+			ImGui::PopItemWidth(); ImGui::SameLine(); ImGui::PushItemWidth(inputWidth);
+			if (ImGui::InputFloat("##YI_Input", &yI, 0.0f, 0.0f, "%.3f")) y_changed = true;
+			ImGui::PopItemWidth();
+			if (y_changed)
+			{
+				PIDSet->YPID->IntegralGain = yI;
+				if (synchronizeXYGains && PIDSet->XPID) { PIDSet->XPID->IntegralGain = -yI; } // Mirror X = -Y
+				y_changed = false;
+			}
+
+			// Y Derivative
+			ImGui::PushItemWidth(sliderWidth);
+			if (ImGui::SliderFloat("Y D", &yD, minYGain, maxYGain)) y_changed = true;
+			ImGui::PopItemWidth(); ImGui::SameLine(); ImGui::PushItemWidth(inputWidth);
+			if (ImGui::InputFloat("##YD_Input", &yD, 0.0f, 0.0f, "%.3f")) y_changed = true;
+			ImGui::PopItemWidth();
+			if (y_changed)
+			{
+				PIDSet->YPID->DerivativeGain = yD;
+				if (synchronizeXYGains && PIDSet->XPID) { PIDSet->XPID->DerivativeGain = -yD; } // Mirror X = -Y
+				// No need to reset y_changed here
+			}
+		}
+		else { ImGui::TextDisabled("Y PID Controller Unavailable"); }
+		ImGui::Unindent(); // Unindent Y controls
+
+
+		// --- Z Axis ---
+		// Z axis uses the helper function as it's not synchronized with X/Y mirror logic
 		ImGui::Text("Z Axis");
+		ImGui::Indent(); // Indent Z controls
 		if (PIDSet->ZPID)
 		{
+			// Using the original range [0, 10] for Z, adjust if needed
 			DrawPIDGainControl("Z P", &PIDSet->ZPID->ProportionalGain, 0.0f, 10.0f);
 			DrawPIDGainControl("Z I", &PIDSet->ZPID->IntegralGain, 0.0f, 10.0f);
 			DrawPIDGainControl("Z D", &PIDSet->ZPID->DerivativeGain, 0.0f, 10.0f);
 		}
-		ImGui::Unindent();
+		else { ImGui::TextDisabled("Z PID Controller Unavailable"); }
+		ImGui::Unindent(); // Unindent Z controls
 
+		ImGui::Unindent(); // Unindent Position PID section
 		ImGui::Separator();
 
+		// --- Attitude PID ---
+		// Attitude PID logic remains unchanged (using synchronizeGains for Roll/Pitch)
 		ImGui::Text("Attitude PID Gains");
 		ImGui::Checkbox("Synchronize Roll and Pitch Gains", &synchronizeGains);
-		ImGui::Indent();
+		ImGui::Indent(); // Indent Attitude PID section
+
+		// Roll
 		ImGui::Text("Roll");
-		if (synchronizeGains && PIDSet->RollPID && PIDSet->PitchPID)
+		ImGui::Indent();
+		if (PIDSet->RollPID)
 		{
-			DrawPIDGainControl("Roll P", &PIDSet->RollPID->ProportionalGain, 0.0f, 20.0f);
-			PIDSet->PitchPID->ProportionalGain = PIDSet->RollPID->ProportionalGain;
-			DrawPIDGainControl("Roll I", &PIDSet->RollPID->IntegralGain, 0.0f, 20.0f);
-			PIDSet->PitchPID->IntegralGain = PIDSet->RollPID->IntegralGain;
-			DrawPIDGainControl("Roll D", &PIDSet->RollPID->DerivativeGain, 0.0f, 20.0f);
-			PIDSet->PitchPID->DerivativeGain = PIDSet->RollPID->DerivativeGain;
+			if (synchronizeGains && PIDSet->PitchPID)
+			{
+				if (DrawPIDGainControl("Roll P", &PIDSet->RollPID->ProportionalGain, 0.0f, 20.0f))
+					PIDSet->PitchPID->ProportionalGain = PIDSet->RollPID->ProportionalGain;
+				if (DrawPIDGainControl("Roll I", &PIDSet->RollPID->IntegralGain, 0.0f, 20.0f))
+					PIDSet->PitchPID->IntegralGain = PIDSet->RollPID->IntegralGain;
+				if (DrawPIDGainControl("Roll D", &PIDSet->RollPID->DerivativeGain, 0.0f, 20.0f))
+					PIDSet->PitchPID->DerivativeGain = PIDSet->RollPID->DerivativeGain;
+			}
+			else // Not synchronizing or PitchPID is null
+			{
+				DrawPIDGainControl("Roll P", &PIDSet->RollPID->ProportionalGain, 0.0f, 20.0f);
+				DrawPIDGainControl("Roll I", &PIDSet->RollPID->IntegralGain, 0.0f, 20.0f);
+				DrawPIDGainControl("Roll D", &PIDSet->RollPID->DerivativeGain, 0.0f, 20.0f);
+			}
 		}
-		else if (PIDSet->RollPID)
-		{
-			DrawPIDGainControl("Roll P", &PIDSet->RollPID->ProportionalGain, 0.0f, 20.0f);
-			DrawPIDGainControl("Roll I", &PIDSet->RollPID->IntegralGain, 0.0f, 20.0f);
-			DrawPIDGainControl("Roll D", &PIDSet->RollPID->DerivativeGain, 0.0f, 20.0f);
-		}
+		else { ImGui::TextDisabled("Roll PID Unavailable"); }
 		ImGui::Unindent();
 
-		ImGui::Indent();
+		// Pitch
 		ImGui::Text("Pitch");
-		if (synchronizeGains && PIDSet->PitchPID && PIDSet->RollPID)
+		ImGui::Indent();
+		if (PIDSet->PitchPID)
 		{
-			DrawPIDGainControl("Pitch P", &PIDSet->PitchPID->ProportionalGain, 0.0f, 20.0f);
-			PIDSet->RollPID->ProportionalGain = PIDSet->PitchPID->ProportionalGain;
-			DrawPIDGainControl("Pitch I", &PIDSet->PitchPID->IntegralGain, 0.0f, 20.0f);
-			PIDSet->RollPID->IntegralGain = PIDSet->PitchPID->IntegralGain;
-			DrawPIDGainControl("Pitch D", &PIDSet->PitchPID->DerivativeGain, 0.0f, 20.0f);
-			PIDSet->RollPID->DerivativeGain = PIDSet->PitchPID->DerivativeGain;
+			if (synchronizeGains && PIDSet->RollPID)
+			{
+				if (DrawPIDGainControl("Pitch P", &PIDSet->PitchPID->ProportionalGain, 0.0f, 20.0f))
+					PIDSet->RollPID->ProportionalGain = PIDSet->PitchPID->ProportionalGain;
+				if (DrawPIDGainControl("Pitch I", &PIDSet->PitchPID->IntegralGain, 0.0f, 20.0f))
+					PIDSet->RollPID->IntegralGain = PIDSet->PitchPID->IntegralGain;
+				if (DrawPIDGainControl("Pitch D", &PIDSet->PitchPID->DerivativeGain, 0.0f, 20.0f))
+					PIDSet->RollPID->DerivativeGain = PIDSet->PitchPID->DerivativeGain;
+			}
+			else // Not synchronizing or RollPID is null
+			{
+				DrawPIDGainControl("Pitch P", &PIDSet->PitchPID->ProportionalGain, 0.0f, 20.0f);
+				DrawPIDGainControl("Pitch I", &PIDSet->PitchPID->IntegralGain, 0.0f, 20.0f);
+				DrawPIDGainControl("Pitch D", &PIDSet->PitchPID->DerivativeGain, 0.0f, 20.0f);
+			}
 		}
-		else if (PIDSet->PitchPID)
-		{
-			DrawPIDGainControl("Pitch P", &PIDSet->PitchPID->ProportionalGain, 0.0f, 20.0f);
-			DrawPIDGainControl("Pitch I", &PIDSet->PitchPID->IntegralGain, 0.0f, 20.0f);
-			DrawPIDGainControl("Pitch D", &PIDSet->PitchPID->DerivativeGain, 0.0f, 20.0f);
-		}
+		else { ImGui::TextDisabled("Pitch PID Unavailable"); }
 		ImGui::Unindent();
 
-		ImGui::Indent();
+		// Yaw
 		ImGui::Text("Yaw");
+		ImGui::Indent();
 		if (PIDSet->YawPID)
 		{
+			// Using original range [0, 2] for Yaw, adjust if needed
 			DrawPIDGainControl("Yaw P", &PIDSet->YawPID->ProportionalGain, 0.0f, 2.0f);
 			DrawPIDGainControl("Yaw I", &PIDSet->YawPID->IntegralGain, 0.0f, 2.0f);
 			DrawPIDGainControl("Yaw D", &PIDSet->YawPID->DerivativeGain, 0.0f, 2.0f);
 		}
+		else { ImGui::TextDisabled("Yaw PID Unavailable"); }
 		ImGui::Unindent();
 
+		ImGui::Unindent(); // Unindent Attitude PID section
 		ImGui::Separator();
 
+		// --- Save Button ---
+		// Save logic remains the same
 		if (ImGui::Button("Save PID Gains", ImVec2(200, 50)))
 		{
 			FString FilePath = FPaths::ProjectDir() + "PIDGains.csv";
@@ -491,30 +606,13 @@ void UImGuiUtil::DisplayPIDSettings(const char* headerLabel, bool& synchronizeXY
 			}
 			FString GainData;
 			GainData = FDateTime::Now().ToString() + TEXT(",");
-			if (PIDSet->XPID)
-			{
-				GainData += FString::Printf(TEXT("%.3f,%.3f,%.3f,"), PIDSet->XPID->ProportionalGain, PIDSet->XPID->IntegralGain, PIDSet->XPID->DerivativeGain);
-			}
-			if (PIDSet->YPID)
-			{
-				GainData += FString::Printf(TEXT("%.3f,%.3f,%.3f,"), PIDSet->YPID->ProportionalGain, PIDSet->YPID->IntegralGain, PIDSet->YPID->DerivativeGain);
-			}
-			if (PIDSet->ZPID)
-			{
-				GainData += FString::Printf(TEXT("%.3f,%.3f,%.3f,"), PIDSet->ZPID->ProportionalGain, PIDSet->ZPID->IntegralGain, PIDSet->ZPID->DerivativeGain);
-			}
-			if (PIDSet->RollPID)
-			{
-				GainData += FString::Printf(TEXT("%.3f,%.3f,%.3f,"), PIDSet->RollPID->ProportionalGain, PIDSet->RollPID->IntegralGain, PIDSet->RollPID->DerivativeGain);
-			}
-			if (PIDSet->PitchPID)
-			{
-				GainData += FString::Printf(TEXT("%.3f,%.3f,%.3f,"), PIDSet->PitchPID->ProportionalGain, PIDSet->PitchPID->IntegralGain, PIDSet->PitchPID->DerivativeGain);
-			}
-			if (PIDSet->YawPID)
-			{
-				GainData += FString::Printf(TEXT("%.3f,%.3f,%.3f"), PIDSet->YawPID->ProportionalGain, PIDSet->YawPID->IntegralGain, PIDSet->YawPID->DerivativeGain);
-			}
+			if (PIDSet->XPID) GainData += FString::Printf(TEXT("%.3f,%.3f,%.3f,"), PIDSet->XPID->ProportionalGain, PIDSet->XPID->IntegralGain, PIDSet->XPID->DerivativeGain); else GainData += TEXT("0,0,0,");
+			if (PIDSet->YPID) GainData += FString::Printf(TEXT("%.3f,%.3f,%.3f,"), PIDSet->YPID->ProportionalGain, PIDSet->YPID->IntegralGain, PIDSet->YPID->DerivativeGain); else GainData += TEXT("0,0,0,");
+			if (PIDSet->ZPID) GainData += FString::Printf(TEXT("%.3f,%.3f,%.3f,"), PIDSet->ZPID->ProportionalGain, PIDSet->ZPID->IntegralGain, PIDSet->ZPID->DerivativeGain); else GainData += TEXT("0,0,0,");
+			if (PIDSet->RollPID) GainData += FString::Printf(TEXT("%.3f,%.3f,%.3f,"), PIDSet->RollPID->ProportionalGain, PIDSet->RollPID->IntegralGain, PIDSet->RollPID->DerivativeGain); else GainData += TEXT("0,0,0,");
+			if (PIDSet->PitchPID) GainData += FString::Printf(TEXT("%.3f,%.3f,%.3f,"), PIDSet->PitchPID->ProportionalGain, PIDSet->PitchPID->IntegralGain, PIDSet->PitchPID->DerivativeGain); else GainData += TEXT("0,0,0,");
+			if (PIDSet->YawPID) GainData += FString::Printf(TEXT("%.3f,%.3f,%.3f"), PIDSet->YawPID->ProportionalGain, PIDSet->YawPID->IntegralGain, PIDSet->YawPID->DerivativeGain); else GainData += TEXT("0,0,0");
+
 			FFileHelper::SaveStringToFile(GainData + TEXT("\n"), *FilePath, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), EFileWrite::FILEWRITE_Append);
 		}
 	}
@@ -563,166 +661,161 @@ void UImGuiUtil::DisplayResetDroneButtons()
 
 void UImGuiUtil::DisplayDesiredVelocities()
 {
-	ImGui::Text("Desired Velocities");
+    ImGui::Text("Desired Velocities");
 
-	// Static variables to hold previous slider values
-	static float prevVx = 0.0f;
-	static float prevVy = 0.0f;
-	static float prevVz = 0.0f;
-	static bool firstRun = true;
-     
-	// Reset checkboxes states (we need separate variables for these)
-	static bool resetXChecked = false;
-	static bool resetYChecked = false;
-	static bool resetZChecked = false;
-     
-	FVector currentDesiredVelocity = Controller->GetDesiredVelocity();
-	bool hoverModeActive = Controller->IsHoverModeActive();
-	
-	float tempVx = currentDesiredVelocity.X;
-	float tempVy = currentDesiredVelocity.Y;
-	float tempVz = currentDesiredVelocity.Z;
-	bool velocityChanged = false;
+    // Static variables to hold previous slider values
+    static float prevVx = 0.0f;
+    static float prevVy = 0.0f;
+    static float prevVz = 0.0f;
+	static float prevYr = 0.0f;
+    static bool firstRun = true;
+    
+    // Reset checkboxes states (we need separate variables for these)
+    static bool resetXChecked = false;
+    static bool resetYChecked = false;
+    static bool resetZChecked = false;
+	static bool resetYrChecked = false;
+    
+    FVector currentDesiredVelocity = Controller->GetDesiredVelocity();
+	float currentYawRate = Controller->GetDesiredYawRate();
+    bool hoverModeActive = Controller->IsHoverModeActive();  // Get hover mode state from controller
 
-	// Add hover mode button with distinctive styling
-	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.6f, 0.8f, 1.0f)); // Blue button
-	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.7f, 0.9f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.0f, 0.5f, 0.7f, 1.0f));
+    float tempVx = currentDesiredVelocity.X;
+    float tempVy = currentDesiredVelocity.Y;
+    float tempVz = currentDesiredVelocity.Z;
+	float tempYr = currentYawRate;
+    bool velocityChanged = false;
 
-	if (ImGui::Button(hoverModeActive ? "HOVER MODE ACTIVE" : "ACTIVATE HOVER MODE", ImVec2(200, 35)))
-	{
-		// Toggle hover mode through the controller
-		Controller->SetHoverMode(!hoverModeActive);
-         
-		// Update local values to match the new state
-		if (!hoverModeActive)  // It's about to be activated
-			tempVz = 28.0f;
-             
-		velocityChanged = true;
-	}
-	ImGui::PopStyleColor(3);
-	if (hoverModeActive)
-	{
-		ImGui::SameLine();
-		ImGui::TextColored(ImVec4(0.1f, 0.6f, 0.8f, 1.0f), "Z-velocity locked at 28.0");
-	}
+    // Add hover mode button with distinctive styling
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.6f, 0.8f, 1.0f)); // Blue button
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.7f, 0.9f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.0f, 0.5f, 0.7f, 1.0f));
 
-	ImGui::Spacing();
+    if (ImGui::Button(hoverModeActive ? "HOVER MODE ACTIVE" : "ACTIVATE HOVER MODE", ImVec2(200, 35)))
+    {
+        // Toggle hover mode through the controller
+        Controller->SetHoverMode(!hoverModeActive);
+        
+        // Update local values to match the new state
+        if (!hoverModeActive)  // It's about to be activated
+            tempVz = 28.0f;
+            
+        velocityChanged = true;
+    }
+    ImGui::PopStyleColor(3);
 
-	// X velocity slider with reset checkbox
-	velocityChanged |= ImGui::SliderFloat("Desired Velocity X", &tempVx, -maxVelocity, maxVelocity);
-	ImGui::SameLine();
-	if (ImGui::Checkbox("Reset X to 0", &resetXChecked))
-	{
-		if (resetXChecked)
-		{
-			tempVx = 0.0f;
-			velocityChanged = true;
-		}
-		// Auto-uncheck after resetting
-		resetXChecked = false;
-	}
+    if (hoverModeActive)
+    {
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(0.1f, 0.6f, 0.8f, 1.0f), "Z-velocity locked at 28.0");
+    }
 
-	// Y velocity slider with reset checkbox
-	velocityChanged |= ImGui::SliderFloat("Desired Velocity Y", &tempVy, -maxVelocity, maxVelocity);
-	ImGui::SameLine();
-	if (ImGui::Checkbox("Reset Y to 0", &resetYChecked))
-	{
-		if (resetYChecked)
-		{
-			tempVy = 0.0f;
-			velocityChanged = true;
-		}
-		// Auto-uncheck after resetting
-		resetYChecked = false;
-	}
+    ImGui::Spacing();
 
-	// Only show Z slider control if hover mode is not active
-	if (!hoverModeActive)
-	{
-		velocityChanged |= ImGui::SliderFloat("Desired Velocity Z", &tempVz, -maxVelocity, maxVelocity);
-		ImGui::SameLine();
-		if (ImGui::Checkbox("Reset Z to 0", &resetZChecked))
-		{
-			if (resetZChecked)
-			{
-				tempVz = 0.0f;
-				velocityChanged = true;
-			}
-			// Auto-uncheck after resetting
-			resetZChecked = false;
-		}
-	}
-	else
-	{
-		// Display a disabled slider for Z when in hover mode
-		ImGui::PushStyleColor(ImGuiCol_SliderGrab, ImVec4(0.1f, 0.6f, 0.8f, 1.0f));
-		ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
-		ImGui::SliderFloat("Desired Velocity Z (Locked)", &tempVz, -maxVelocity, maxVelocity);
-		ImGui::PopStyleColor(2);
+    // X velocity slider with reset checkbox
+    velocityChanged |= ImGui::SliderFloat("Desired Velocity X", &tempVx, -maxVelocity, maxVelocity);
+    ImGui::SameLine();
+    if (ImGui::Checkbox("Reset X to 0", &resetXChecked))
+    {
+        if (resetXChecked)
+        {
+            tempVx = 0.0f;
+            velocityChanged = true;
+        }
+        // Auto-uncheck after resetting
+        resetXChecked = false;
+    }
 
-		// In hover mode, Z velocity is always 70
-		tempVz = 28.0f;
-	}
-	// On first run, initialize previous values.
-	if (firstRun)
-	{
-		prevVx = tempVx;
-		prevVy = tempVy;
-		prevVz = tempVz;
-		firstRun = false;
-	}
-	// Yaw Rate Slider with Label and Reset Checkbox
-	static float tempYawRate = 0.0f;
-	static bool resetYawChecked = false;
+    // Y velocity slider with reset checkbox
+    velocityChanged |= ImGui::SliderFloat("Desired Velocity Y", &tempVy, -maxVelocity, maxVelocity);
+    ImGui::SameLine();
+    if (ImGui::Checkbox("Reset Y to 0", &resetYChecked))
+    {
+        if (resetYChecked)
+        {
+            tempVy = 0.0f;
+            velocityChanged = true;
+        }
+        // Auto-uncheck after resetting
+        resetYChecked = false;
+    }
 
-	// Display a label for the yaw rate slider.
-	ImGui::Text("Desired Yaw Rate (deg/s):");
+    // Only show Z slider control if hover mode is not active
+    if (!hoverModeActive)
+    {
+        velocityChanged |= ImGui::SliderFloat("Desired Velocity Z", &tempVz, -maxVelocity, maxVelocity);
+        ImGui::SameLine();
+        if (ImGui::Checkbox("Reset Z to 0", &resetZChecked))
+        {
+            if (resetZChecked)
+            {
+                tempVz = 0.0f;
+                velocityChanged = true;
+            }
+            // Auto-uncheck after resetting
+            resetZChecked = false;
+        }
+    }
+    else
+    {
+        // Display a disabled slider for Z when in hover mode
+        ImGui::PushStyleColor(ImGuiCol_SliderGrab, ImVec4(0.1f, 0.6f, 0.8f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
+        ImGui::SliderFloat("Desired Velocity Z (Locked)", &tempVz, -maxVelocity, maxVelocity);
+        ImGui::PopStyleColor(2);
 
-	// Use a slider for the yaw rate (hidden label for uniqueness).
-	velocityChanged |= ImGui::SliderFloat("##DesiredYawRate", &tempYawRate, -45.0f, 45.0f);
+        // In hover mode, Z velocity is always 0.0
+        tempVz = 0.0f;
+    }
 
-	// Place a reset checkbox on the same line.
-	ImGui::SameLine();
-	if (ImGui::Checkbox("Reset Yaw to 0", &resetYawChecked))
-	{
-		if (resetYawChecked)
-		{
-			tempYawRate = 0.0f;
-			velocityChanged = true;
-		}
-		// Automatically uncheck after resetting.
-		resetYawChecked = false;
-	}
+	// Yaw rate velocity slider with reset checkbox
+    velocityChanged |= ImGui::SliderFloat("Desired Yaw Rate", &tempYr, -50.f, 50.f);
+    ImGui::SameLine();
+    if (ImGui::Checkbox("Reset Yr to 0", &resetYrChecked))
+    {
+        if (resetYrChecked)
+        {
+            tempYr = 0.0f;
+            velocityChanged = true;
+        }
+        // Auto-uncheck after resetting
+        resetYrChecked = false;
+    }
 
-	// Finally, update the controller with the new yaw rate.
-	if (Controller)
-	{
-		Controller->SetDesiredYawRate(tempYawRate);
-	}
+    // On first run, initialize previous values
+    if (firstRun)
+    {
+        prevVx = tempVx;
+        prevVy = tempVy;
+        prevVz = tempVz;
+		prevYr = tempYr;
+        firstRun = false;
+    }
 
+    // Set a deadzone threshold (adjust as needed)
+    const float threshold = 0.01f;
+    bool significantChange = (FMath::Abs(tempVx - prevVx) > threshold) ||
+        (FMath::Abs(tempVy - prevVy) > threshold) ||
+        (FMath::Abs(tempVz - prevVz) > threshold) ||
+		(FMath::Abs(tempYr - prevYr) > threshold);
 
-	// Set a deadzone threshold (adjust as needed)
-	const float threshold = 0.01f;
-	bool significantChange = (FMath::Abs(tempVx - prevVx) > threshold) ||
-		(FMath::Abs(tempVy - prevVy) > threshold) ||
-		(FMath::Abs(tempVz - prevVz) > threshold);
+    // Only update the desired velocity if there's a significant change or if we just entered hover mode
+    if (significantChange || velocityChanged)
+    {
+        FVector desiredNewVelocity = FVector(tempVx, tempVy, tempVz);
+        if (Controller)
+        {
+            Controller->SetDesiredVelocity(desiredNewVelocity);
+			Controller->SetDesiredYawRate(tempYr);
+        }
+        // Update previous values so that subsequent small changes are ignored
+        prevVx = tempVx;
+        prevVy = tempVy;
+        prevVz = tempVz;
+		prevYr = tempYr;
+    }
 
-	// Only update the desired velocity if there's a significant change or if we just entered hover mode
-	if (significantChange || velocityChanged)
-	{
-		FVector localCommand(tempVx, tempVy, tempVz);
-		if (Controller)
-		{
-			Controller->SetDesiredVelocity(localCommand);
-		}
-		// Update previous values so that subsequent small changes are ignored.
-		prevVx = tempVx;
-		prevVy = tempVy;
-		prevVz = tempVz;
-	}
-
-	ImGui::Separator();
+    ImGui::Separator();
 }
 
 void UImGuiUtil::DisplayPIDHistoryWindow()
@@ -898,5 +991,3 @@ void UImGuiUtil::LoadPIDValues(const TArray<FString>& Values)
 	// Notify of successful load
 	UE_LOG(LogTemp, Display, TEXT("Loaded PID configuration from %s"), *Values[0]);
 }
-
-

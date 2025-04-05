@@ -71,24 +71,14 @@ public:
 
     bool IsHoverModeActive() const { return bHoverModeActive; }
     void SetHoverMode(bool bActive);
-
+    
     bool GetDebugVisualsEnabled() const { return bDebugVisualsEnabled; }
     void SetDebugVisualsEnabled(bool bEnabled) { bDebugVisualsEnabled = bEnabled; }
     void SetDesiredYawRate(float NewYawRate) { desiredYawRate = NewYawRate; }
-
-
-    UPROPERTY()
-    float desiredYawRate;
-
-    UPROPERTY()
-    float desiredRoll;    // desired roll angle (in degrees)
-
-    UPROPERTY()
-    float desiredPitch;   // desired pitch angle (in degrees)
-
-    // Optionally, add setter functions:
+    float GetDesiredYawRate() const { return desiredYawRate; }
     void SetDesiredRoll(float NewRoll) { desiredRoll = NewRoll; }
     void SetDesiredPitch(float NewPitch) { desiredPitch = NewPitch; }
+    void SetDesiredAngle(float newAngle) { maxAngle = newAngle; }
 private:
 
     UPROPERTY()
@@ -120,5 +110,8 @@ private:
     QuadPIDController* AltitudePID;
     bool bHoverModeActive;
     float hoverTargetAltitude;
-
+    
+    float desiredYawRate;
+    float desiredRoll;
+    float desiredPitch;
 };
