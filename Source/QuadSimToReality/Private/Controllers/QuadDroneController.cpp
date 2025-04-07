@@ -125,7 +125,8 @@ void UQuadDroneController::VelocityControl(double DeltaTime)
 		desiredLocalVelocity.Z = FMath::Clamp(desiredLocalVelocity.Z, -100.0f, 100.0f);
 	}
 
-	FVector currentLocalVelocity = dronePawn->GetActorTransform().InverseTransformVector(currentVelocity);
+	FRotator yawOnlyRotation(0, currentRotation.Yaw, 0);
+	FVector currentLocalVelocity = yawOnlyRotation.UnrotateVector(currentVelocity);
 	FVector velocityError = desiredLocalVelocity - currentLocalVelocity;
 	SafetyReset();
 
