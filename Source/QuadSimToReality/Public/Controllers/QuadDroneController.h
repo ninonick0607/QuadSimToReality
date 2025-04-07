@@ -70,7 +70,7 @@ public:
     void ApplyManualThrusts();
 
     bool IsHoverModeActive() const { return bHoverModeActive; }
-    void SetHoverMode(bool bActive);
+    void SetHoverMode(bool bActive, float TargetAltitude = 250.0f);
 
     bool GetDebugVisualsEnabled() const { return bDebugVisualsEnabled; }
     void SetDebugVisualsEnabled(bool bEnabled) { bDebugVisualsEnabled = bEnabled; }

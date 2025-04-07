@@ -116,7 +116,7 @@ class QuadSimEnv(gym.Env):
     def step(self, action):
         # Apply action and update environment
         # full_action = np.array([*action, 0.0]) * 250.0
-        full_action = np.array([0, 0, 0, action[0]]) * 50
+        full_action = np.array([0, 0, action[0], 0])
         
         self.send_velocity_command(full_action)
         time.sleep(1 / self.action_frequency) # Action frequency is ~10 Hz
@@ -245,7 +245,7 @@ if __name__ == "__main__":
     #         print(f"fps: {acc / (current - start + 1e-10)}")
 
     time.sleep(1.0)  # Give time for the subscriber to connect
-    env.send_obstacle_command(150,True)
+    env.send_obstacle_command(0, True)
     time.sleep(1.0)  # Give time for the obstacle to be created
     env.handle_data()
     pass

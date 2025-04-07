@@ -269,8 +269,9 @@ void AZMQController::HandleVelocityCommand(zmq::multipart_t& Message)
         UE_LOG(LogTemp, Display, TEXT("[ZMQController] Velocity array from Python: %f, %f, %f, %f"),
             VelocityArray[0], VelocityArray[1], VelocityArray[2], VelocityArray[3]);
 
-        FVector DesiredVelocity(VelocityArray[0], VelocityArray[1], VelocityArray[2]);
+        FVector DesiredVelocity(VelocityArray[0], VelocityArray[1], 0.f);
         DroneController->SetDesiredVelocity(DesiredVelocity);
+        DroneController->SetHoverMode(true, VelocityArray[2]);
         DroneController->SetDesiredYawRate(VelocityArray[3]);
     }
     else

@@ -476,9 +476,15 @@ void UQuadDroneController::SetManualThrustMode(bool bEnable)
 }
 
 
-void UQuadDroneController::SetHoverMode(bool bActive)
+void UQuadDroneController::SetHoverMode(bool bActive, float TargetAltitude)
 {
-	if (bActive && !bHoverModeActive && dronePawn)
+	if (bActive && bHoverModeActive && dronePawn && TargetAltitude != hoverTargetAltitude)
+	{
+		// If already in hover mode, just update the target altitude
+		hoverTargetAltitude = TargetAltitude;
+		UE_LOG(LogTemp, Display, TEXT("Hover mode target altitude updated to: %.2f"), hoverTargetAltitude);
+	}
+	else if (bActive && !bHoverModeActive && dronePawn)
 	{
 		bHoverModeActive = true;
 		hoverTargetAltitude = dronePawn->GetActorLocation().Z;

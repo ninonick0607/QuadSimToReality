@@ -690,7 +690,9 @@ void UImGuiUtil::DisplayDesiredVelocities()
     if (ImGui::Button(hoverModeActive ? "HOVER MODE ACTIVE" : "ACTIVATE HOVER MODE", ImVec2(200, 35)))
     {
         // Toggle hover mode through the controller
-        Controller->SetHoverMode(!hoverModeActive);
+		// TODO: Current behavior is to set the hover height to the current height
+		//       We could instead add a slider or something to set the hover height
+        Controller->SetHoverMode(!hoverModeActive, 250.0f);
         
         // Update local values to match the new state
         if (!hoverModeActive)  // It's about to be activated
