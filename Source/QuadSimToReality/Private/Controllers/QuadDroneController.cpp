@@ -37,6 +37,7 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	const auto& Config = UDroneJSONConfig::Get().Config;
 	maxPIDOutput = Config.FlightParams.MaxPIDOutput;
 	acceptableDistance = Config.FlightParams.AcceptableDistance;
+	maxAngle = Config.FlightParams.MaxAngle;
 
 	FFullPIDSet VelocitySet;
 	VelocitySet.XPID = new QuadPIDController();
@@ -135,13 +136,15 @@ void UQuadDroneController::VelocityControl(double DeltaTime)
 	y_output = CurrentSet->YPID->Calculate(velocityError.Y, DeltaTime);
 	z_output = CurrentSet->ZPID->Calculate(velocityError.Z, DeltaTime);
 
-	y_output = FMath::Clamp(y_output, -15, 15);
+	y_output = FMath::Clamp(y_output, -maxAngle, maxAngle);
 	float roll_error = y_output-currentRotation.Roll;
 	roll_output = CurrentSet->RollPID->Calculate(roll_error, DeltaTime);
 
-	x_output = FMath::Clamp(x_output, -15, 15);
+	x_output = FMath::Clamp(x_output, -maxAngle, maxAngle);
 	float pitch_error = x_output-currentRotation.Pitch;
 	pitch_output = CurrentSet->PitchPID->Calculate(pitch_error, DeltaTime);
+
+
 
 	ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
 	YawRateControl(DeltaTime);
@@ -176,10 +179,10 @@ void UQuadDroneController::ThrustMixer(double currentRoll, double currentPitch, 
 {
 	float droneMass = dronePawn->DroneBody->GetMass();
 	const float gravity = 980.0f;
-	const float hoverThrust = (droneMass * gravity) / 4.0f; // Divided among 4 motors
+	const float hoverThrust = (droneMass * gravity) / 4.0f; 
 
 	float baseThrust = hoverThrust + zOutput / 4.0f;
-	baseThrust /= FMath::Cos(FMath::DegreesToRadians(FMath::Sqrt(FMath::Pow(currentRoll, 2) + FMath::Pow(currentPitch, 2)))); // Adjust base thrust to account for current tilt
+	baseThrust /= FMath::Cos(FMath::DegreesToRadians(FMath::Sqrt(FMath::Pow(currentRoll, 2) + FMath::Pow(currentPitch, 2))));
 
 	Thrusts[0] = baseThrust + rollOutput + pitchOutput;
 	Thrusts[1] = baseThrust - rollOutput + pitchOutput;
