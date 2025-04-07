@@ -6,6 +6,8 @@ from geometry_msgs.msg import Point, Twist
 from sensor_msgs.msg import Image
 from std_msgs.msg import String
 from example_interfaces.msg import Float64
+import matplotlib.pyplot as plt
+import numpy as np 
 
 import numpy as np
 import gymnasium as gym
@@ -17,7 +19,7 @@ import os # Added for path operations
 import glob # Added for finding model files
 
 # Stable Baselines 3 imports
-# Comment out if not installed/needed for the communication test
+
 # from stable_baselines3 import PPO
 # from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
 # from stable_baselines3.common.monitor import Monitor
@@ -267,7 +269,88 @@ class QuadSimEnv(Node, gym.Env):
         self.get_logger().info("Closing environment and shutting down ROS node.")
         self.destroy_node()
 
-# # ----------------------------------------------
+
+
+def main_test(args=None):
+    rclpy.init(args=args)
+    print("--- Starting ROS2 Communication Test ---")
+
+    # Create the environment instance. This starts the ROS node, publishers,
+    # subscribers, and the background spin thread automatically.
+    env_test_node = QuadSimEnv()
+    print("QuadSimEnv node initialized. Subscribers are listening, Publishers are ready.")
+    print("Waiting for connections...")
+    time.sleep(2.0) # Give some extra time for discovery
+
+    try:
+        # --- Test Publishing from Python ---
+        print("\n--- Testing Python Publishers ---")
+
+        # 1. Test /reset publisher
+        print("Sending /reset command...")
+        reset_msg = String()
+        reset_msg.data = "reset"
+        env_test_node.reset_pub.publish(reset_msg)
+        time.sleep(0.5) # Give time for C++ to process
+
+        # 2. Test /obstacles publisher
+        test_obstacle_count = 50
+        print(f"Sending /obstacles command with count: {test_obstacle_count}...")
+        env_test_node.send_obstacle_command(test_obstacle_count) # Use existing helper method
+        time.sleep(0.5) # Give time for C++ to process
+
+        # 3. Test /cmd_vel publisher (send a few commands)
+        print("Sending /cmd_vel commands (Z-velocity)...")
+        velocities_to_test = [50.0, 0.0, -30.0, 100.0, 0.0]
+        for vel_z in velocities_to_test:
+            cmd_vel = Twist()
+            cmd_vel.linear.x = 0.0
+            cmd_vel.linear.y = 0.0
+            cmd_vel.linear.z = float(vel_z) # Send velocity in cm/s
+            cmd_vel.angular.z = 0.0
+            print(f"  Publishing cmd_vel.linear.z = {vel_z:.2f} cm/s")
+            env_test_node.cmd_vel_pub.publish(cmd_vel)
+            time.sleep(0.5) # Pause between commands
+
+        print("\n--- Monitoring Python Subscribers ---")
+        print("Callbacks will print messages received from C++.")
+        print("Press Ctrl+C to stop the test.")
+
+        # Keep the main thread alive to allow callbacks to process messages
+        # The actual receiving happens in the background spin thread
+        loop_count = 0
+        while rclpy.ok():
+            # Optional: Print current state periodically from main thread
+            # (Callbacks provide more immediate feedback)
+            # if loop_count % 10 == 0: # Print every 5 seconds
+            #     with env_test_node.lock:
+            #         pos = env_test_node.current_position
+            #         target = env_test_node.target_z
+            #     print(f"Current State: Pos Z={pos[2]:.2f}, Target Z={target:.2f}")
+
+            time.sleep(0.5)
+            loop_count += 1
+
+    except KeyboardInterrupt:
+        print("\nCtrl+C received. Shutting down test.")
+    finally:
+        # --- Cleanup ---
+        print("Closing environment node...")
+        env_test_node.close() # Destroys the node
+        if rclpy.ok():
+             # Check if shutdown wasn't already called implicitly by node destruction
+            try:
+                rclpy.shutdown()
+                print("rclpy shutdown complete.")
+            except Exception as e:
+                 print(f"Error during rclpy shutdown: {e}")
+        print("ROS2 Communication Test Finished.")
+
+
+if __name__ == '__main__':
+    main_test()
+    
+    # # ----------------------------------------------
 # # Main function for SB3 Training/Loading/Running
 # # (Adopted from quadsimenv.py)
 # # ----------------------------------------------
@@ -413,82 +496,3 @@ class QuadSimEnv(Node, gym.Env):
 #         print("ROS2 shutdown complete. Exiting.")
 
 
-
-def main_test(args=None):
-    rclpy.init(args=args)
-    print("--- Starting ROS2 Communication Test ---")
-
-    # Create the environment instance. This starts the ROS node, publishers,
-    # subscribers, and the background spin thread automatically.
-    env_test_node = QuadSimEnv()
-    print("QuadSimEnv node initialized. Subscribers are listening, Publishers are ready.")
-    print("Waiting for connections...")
-    time.sleep(2.0) # Give some extra time for discovery
-
-    try:
-        # --- Test Publishing from Python ---
-        print("\n--- Testing Python Publishers ---")
-
-        # 1. Test /reset publisher
-        print("Sending /reset command...")
-        reset_msg = String()
-        reset_msg.data = "reset"
-        env_test_node.reset_pub.publish(reset_msg)
-        time.sleep(0.5) # Give time for C++ to process
-
-        # 2. Test /obstacles publisher
-        test_obstacle_count = 50
-        print(f"Sending /obstacles command with count: {test_obstacle_count}...")
-        env_test_node.send_obstacle_command(test_obstacle_count) # Use existing helper method
-        time.sleep(0.5) # Give time for C++ to process
-
-        # 3. Test /cmd_vel publisher (send a few commands)
-        print("Sending /cmd_vel commands (Z-velocity)...")
-        velocities_to_test = [50.0, 0.0, -30.0, 100.0, 0.0]
-        for vel_z in velocities_to_test:
-            cmd_vel = Twist()
-            cmd_vel.linear.x = 0.0
-            cmd_vel.linear.y = 0.0
-            cmd_vel.linear.z = float(vel_z) # Send velocity in cm/s
-            cmd_vel.angular.z = 0.0
-            print(f"  Publishing cmd_vel.linear.z = {vel_z:.2f} cm/s")
-            env_test_node.cmd_vel_pub.publish(cmd_vel)
-            time.sleep(0.5) # Pause between commands
-
-        print("\n--- Monitoring Python Subscribers ---")
-        print("Callbacks will print messages received from C++.")
-        print("Press Ctrl+C to stop the test.")
-
-        # Keep the main thread alive to allow callbacks to process messages
-        # The actual receiving happens in the background spin thread
-        loop_count = 0
-        while rclpy.ok():
-            # Optional: Print current state periodically from main thread
-            # (Callbacks provide more immediate feedback)
-            # if loop_count % 10 == 0: # Print every 5 seconds
-            #     with env_test_node.lock:
-            #         pos = env_test_node.current_position
-            #         target = env_test_node.target_z
-            #     print(f"Current State: Pos Z={pos[2]:.2f}, Target Z={target:.2f}")
-
-            time.sleep(0.5)
-            loop_count += 1
-
-    except KeyboardInterrupt:
-        print("\nCtrl+C received. Shutting down test.")
-    finally:
-        # --- Cleanup ---
-        print("Closing environment node...")
-        env_test_node.close() # Destroys the node
-        if rclpy.ok():
-             # Check if shutdown wasn't already called implicitly by node destruction
-            try:
-                rclpy.shutdown()
-                print("rclpy shutdown complete.")
-            except Exception as e:
-                 print(f"Error during rclpy shutdown: {e}")
-        print("ROS2 Communication Test Finished.")
-
-
-if __name__ == '__main__':
-    main_test()

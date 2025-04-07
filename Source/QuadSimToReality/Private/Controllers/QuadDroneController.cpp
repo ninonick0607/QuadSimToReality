@@ -42,27 +42,27 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	FFullPIDSet VelocitySet;
 	VelocitySet.XPID = new QuadPIDController();
 	VelocitySet.XPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-	VelocitySet.XPID->SetGains(1.f, 0.f, 0.1f);
+	VelocitySet.XPID->SetGains(-0.03f, 0.f, 0.0f);
 
 	VelocitySet.YPID = new QuadPIDController();
 	VelocitySet.YPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-	VelocitySet.YPID->SetGains(1.f, 0.f, 0.1f);
+	VelocitySet.YPID->SetGains(0.03f, 0.0f, 0.0f);
 
 	VelocitySet.ZPID = new QuadPIDController();
 	VelocitySet.ZPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-	VelocitySet.ZPID->SetGains(5.f, 1.f, 0.1f);
+	VelocitySet.ZPID->SetGains(5.f, 0.0f, 0.0f);
 
 	VelocitySet.RollPID = new QuadPIDController();
 	VelocitySet.RollPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-	VelocitySet.RollPID->SetGains(4.75f, 0.3f, 2.347f);
+	VelocitySet.RollPID->SetGains(1.0f, 0.3f, 0.5f);
 
 	VelocitySet.PitchPID = new QuadPIDController();
 	VelocitySet.PitchPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-	VelocitySet.PitchPID->SetGains(4.75f, 0.3f, 2.347f);
+	VelocitySet.PitchPID->SetGains(1.0f, 0.3f, 0.5f);
 
 	VelocitySet.YawPID = new QuadPIDController();
 	VelocitySet.YawPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-	VelocitySet.YawPID->SetGains(1.4f, 1.3f, 1.1f);
+	VelocitySet.YawPID->SetGains(1.0f, 0.0f, 0.0f);
 	PIDMap.Add(VelocitySet);
 
 	AltitudePID = new QuadPIDController();
@@ -201,8 +201,6 @@ void UQuadDroneController::ThrustMixer(double currentRoll, double currentPitch, 
 		dronePawn->Thrusters[i]->ApplyForce(force);
 	}
 }
-
-
 
 void UQuadDroneController::YawStabilization(double DeltaTime)
 {
