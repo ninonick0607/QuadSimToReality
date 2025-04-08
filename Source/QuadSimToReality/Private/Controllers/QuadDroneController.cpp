@@ -125,7 +125,8 @@ void UQuadDroneController::VelocityControl(double DeltaTime)
  		desiredLocalVelocity.Z = FMath::Clamp(desiredLocalVelocity.Z, -100.0f, 100.0f);
  	}
  
- 	FVector currentLocalVelocity = dronePawn->GetActorTransform().InverseTransformVector(currentVelocity);
+	FRotator yawOnlyRotation(0, currentRotation.Yaw, 0);
+	FVector currentLocalVelocity = yawOnlyRotation.UnrotateVector(currentVelocity);
  	FVector velocityError = desiredLocalVelocity - currentLocalVelocity;
  	SafetyReset();
  
@@ -189,16 +190,14 @@ void UQuadDroneController::ThrustMixer(double currentRoll, double currentPitch, 
 	for (int i = 0; i < Thrusts.Num(); i++)
 	{
 		Thrusts[i] = FMath::Clamp(Thrusts[i], 0.0f, 700.0f);
-	}
- 
-	// Apply thrusts to motors
-	for (int i = 0; i < Thrusts.Num(); i++)
-	{
-		if (!dronePawn || !dronePawn->Thrusters.IsValidIndex(i))
-			continue;
-		// double force = droneMass * 0.5f * Thrusts[i];
-		double force = Thrusts[i];
-		dronePawn->Thrusters[i]->ApplyForce(force);
+		if (dronePawn && dronePawn->PropellerRPMs.IsValidIndex(i))
+		{
+			dronePawn->PropellerRPMs[i] = Thrusts[i];
+		}
+		if (dronePawn && dronePawn->Thrusters.IsValidIndex(i) && dronePawn->Thrusters[i])
+		{
+			dronePawn->Thrusters[i]->ApplyForce(Thrusts[i]);
+		}
 	}
 }
 
