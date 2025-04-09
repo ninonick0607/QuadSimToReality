@@ -22,7 +22,7 @@ class QuadSimEnv(gym.Env):
         self.action_space = gym.spaces.Box(
             low=-1,  
             high=1,
-            shape=(1,), # Yaw Rate command
+            shape=(2,), # Pitch + Yaw Rate command
             dtype=np.float32
         )
 
@@ -100,7 +100,7 @@ class QuadSimEnv(gym.Env):
 
     def reset(self, seed=None):
         # self.send_reset_command()
-        self.send_obstacle_command(1, True)
+        self.send_obstacle_command(0, True)
         time.sleep(0.1)  # Wait for the reset to take effect
         self.handle_data()
         self.steps = 0
@@ -115,8 +115,7 @@ class QuadSimEnv(gym.Env):
     
     def step(self, action):
         # Apply action and update environment
-        # full_action = np.array([*action, 0.0]) * 250.0
-        full_action = np.array([0, 0, action[0], 0])
+        full_action = np.array([action[0] * 600, 0, 250, action[1] * 50])
         
         self.send_velocity_command(full_action)
         time.sleep(1 / self.action_frequency) # Action frequency is ~10 Hz
@@ -130,20 +129,23 @@ class QuadSimEnv(gym.Env):
             ('observation', observation)
         ])
 
-        # reward = 1 - (observation[6] / 13000) # Reward based on distance to goal (normalized to ~[0, 1])
-        # reward += 1 - np.abs((observation[2] - 250) / 250) # Reward based on altitude (reward 1 is 250cm, reward 0 = 0cm or 500cm)
         local_angle = np.abs(np.rad2deg(np.arctan2(observation[5], observation[4])))
-        # Reward based on angle to goal
-        reward = self.reward_fn(local_angle)
+        info = {
+            'local_angle': local_angle,
+            'distance_to_goal': observation[3],
+            'velocity': observation[:3],
+            'attitude': observation[6:]
+        }
+
+        reward = self.reward_fn(info)
 
         # Termination conditions
         done = False
         if self.steps >= 256: done = True; print("Max steps reached")
-        # if observation[2] > 500: done = True; print("Quadrotor too high")
-        # if observation[2] < 5: done = True; print("Quadrotor too low")
+        if info['distance_to_goal'] < 150: done = True; print("Goal reached")
         
         self.steps += 1
-        return complete_obs, reward, done, False, {}
+        return complete_obs, reward, done, False, info
 
     def send_velocity_command(self, velocity):
         # Should be a 1D numpy array with 4 elements: [vx, vy, vz, yaw_rate]
@@ -245,7 +247,7 @@ if __name__ == "__main__":
     #         print(f"fps: {acc / (current - start + 1e-10)}")
 
     time.sleep(1.0)  # Give time for the subscriber to connect
-    env.send_obstacle_command(0, True)
+    env.send_obstacle_command(10, True)
     time.sleep(1.0)  # Give time for the obstacle to be created
     env.handle_data()
     pass

@@ -19,12 +19,12 @@ def train(cfg={'name': 'test', 'log': False}, device="cpu"):
         alg.env.close()
         print("Environment closed")
 
-def test(name: str, device="cpu"):
+def test(cfg={'name': 'test', 'log': False}, device="cpu"):
     try:
-        alg = RL_Algorithm(device=device)
+        alg = RL_Algorithm(config=cfg, device=device)
         alg.create_env()
         alg.create_modules()
-        alg.load(f"runs/{name}/alg.pt")
+        alg.load(f"runs/{cfg['name']}/alg.pt")
         alg.test()
     finally:
         alg.env.close()
@@ -34,40 +34,57 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
-    def sparse_reward_fn(angle):
-        return 1 if abs(angle) < 1 else 0
+    def reward_fn(info):
+        reward = 0
+        reward -= info['distance_to_goal'] / 2200
+        return reward
+    
+    def reward_fn_angle_penalty(info):
+        reward = 0
+        reward -= info['distance_to_goal'] / 2200
+        reward -= info['local_angle'] / 1800
+        return reward
 
     configs = ({
         # obs_norm should contain the parameters for the distribution of the observations: normalized = (original - loc) / scale
-        'name': "Yaw_only_MLP_Sparse_0",
-        'train': True,
-        'log': True,
+        'name': "MLP_no_obstacle_0",
+        'train': False,
+        'log': False,
         "obs_norm": {
             "loc": [0] * 6,
-            "scale": [250] * 3 + [12000] + [1] * 2
+            "scale": [600] * 3 + [2200] + [1] * 2
         },
-        'reward_fn': sparse_reward_fn
+        'reward_fn': reward_fn
     }, {
         # obs_norm should contain the parameters for the distribution of the observations: normalized = (original - loc) / scale
-        'name': "Yaw_only_MLP_20Hz_0",
-        'train': True,
-        'log': True,
+        'name': "MLP_no_obstacle_1",
+        'train': False,
+        'log': False,
         "obs_norm": {
             "loc": [0] * 6,
-            "scale": [250] * 3 + [12000] + [1] * 2
+            "scale": [600] * 3 + [2200] + [1] * 2
         },
-        'action_frequency': 20
+        'reward_fn': reward_fn_angle_penalty
     }, {
         # obs_norm should contain the parameters for the distribution of the observations: normalized = (original - loc) / scale
-        'name': "Yaw_only_MLP_20Hz_Sparse_0",
-        'train': True,
-        'log': True,
+        'name': "MLP_no_obstacle_2",
+        'train': False,
+        'log': False,
         "obs_norm": {
             "loc": [0] * 6,
-            "scale": [250] * 3 + [12000] + [1] * 2
+            "scale": [600] * 3 + [2200] + [1] * 2
         },
-        'action_frequency': 20,
-        'reward_fn': sparse_reward_fn
+        'reward_fn': reward_fn
+    }, {
+        # obs_norm should contain the parameters for the distribution of the observations: normalized = (original - loc) / scale
+        'name': "MLP_no_obstacle_3",
+        'train': False,
+        'log': False,
+        "obs_norm": {
+            "loc": [0] * 6,
+            "scale": [600] * 3 + [2200] + [1] * 2
+        },
+        'reward_fn': reward_fn_angle_penalty
     })
 
     for config in configs:
@@ -88,6 +105,18 @@ if __name__ == "__main__":
                         f.write(str(e))
                 continue
         else:
-            # Test the model
-            print(f"Testing configuration: {config['name']}")
-            test(name=config['name'], device=device)
+            try:
+                # Test the model
+                print(f"Testing configuration: {config['name']}")
+                test(cfg=config, device=device)
+            except KeyboardInterrupt:
+                print(f"Testing interrupted for configuration {config['name']}. Continuing to next configuration.")
+                continue
+            except Exception as e:
+                print(f"Error during testing for configuration {config['name']}: {e}")
+                if config['log']:
+                    os.makedirs(f"runs/{config['name']}", exist_ok=True)
+                    with open(f"runs/{config['name']}/error_log.txt", "w") as f:
+                        f.write(str(e))
+                continue
+            
