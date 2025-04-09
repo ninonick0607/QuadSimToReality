@@ -5,9 +5,16 @@
 #include "Math/UnrealMathUtility.h"
 #include "Core/DroneJSONConfig.h"
 #include "Engine/Engine.h"
+#include "Components/StaticMeshComponent.h" 
+#include "Components/PrimitiveComponent.h" 
+#include "GameFramework/Actor.h"        
+#include "Core/ThrusterComponent.h"       
+#include "UI/ImGuiUtil.h"   
 #include "Kismet/GameplayStatics.h"
 
 #define EPSILON 0.0001f
+
+const FName ObstacleCollisionTag = FName("Obstacle");
 
 AQuadPawn::AQuadPawn()
 	: DroneBody(nullptr)
@@ -15,6 +22,7 @@ AQuadPawn::AQuadPawn()
 	, Camera(nullptr)
 	, CameraFPV(nullptr)
 	, QuadController(nullptr)
+	, bHasCollidedWithObstacle(false) 
 	, Input_ToggleImguiInput(nullptr)
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -23,7 +31,10 @@ AQuadPawn::AQuadPawn()
 	DroneBody = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("DroneBody"));
     RootComponent = DroneBody;
 	DroneBody->SetSimulatePhysics(true);
-
+	DroneBody->SetNotifyRigidBodyCollision(true);
+    DroneBody->SetGenerateOverlapEvents(true);
+	DroneBody->SetCollisionProfileName(UCollisionProfile::PhysicsActor_ProfileName); 
+	
 	CameraFPV = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraFPV"));
 	CameraFPV->SetupAttachment(DroneBody,TEXT("FPVCam"));
 	CameraFPV->SetRelativeScale3D(FVector(0.1f));
@@ -93,6 +104,9 @@ void AQuadPawn::BeginPlay()
 	}
 
 	QuadController->ResetPID();
+	DroneBody->OnComponentHit.AddDynamic(this, &AQuadPawn::OnDroneHit);
+	
+	ResetCollisionStatus();
 }
 
 void AQuadPawn::Tick(float DeltaTime)
@@ -113,12 +127,6 @@ void AQuadPawn::Tick(float DeltaTime)
             float DeltaRotation = DegreesPerSecond * DeltaTime * DirectionMultiplier;
 			Propellers[i]->AddLocalRotation(FRotator(0.f, DeltaRotation, 0.f));
 		}
-	}
-
-	APlayerController* PC = Cast<APlayerController>(GetController());
-	if (!PC || !PC->IsLocalController())
-	{
-		return;
 	}
 
 }
@@ -162,4 +170,29 @@ void AQuadPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 void AQuadPawn::ReloadJSONConfig()
 {
 	UDroneJSONConfig::Get().ReloadConfig();
+}
+
+void AQuadPawn::OnDroneHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+{
+	if (OtherActor && OtherActor != this)
+	{
+		UE_LOG(LogTemp, Display, TEXT("Hit detected with: %s"), *OtherActor->GetName());
+
+		if (OtherActor->ActorHasTag(ObstacleCollisionTag))
+		{
+			if (!bHasCollidedWithObstacle)
+			{
+				bHasCollidedWithObstacle = true;
+				UE_LOG(LogTemp, Display, TEXT("%s collided with obstacle: %s"), *GetName(), *OtherActor->GetName());
+			}
+		}
+	}
+}
+void AQuadPawn::ResetCollisionStatus()
+{
+	if (bHasCollidedWithObstacle) 
+	{
+		UE_LOG(LogTemp, Log, TEXT("%s collision status reset."), *GetName());
+	}
+	bHasCollidedWithObstacle = false;
 }

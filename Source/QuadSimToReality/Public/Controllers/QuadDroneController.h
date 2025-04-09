@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Utility/QuadPIDConroller.h"
+#include "Utility/QuadPIDController.h"
 #include "UI/ImGuiUtil.h"
 #include "QuadDroneController.generated.h"
 
@@ -50,7 +50,7 @@ public:
     void Update(double DeltaTime);
 
     void VelocityControl(double a_deltaTime);
-    void ThrustMixer(double xOutput, double yOutput, double zOutput, double rollOutput, double pitchOutput);
+    void ThrustMixer(double currentRoll, double currentPitch, double zOutput, double rollOutput, double pitchOutput);
     void YawStabilization(double DeltaTime);
     void YawRateControl(double DeltaTime);
     void ResetPID();
@@ -64,21 +64,22 @@ public:
     float GetDesiredYaw() const { return desiredYaw; }
     FVector GetDesiredVelocity() const { return desiredNewVelocity; }
 
-    bool bManualThrustMode = false;
     void SetManualThrustMode(bool bEnable);
     void SafetyReset();
     void ApplyManualThrusts();
 
     bool IsHoverModeActive() const { return bHoverModeActive; }
-    void SetHoverMode(bool bActive);
-    
+    void SetHoverMode(bool bActive, float TargetAltitude = 250.0f);
+
     bool GetDebugVisualsEnabled() const { return bDebugVisualsEnabled; }
     void SetDebugVisualsEnabled(bool bEnabled) { bDebugVisualsEnabled = bEnabled; }
     void SetDesiredYawRate(float NewYawRate) { desiredYawRate = NewYawRate; }
     float GetDesiredYawRate() const { return desiredYawRate; }
+    FVector GetCurrentLocalVelocity() const { return currentLocalVelocity; }
     void SetDesiredRoll(float NewRoll) { desiredRoll = NewRoll; }
     void SetDesiredPitch(float NewPitch) { desiredPitch = NewPitch; }
     void SetDesiredAngle(float newAngle) { maxAngle = newAngle; }
+
 private:
 
     UPROPERTY()
@@ -86,6 +87,7 @@ private:
 
     float desiredYaw;
     float desiredAltitude;
+    FVector currentLocalVelocity;
     FVector desiredNewVelocity;
 
     float maxVelocity;
@@ -98,8 +100,7 @@ private:
     bool initialTakeoff;
     bool altitudeReached;
     bool bDebugVisualsEnabled = false;
-
-
+    
     double MaxAngularVelocity;
     double YawTorqueForce;
     double LastYawTorqueApplied;
@@ -114,4 +115,7 @@ private:
     float desiredYawRate;
     float desiredRoll;
     float desiredPitch;
+
+    bool bManualThrustMode = false;
+
 };

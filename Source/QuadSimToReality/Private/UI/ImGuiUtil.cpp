@@ -8,6 +8,7 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Kismet/GameplayStatics.h"
+#include <string>
 #include "Misc/DateTime.h"
 
 UImGuiUtil::UImGuiUtil()
@@ -40,7 +41,7 @@ void UImGuiUtil::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompo
 }
 
 void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
-                                  float rollError, float pitchError,
+                                  float desiredRollAngle, float desiredPitchAngle,
                                   const FRotator& currentRotation,
                                   const FVector& waypoint, const FVector& currLoc,
                                   const FVector& error,
@@ -162,115 +163,182 @@ void UImGuiUtil::VelocityHud(TArray<float>& ThrustsVal,
         ImGui::EndTable();
     }
 
-    ImGui::Separator();
+	ImGui::Separator();
+	ImGui::Text("Position PID Outputs");
+	ImGui::Text("X Output: %.2f", xOutput);
+	ImGui::Text("Y Output: %.2f", yOutput);
+	ImGui::Text("Z Output: %.2f", zOutput);
+	ImGui::Separator();
 
+	DisplayCameraControls();
+	DisplayResetDroneButtons();
+	DisplayPIDHistoryWindow();
 
-    ImGui::Text("Current State & Feedback");
-    ImGui::Spacing();
-    FVector currentDesiredVelocity = Controller ? Controller->GetDesiredVelocity() : FVector::ZeroVector;
-    ImGui::Text("Attitude: Desired Roll: %.2f | Current Roll: %.2f || Desired Pitch: %.2f | Current Pitch: %.2f",
-                rollError, currentRotation.Roll, pitchError, currentRotation.Pitch);
-    ImGui::Text("Position: Current (X,Y,Z): %.1f, %.1f, %.1f || Desired (X,Y,Z): %.1f, %.1f, %.1f || Error (X,Y,Z): %.1f, %.1f, %.1f",
-                currLoc.X, currLoc.Y, currLoc.Z, waypoint.X, waypoint.Y, waypoint.Z, error.X, error.Y, error.Z);
-    ImGui::Text("Velocity: Command (X,Y,Z): %.1f, %.1f, %.1f || Current (X,Y,Z): %.1f, %.1f, %.1f",
-                currentDesiredVelocity.X, currentDesiredVelocity.Y, currentDesiredVelocity.Z, currentVelocity.X, currentVelocity.Y, currentVelocity.Z);
-    ImGui::Text("Pos PID Outputs (X,Y,Z): %.2f, %.2f, %.2f", xOutput, yOutput, zOutput);
-    ImGui::Separator();
-
-
-     ImGui::Text("Actions");
-     ImGui::Spacing();
-     DisplayCameraControls();
-     ImGui::SameLine(0, 10);
-     DisplayResetDroneButtons();
-
-
-    DisplayPIDHistoryWindow();
-
+	//RenderControlPlots(deltaTime, currentRotation, desiredRollAngle, desiredPitchAngle);
 
     ImGui::End();
 }
 
 
-void UImGuiUtil::DisplayDesiredVelocities()
+void UImGuiUtil::RenderControlPlots(float deltaTime, const FRotator& currentRotation, float desiredRoll, float desiredPitch)
 {
-    static float prevVx = 0.0f, prevVy = 0.0f, prevVz = 0.0f, prevYr = 0.0f;
-    static bool firstRun = true;
-    static bool resetXChecked = false, resetYChecked = false, resetZChecked = false, resetYrChecked = false;
-
     if (!Controller) return;
 
-    FVector currentDesiredVelocity = Controller->GetDesiredVelocity();
-    float currentYawRate = Controller->GetDesiredYawRate();
-    bool hoverModeActive = Controller->IsHoverModeActive();
+    // Get velocities using getters
+    FVector currentLocalVelocity = Controller->GetCurrentLocalVelocity();
+    FVector desiredVelocity = Controller->GetDesiredVelocity();
 
-    float tempVx = currentDesiredVelocity.X;
-    float tempVy = currentDesiredVelocity.Y;
-    float tempVz = currentDesiredVelocity.Z;
-    float tempYr = currentYawRate;
-    bool velocityChanged = false;
+    CumulativeTime += deltaTime;
+    TimeData.Add(CumulativeTime);
 
-    ImGui::PushStyleColor(ImGuiCol_Button, hoverModeActive ? ImVec4(0.1f, 0.8f, 0.6f, 1.0f) : ImVec4(0.1f, 0.6f, 0.8f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, hoverModeActive ? ImVec4(0.2f, 0.9f, 0.7f, 1.0f) : ImVec4(0.2f, 0.7f, 0.9f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, hoverModeActive ? ImVec4(0.0f, 0.7f, 0.5f, 1.0f) : ImVec4(0.0f, 0.5f, 0.7f, 1.0f));
-    if (ImGui::Button(hoverModeActive ? "Hover Mode: ON" : "Hover Mode: OFF", ImVec2(150, 30))) {
-        Controller->SetHoverMode(!hoverModeActive);
-        velocityChanged = true;
+    // Add velocity data
+    CurrentVelocityXData.Add(currentLocalVelocity.X);
+    CurrentVelocityYData.Add(currentLocalVelocity.Y);
+    DesiredVelocityXData.Add(desiredVelocity.X);
+    DesiredVelocityYData.Add(desiredVelocity.Y);
+
+    // Add angle data
+    CurrentRollData.Add(currentRotation.Roll);
+    DesiredRollData.Add(desiredRoll); // Use the passed desired angle
+    CurrentPitchData.Add(currentRotation.Pitch);
+    DesiredPitchData.Add(desiredPitch); // Use the passed desired angle
+
+
+    // Pruning logic for ALL history arrays
+    while (TimeData.Num() > 0 && (CumulativeTime - TimeData[0] > MaxPlotTime))
+    {
+        TimeData.RemoveAt(0);
+        // Prune existing plots' data if RenderImPlot is still used elsewhere
+        if (Thrust0Data.Num() > 0) Thrust0Data.RemoveAt(0);
+        if (Thrust1Data.Num() > 0) Thrust1Data.RemoveAt(0);
+        if (Thrust2Data.Num() > 0) Thrust2Data.RemoveAt(0);
+        if (Thrust3Data.Num() > 0) Thrust3Data.RemoveAt(0);
+        if (DesiredHeadingData.Num() > 0) DesiredHeadingData.RemoveAt(0);
+        if (CurrentHeadingData.Num() > 0) CurrentHeadingData.RemoveAt(0);
+        if (VectorErrorData.Num() > 0) VectorErrorData.RemoveAt(0);
+        // Prune new plots' data
+        if (CurrentVelocityXData.Num() > 0) CurrentVelocityXData.RemoveAt(0);
+        if (CurrentVelocityYData.Num() > 0) CurrentVelocityYData.RemoveAt(0);
+        if (CurrentVelocityZData.Num() > 0) CurrentVelocityZData.RemoveAt(0);
+        if (DesiredVelocityXData.Num() > 0) DesiredVelocityXData.RemoveAt(0);
+        if (DesiredVelocityYData.Num() > 0) DesiredVelocityYData.RemoveAt(0);
+        if (DesiredVelocityZData.Num() > 0) DesiredVelocityZData.RemoveAt(0);
+        if (CurrentRollData.Num() > 0) CurrentRollData.RemoveAt(0);
+        if (DesiredRollData.Num() > 0) DesiredRollData.RemoveAt(0);
+        if (CurrentPitchData.Num() > 0) CurrentPitchData.RemoveAt(0);
+        if (DesiredPitchData.Num() > 0) DesiredPitchData.RemoveAt(0);
     }
-    ImGui::PopStyleColor(3);
-    if (hoverModeActive) { ImGui::SameLine(); ImGui::TextDisabled("(Z Velocity Disabled)"); }
-    ImGui::Spacing();
 
-    auto VelocitySlider = [&](const char* label, float* value, float minVal, float maxVal, bool disabled = false) {
-        bool changed = false;
-        ImGui::PushItemWidth(-1);
-        if(disabled) {
-            ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
-            ImGui::SliderFloat(label, value, minVal, maxVal, "%.1f");
-            ImGui::PopStyleVar();
-        } else {
-            changed = ImGui::SliderFloat(label, value, minVal, maxVal, "%.1f");
+     // Limit max data points (simpler than time-based for consistent array sizes)
+    while (TimeData.Num() > MaxDataPoints)
+    {
+        TimeData.RemoveAt(0);
+        if (Thrust0Data.Num() > 0) Thrust0Data.RemoveAt(0);
+        if (Thrust1Data.Num() > 0) Thrust1Data.RemoveAt(0);
+        if (Thrust2Data.Num() > 0) Thrust2Data.RemoveAt(0);
+        if (Thrust3Data.Num() > 0) Thrust3Data.RemoveAt(0);
+        if (DesiredHeadingData.Num() > 0) DesiredHeadingData.RemoveAt(0);
+        if (CurrentHeadingData.Num() > 0) CurrentHeadingData.RemoveAt(0);
+        if (VectorErrorData.Num() > 0) VectorErrorData.RemoveAt(0);
+        if (CurrentVelocityXData.Num() > 0) CurrentVelocityXData.RemoveAt(0);
+        if (CurrentVelocityYData.Num() > 0) CurrentVelocityYData.RemoveAt(0);
+        if (DesiredVelocityXData.Num() > 0) DesiredVelocityXData.RemoveAt(0);
+        if (DesiredVelocityYData.Num() > 0) DesiredVelocityYData.RemoveAt(0);
+        if (CurrentRollData.Num() > 0) CurrentRollData.RemoveAt(0);
+        if (DesiredRollData.Num() > 0) DesiredRollData.RemoveAt(0);
+        if (CurrentPitchData.Num() > 0) CurrentPitchData.RemoveAt(0);
+        if (DesiredPitchData.Num() > 0) DesiredPitchData.RemoveAt(0);
+    }
+
+
+    // Start a new ImGui window for these plots
+    ImGui::SetNextWindowSize(ImVec2(600, 700), ImGuiCond_FirstUseEver); // Adjusted size for 3 plots
+    ImGui::SetNextWindowPos(ImVec2(950, 10), ImGuiCond_FirstUseEver); // Position next to controller window
+
+    ImGui::Begin("Control Plots");
+
+    ImVec2 windowSize = ImGui::GetContentRegionAvail();
+    // Allocate roughly equal height for three plots
+    float plotHeight = (windowSize.y / 3.0f) - (ImGui::GetStyle().ItemSpacing.y * 2); // Account for spacing
+    ImVec2 plotSize(windowSize.x, plotHeight);
+    ImPlotFlags plotFlags = ImPlotFlags_None; // Or ImPlotFlags_NoLegend if preferred
+    ImPlotAxisFlags axisFlags = ImPlotAxisFlags_None; // Or customize as needed
+
+    int dataCount = TimeData.Num(); // Use the count from TimeData
+
+
+    // Velocity Plot
+    if (ImPlot::BeginPlot("Velocity (Local Frame)", plotSize, plotFlags))
+    {
+        ImPlot::SetupAxes("Time (s)", "Velocity (cm/s)", axisFlags, axisFlags);
+        ImPlot::SetupAxisLimits(ImAxis_X1, CumulativeTime - MaxPlotTime, CumulativeTime, ImGuiCond_Always); // Keep X axis scrolling
+
+        if (dataCount > 0)
+        {
+            // Current Velocities
+            ImPlot::SetNextLineStyle(ImVec4(1.0f, 0.f, 0.f, 1.f), 1.5f); // Red
+            ImPlot::PlotLine("Current Vel X", TimeData.GetData(), CurrentVelocityXData.GetData(), dataCount);
+            ImPlot::SetNextLineStyle(ImVec4(0.f, 1.0f, 0.f, 1.f), 1.5f); // Green
+            ImPlot::PlotLine("Current Vel Y", TimeData.GetData(), CurrentVelocityYData.GetData(), dataCount);
+
+            // Desired Velocities (dashed or different color)
+             ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, 1.0f); // Thinner lines for desired
+            // ImPlot::PushStyleVar(ImPlotStyleVar_DashPatterns, { 10.f, 5.f }); // Example dash pattern
+
+            ImPlot::SetNextLineStyle(ImVec4(1.0f, 0.6f, 0.6f, 1.f)); // Light Red
+            ImPlot::PlotLine("Desired Vel X", TimeData.GetData(), DesiredVelocityXData.GetData(), dataCount);
+            ImPlot::SetNextLineStyle(ImVec4(0.6f, 1.0f, 0.6f, 1.f)); // Light Green
+            ImPlot::PlotLine("Desired Vel Y", TimeData.GetData(), DesiredVelocityYData.GetData(), dataCount);
+
+            //ImPlot::PopStyleVar(); // Pop dash pattern if used
+             ImPlot::PopStyleVar(); // Pop line weight
         }
-        ImGui::PopItemWidth();
-        return changed;
-    };
-    velocityChanged |= VelocitySlider("X", &tempVx, -maxVelocity, maxVelocity);
-    velocityChanged |= VelocitySlider("Y", &tempVy, -maxVelocity, maxVelocity);
-    velocityChanged |= VelocitySlider("Z", &tempVz, -maxVelocity, maxVelocity, hoverModeActive);
-    velocityChanged |= VelocitySlider("Yaw", &tempYr, -50.f, 50.f);
 
-    ImGui::Separator();
-    ImGui::Text("Reset Axes to 0:");
+        ImPlot::EndPlot();
+    }
+
+    ImGui::Spacing(); // Add space between plots
+
+    // Roll Plot
+    if (ImPlot::BeginPlot("Roll Angle", plotSize, plotFlags))
+    {
+        ImPlot::SetupAxes("Time (s)", "Angle (degrees)", axisFlags, axisFlags);
+        ImPlot::SetupAxisLimits(ImAxis_X1, CumulativeTime - MaxPlotTime, CumulativeTime, ImGuiCond_Always);
+        ImPlot::SetupAxisLimits(ImAxis_Y1, -maxAngle-10, maxAngle+10, ImPlotCond_Once); // Set Y limits based on maxAngle
+
+        if (dataCount > 0)
+        {
+            ImPlot::SetNextLineStyle(ImVec4(1.f, 0.f, 0.f, 1.f), 1.5f); // Red for current
+            ImPlot::PlotLine("Current Roll", TimeData.GetData(), CurrentRollData.GetData(), dataCount);
+
+            ImPlot::SetNextLineStyle(ImVec4(1.f, 0.6f, 0.6f, 1.f), 1.0f); // Lighter Red for desired
+            ImPlot::PlotLine("Desired Roll", TimeData.GetData(), DesiredRollData.GetData(), dataCount);
+        }
+        ImPlot::EndPlot();
+    }
+
     ImGui::Spacing();
-    ImGui::PushID("ResetChecks");
-    if (ImGui::Checkbox("X", &resetXChecked)) { if (resetXChecked) { tempVx = 0.0f; velocityChanged = true; } resetXChecked = false; }
-    ImGui::SameLine(0, 20);
-    if (ImGui::Checkbox("Y", &resetYChecked)) { if (resetYChecked) { tempVy = 0.0f; velocityChanged = true; } resetYChecked = false; }
-    ImGui::SameLine(0, 20);
-    if (ImGui::Checkbox("Z", &resetZChecked)) { if (resetZChecked) { tempVz = 0.0f; velocityChanged = true; } resetZChecked = false; }
-    ImGui::SameLine(0, 20);
-    if (ImGui::Checkbox("Yaw", &resetYrChecked)) { if (resetYrChecked) { tempYr = 0.0f; velocityChanged = true; } resetYrChecked = false; }
-    ImGui::PopID();
 
-    if (firstRun) {
-        prevVx = tempVx; prevVy = tempVy; prevVz = tempVz; prevYr = tempYr;
-        firstRun = false;
+    // Pitch Plot
+    if (ImPlot::BeginPlot("Pitch Angle", plotSize, plotFlags))
+    {
+        ImPlot::SetupAxes("Time (s)", "Angle (degrees)", axisFlags, axisFlags);
+        ImPlot::SetupAxisLimits(ImAxis_X1, CumulativeTime - MaxPlotTime, CumulativeTime, ImGuiCond_Always);
+         ImPlot::SetupAxisLimits(ImAxis_Y1, -maxAngle-10, maxAngle+10, ImPlotCond_Once);
+
+        if (dataCount > 0)
+        {
+            ImPlot::SetNextLineStyle(ImVec4(0.f, 1.f, 0.f, 1.f), 1.5f); // Green for current
+            ImPlot::PlotLine("Current Pitch", TimeData.GetData(), CurrentPitchData.GetData(), dataCount);
+
+            ImPlot::SetNextLineStyle(ImVec4(0.6f, 1.f, 0.6f, 1.f), 1.0f); // Lighter Green for desired
+            ImPlot::PlotLine("Desired Pitch", TimeData.GetData(), DesiredPitchData.GetData(), dataCount);
+        }
+        ImPlot::EndPlot();
     }
-    const float threshold = 0.01f;
-    bool significantChange = false;
-    if (!velocityChanged) {
-        significantChange = (FMath::Abs(tempVx - prevVx) > threshold) ||
-                           (FMath::Abs(tempVy - prevVy) > threshold) ||
-                           (FMath::Abs(tempVz - prevVz) > threshold) ||
-                           (FMath::Abs(tempYr - prevYr) > threshold);
-    }
-    if (velocityChanged || significantChange) {
-        if (hoverModeActive) tempVz = 0.0f;
-        FVector desiredNewVelocity = FVector(tempVx, tempVy, tempVz);
-        Controller->SetDesiredVelocity(desiredNewVelocity);
-        Controller->SetDesiredYawRate(tempYr);
-        prevVx = tempVx; prevVy = tempVy; prevVz = tempVz; prevYr = tempYr;
-    }
+
+
+    ImGui::End(); // End Control Plots window
 }
 
 void UImGuiUtil::RenderImPlot(const TArray<float>& ThrustsVal, const FVector& desiredForwardVector, const FVector& currentForwardVector, float deltaTime)
@@ -465,9 +533,9 @@ void UImGuiUtil::DisplayPIDSettings(const char* headerLabel, bool& synchronizeXY
 
 		// Define gain limits based on request
 		const float minXGain = 0.0f;
-		const float maxXGain = -0.1f;
+		const float maxXGain = -0.8f;
 		const float minYGain = 0.0f;
-		const float maxYGain = 0.1f;
+		const float maxYGain = 0.8f;
 
 		// --- X Axis ---
 		ImGui::Text("X Axis");
@@ -607,18 +675,18 @@ void UImGuiUtil::DisplayPIDSettings(const char* headerLabel, bool& synchronizeXY
 		{
 			if (synchronizeGains && PIDSet->PitchPID)
 			{
-				if (DrawPIDGainControl("Roll P", &PIDSet->RollPID->ProportionalGain, 0.0f, 20.0f))
+				if (DrawPIDGainControl("Roll P", &PIDSet->RollPID->ProportionalGain, 0.0f, 5.0f))
 					PIDSet->PitchPID->ProportionalGain = PIDSet->RollPID->ProportionalGain;
-				if (DrawPIDGainControl("Roll I", &PIDSet->RollPID->IntegralGain, 0.0f, 20.0f))
+				if (DrawPIDGainControl("Roll I", &PIDSet->RollPID->IntegralGain, 0.0f, 5.0f))
 					PIDSet->PitchPID->IntegralGain = PIDSet->RollPID->IntegralGain;
-				if (DrawPIDGainControl("Roll D", &PIDSet->RollPID->DerivativeGain, 0.0f, 20.0f))
+				if (DrawPIDGainControl("Roll D", &PIDSet->RollPID->DerivativeGain, 0.0f, 5.0f))
 					PIDSet->PitchPID->DerivativeGain = PIDSet->RollPID->DerivativeGain;
 			}
 			else // Not synchronizing or PitchPID is null
 			{
-				DrawPIDGainControl("Roll P", &PIDSet->RollPID->ProportionalGain, 0.0f, 20.0f);
-				DrawPIDGainControl("Roll I", &PIDSet->RollPID->IntegralGain, 0.0f, 20.0f);
-				DrawPIDGainControl("Roll D", &PIDSet->RollPID->DerivativeGain, 0.0f, 20.0f);
+				DrawPIDGainControl("Roll P", &PIDSet->RollPID->ProportionalGain, 0.0f, 5.0f);
+				DrawPIDGainControl("Roll I", &PIDSet->RollPID->IntegralGain, 0.0f, 5.0f);
+				DrawPIDGainControl("Roll D", &PIDSet->RollPID->DerivativeGain, 0.0f, 5.0f);
 			}
 		}
 		else { ImGui::TextDisabled("Roll PID Unavailable"); }
@@ -631,18 +699,18 @@ void UImGuiUtil::DisplayPIDSettings(const char* headerLabel, bool& synchronizeXY
 		{
 			if (synchronizeGains && PIDSet->RollPID)
 			{
-				if (DrawPIDGainControl("Pitch P", &PIDSet->PitchPID->ProportionalGain, 0.0f, 20.0f))
+				if (DrawPIDGainControl("Pitch P", &PIDSet->PitchPID->ProportionalGain, 0.0f, 5.0f))
 					PIDSet->RollPID->ProportionalGain = PIDSet->PitchPID->ProportionalGain;
-				if (DrawPIDGainControl("Pitch I", &PIDSet->PitchPID->IntegralGain, 0.0f, 20.0f))
+				if (DrawPIDGainControl("Pitch I", &PIDSet->PitchPID->IntegralGain, 0.0f, 5.0f))
 					PIDSet->RollPID->IntegralGain = PIDSet->PitchPID->IntegralGain;
-				if (DrawPIDGainControl("Pitch D", &PIDSet->PitchPID->DerivativeGain, 0.0f, 20.0f))
+				if (DrawPIDGainControl("Pitch D", &PIDSet->PitchPID->DerivativeGain, 0.0f, 5.0f))
 					PIDSet->RollPID->DerivativeGain = PIDSet->PitchPID->DerivativeGain;
 			}
 			else // Not synchronizing or RollPID is null
 			{
-				DrawPIDGainControl("Pitch P", &PIDSet->PitchPID->ProportionalGain, 0.0f, 20.0f);
-				DrawPIDGainControl("Pitch I", &PIDSet->PitchPID->IntegralGain, 0.0f, 20.0f);
-				DrawPIDGainControl("Pitch D", &PIDSet->PitchPID->DerivativeGain, 0.0f, 20.0f);
+				DrawPIDGainControl("Pitch P", &PIDSet->PitchPID->ProportionalGain, 0.0f, 5.0f);
+				DrawPIDGainControl("Pitch I", &PIDSet->PitchPID->IntegralGain, 0.0f, 5.0f);
+				DrawPIDGainControl("Pitch D", &PIDSet->PitchPID->DerivativeGain, 0.0f, 5.0f);
 			}
 		}
 		else { ImGui::TextDisabled("Pitch PID Unavailable"); }
@@ -692,7 +760,10 @@ void UImGuiUtil::DisplayPIDSettings(const char* headerLabel, bool& synchronizeXY
 
 void UImGuiUtil::DisplayCameraControls()
 {
-	if (ImGui::Button("Switch Camera", ImVec2(150, 30))) // Smaller button size
+	ImGui::Separator();
+	ImGui::Spacing();
+
+	if (ImGui::Button("Switch Camera Mode", ImVec2(200, 50)))
 	{
 		if (DronePawn)
 		{
@@ -729,6 +800,166 @@ void UImGuiUtil::DisplayResetDroneButtons()
 	}
 }
 
+void UImGuiUtil::DisplayDesiredVelocities()
+{
+    ImGui::Text("Desired Velocities");
+
+    // Static variables to hold previous slider values
+    static float prevVx = 0.0f;
+    static float prevVy = 0.0f;
+    static float prevVz = 0.0f;
+	static float prevYr = 0.0f;
+    static bool firstRun = true;
+    
+    // Reset checkboxes states (we need separate variables for these)
+    static bool resetXChecked = false;
+    static bool resetYChecked = false;
+    static bool resetZChecked = false;
+	static bool resetYrChecked = false;
+    
+    FVector currentDesiredVelocity = Controller->GetDesiredVelocity();
+	float currentYawRate = Controller->GetDesiredYawRate();
+    bool hoverModeActive = Controller->IsHoverModeActive();  // Get hover mode state from controller
+
+    float tempVx = currentDesiredVelocity.X;
+    float tempVy = currentDesiredVelocity.Y;
+    float tempVz = currentDesiredVelocity.Z;
+	float tempYr = currentYawRate;
+    bool velocityChanged = false;
+
+    // Add hover mode button with distinctive styling
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.6f, 0.8f, 1.0f)); // Blue button
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.7f, 0.9f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.0f, 0.5f, 0.7f, 1.0f));
+
+    if (ImGui::Button(hoverModeActive ? "HOVER MODE ACTIVE" : "ACTIVATE HOVER MODE", ImVec2(200, 35)))
+    {
+        // Toggle hover mode through the controller
+		// TODO: Current behavior is to set the hover height to the current height
+		//       We could instead add a slider or something to set the hover height
+        Controller->SetHoverMode(!hoverModeActive, 250.0f);
+        
+        // Update local values to match the new state
+        if (!hoverModeActive)  // It's about to be activated
+            tempVz = 28.0f;
+            
+        velocityChanged = true;
+    }
+    ImGui::PopStyleColor(3);
+
+    if (hoverModeActive)
+    {
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(0.1f, 0.6f, 0.8f, 1.0f), "Z-velocity locked at 28.0");
+    }
+
+    ImGui::Spacing();
+
+    // X velocity slider with reset checkbox
+    velocityChanged |= ImGui::SliderFloat("Desired Velocity X", &tempVx, -maxVelocity, maxVelocity);
+    ImGui::SameLine();
+    if (ImGui::Checkbox("Reset X to 0", &resetXChecked))
+    {
+        if (resetXChecked)
+        {
+            tempVx = 0.0f;
+            velocityChanged = true;
+        }
+        // Auto-uncheck after resetting
+        resetXChecked = false;
+    }
+
+    // Y velocity slider with reset checkbox
+    velocityChanged |= ImGui::SliderFloat("Desired Velocity Y", &tempVy, -maxVelocity, maxVelocity);
+    ImGui::SameLine();
+    if (ImGui::Checkbox("Reset Y to 0", &resetYChecked))
+    {
+        if (resetYChecked)
+        {
+            tempVy = 0.0f;
+            velocityChanged = true;
+        }
+        // Auto-uncheck after resetting
+        resetYChecked = false;
+    }
+
+    // Only show Z slider control if hover mode is not active
+    if (!hoverModeActive)
+    {
+        velocityChanged |= ImGui::SliderFloat("Desired Velocity Z", &tempVz, -maxVelocity, maxVelocity);
+        ImGui::SameLine();
+        if (ImGui::Checkbox("Reset Z to 0", &resetZChecked))
+        {
+            if (resetZChecked)
+            {
+                tempVz = 0.0f;
+                velocityChanged = true;
+            }
+            // Auto-uncheck after resetting
+            resetZChecked = false;
+        }
+    }
+    else
+    {
+        // Display a disabled slider for Z when in hover mode
+        ImGui::PushStyleColor(ImGuiCol_SliderGrab, ImVec4(0.1f, 0.6f, 0.8f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
+        ImGui::SliderFloat("Desired Velocity Z (Locked)", &tempVz, -maxVelocity, maxVelocity);
+        ImGui::PopStyleColor(2);
+
+        // In hover mode, Z velocity is always 0.0
+        tempVz = 0.0f;
+    }
+
+	// Yaw rate velocity slider with reset checkbox
+    velocityChanged |= ImGui::SliderFloat("Desired Yaw Rate", &tempYr, -50.f, 50.f);
+    ImGui::SameLine();
+    if (ImGui::Checkbox("Reset Yr to 0", &resetYrChecked))
+    {
+        if (resetYrChecked)
+        {
+            tempYr = 0.0f;
+            velocityChanged = true;
+        }
+        // Auto-uncheck after resetting
+        resetYrChecked = false;
+    }
+
+    // On first run, initialize previous values
+    if (firstRun)
+    {
+        prevVx = tempVx;
+        prevVy = tempVy;
+        prevVz = tempVz;
+		prevYr = tempYr;
+        firstRun = false;
+    }
+
+    // Set a deadzone threshold (adjust as needed)
+    const float threshold = 0.01f;
+    bool significantChange = (FMath::Abs(tempVx - prevVx) > threshold) ||
+        (FMath::Abs(tempVy - prevVy) > threshold) ||
+        (FMath::Abs(tempVz - prevVz) > threshold) ||
+		(FMath::Abs(tempYr - prevYr) > threshold);
+
+    // Only update the desired velocity if there's a significant change or if we just entered hover mode
+    if (significantChange || velocityChanged)
+    {
+        FVector desiredNewVelocity = FVector(tempVx, tempVy, tempVz);
+        if (Controller)
+        {
+            Controller->SetDesiredVelocity(desiredNewVelocity);
+			Controller->SetDesiredYawRate(tempYr);
+        }
+        // Update previous values so that subsequent small changes are ignored
+        prevVx = tempVx;
+        prevVy = tempVy;
+        prevVz = tempVz;
+		prevYr = tempYr;
+    }
+
+    ImGui::Separator();
+}
 
 void UImGuiUtil::DisplayPIDHistoryWindow()
 {
@@ -903,3 +1134,86 @@ void UImGuiUtil::LoadPIDValues(const TArray<FString>& Values)
 	// Notify of successful load
 	UE_LOG(LogTemp, Display, TEXT("Loaded PID configuration from %s"), *Values[0]);
 }
+
+
+//
+// void UImGuiUtil::DisplayDesiredVelocities()
+// {
+//     static float prevVx = 0.0f, prevVy = 0.0f, prevVz = 0.0f, prevYr = 0.0f;
+//     static bool firstRun = true;
+//     static bool resetXChecked = false, resetYChecked = false, resetZChecked = false, resetYrChecked = false;
+//
+//     if (!Controller) return;
+//
+//     FVector currentDesiredVelocity = Controller->GetDesiredVelocity();
+//     float currentYawRate = Controller->GetDesiredYawRate();
+//     bool hoverModeActive = Controller->IsHoverModeActive();
+//
+//     float tempVx = currentDesiredVelocity.X;
+//     float tempVy = currentDesiredVelocity.Y;
+//     float tempVz = currentDesiredVelocity.Z;
+//     float tempYr = currentYawRate;
+//     bool velocityChanged = false;
+//
+//     ImGui::PushStyleColor(ImGuiCol_Button, hoverModeActive ? ImVec4(0.1f, 0.8f, 0.6f, 1.0f) : ImVec4(0.1f, 0.6f, 0.8f, 1.0f));
+//     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, hoverModeActive ? ImVec4(0.2f, 0.9f, 0.7f, 1.0f) : ImVec4(0.2f, 0.7f, 0.9f, 1.0f));
+//     ImGui::PushStyleColor(ImGuiCol_ButtonActive, hoverModeActive ? ImVec4(0.0f, 0.7f, 0.5f, 1.0f) : ImVec4(0.0f, 0.5f, 0.7f, 1.0f));
+//     if (ImGui::Button(hoverModeActive ? "Hover Mode: ON" : "Hover Mode: OFF", ImVec2(150, 30))) {
+//         Controller->SetHoverMode(!hoverModeActive);
+//         velocityChanged = true;
+//     }
+//     ImGui::PopStyleColor(3);
+//     if (hoverModeActive) { ImGui::SameLine(); ImGui::TextDisabled("(Z Velocity Disabled)"); }
+//     ImGui::Spacing();
+//
+//     auto VelocitySlider = [&](const char* label, float* value, float minVal, float maxVal, bool disabled = false) {
+//         bool changed = false;
+//         ImGui::PushItemWidth(-1);
+//         if(disabled) {
+//             ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+//             ImGui::SliderFloat(label, value, minVal, maxVal, "%.1f");
+//             ImGui::PopStyleVar();
+//         } else {
+//             changed = ImGui::SliderFloat(label, value, minVal, maxVal, "%.1f");
+//         }
+//         ImGui::PopItemWidth();
+//         return changed;
+//     };
+//     velocityChanged |= VelocitySlider("X", &tempVx, -maxVelocity, maxVelocity);
+//     velocityChanged |= VelocitySlider("Y", &tempVy, -maxVelocity, maxVelocity);
+//     velocityChanged |= VelocitySlider("Z", &tempVz, -maxVelocity, maxVelocity, hoverModeActive);
+//     velocityChanged |= VelocitySlider("Yaw", &tempYr, -50.f, 50.f);
+//
+//     ImGui::Separator();
+//     ImGui::Text("Reset Axes to 0:");
+//     ImGui::Spacing();
+//     ImGui::PushID("ResetChecks");
+//     if (ImGui::Checkbox("X", &resetXChecked)) { if (resetXChecked) { tempVx = 0.0f; velocityChanged = true; } resetXChecked = false; }
+//     ImGui::SameLine(0, 20);
+//     if (ImGui::Checkbox("Y", &resetYChecked)) { if (resetYChecked) { tempVy = 0.0f; velocityChanged = true; } resetYChecked = false; }
+//     ImGui::SameLine(0, 20);
+//     if (ImGui::Checkbox("Z", &resetZChecked)) { if (resetZChecked) { tempVz = 0.0f; velocityChanged = true; } resetZChecked = false; }
+//     ImGui::SameLine(0, 20);
+//     if (ImGui::Checkbox("Yaw", &resetYrChecked)) { if (resetYrChecked) { tempYr = 0.0f; velocityChanged = true; } resetYrChecked = false; }
+//     ImGui::PopID();
+//
+//     if (firstRun) {
+//         prevVx = tempVx; prevVy = tempVy; prevVz = tempVz; prevYr = tempYr;
+//         firstRun = false;
+//     }
+//     const float threshold = 0.01f;
+//     bool significantChange = false;
+//     if (!velocityChanged) {
+//         significantChange = (FMath::Abs(tempVx - prevVx) > threshold) ||
+//                            (FMath::Abs(tempVy - prevVy) > threshold) ||
+//                            (FMath::Abs(tempVz - prevVz) > threshold) ||
+//                            (FMath::Abs(tempYr - prevYr) > threshold);
+//     }
+//     if (velocityChanged || significantChange) {
+//         if (hoverModeActive) tempVz = 0.0f;
+//         FVector desiredNewVelocity = FVector(tempVx, tempVy, tempVz);
+//         Controller->SetDesiredVelocity(desiredNewVelocity);
+//         Controller->SetDesiredYawRate(tempYr);
+//         prevVx = tempVx; prevVy = tempVy; prevVz = tempVz; prevYr = tempYr;
+//     }
+// }

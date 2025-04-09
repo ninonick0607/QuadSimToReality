@@ -17,6 +17,7 @@ public:
 
     /** Call this once the owning controller and pawn are valid */
     void Initialize(AQuadPawn* InPawn, UQuadDroneController* InController);
+
     /** Main functions to draw the UI */
     void VelocityHud(TArray<float>& ThrustsVal,
                      float rollError, float pitchError,
@@ -28,9 +29,11 @@ public:
 
 
     void RenderImPlot(const TArray<float>& ThrustsVal, const FVector& desiredForwardVector, const FVector& currentForwardVector, float deltaTime);
+    void RenderControlPlots(float deltaTime, const FRotator& currentRotation, float desiredRoll, float desiredPitch);
 
     void DisplayDroneInfo();
-    void DisplayPIDSettings(const char* headerLabel, bool& synchronizeXYGains, bool& synchronizeGains);    void DisplayCameraControls();
+    void DisplayPIDSettings(const char* headerLabel, bool& synchronizeXYGains, bool& synchronizeGains);
+    void DisplayCameraControls();
     void DisplayResetDroneButtons();
     void DisplayDesiredVelocities();
     void DisplayPIDHistoryWindow();
@@ -66,7 +69,18 @@ private:
     TArray<float> CurrentHeadingData;  
     TArray<float> VectorErrorData;     
 
-
+    // New data members for control plots
+    TArray<float> CurrentVelocityXData;
+    TArray<float> CurrentVelocityYData;
+    TArray<float> CurrentVelocityZData;
+    TArray<float> DesiredVelocityXData;
+    TArray<float> DesiredVelocityYData;
+    TArray<float> DesiredVelocityZData;
+    TArray<float> CurrentRollData;
+    TArray<float> DesiredRollData;
+    TArray<float> CurrentPitchData;
+    TArray<float> DesiredPitchData;
+    
     // Helper method to load PID values from a CSV row
     void LoadPIDValues(const TArray<FString>& Values);
 

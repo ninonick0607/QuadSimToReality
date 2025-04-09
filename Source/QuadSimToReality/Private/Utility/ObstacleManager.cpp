@@ -6,6 +6,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Pawns/QuadPawn.h"
 
+const FName ObstacleManager_ObstacleTag = FName("Obstacle");
 
 AObstacleManager::AObstacleManager() {
     PrimaryActorTick.bCanEverTick = true;
@@ -46,11 +47,11 @@ void AObstacleManager::VisualizeSpawnBoundaries(bool bPersistentLines) {
         GetWorld(),
         CenterPoint,
         OuterExtent,
-        FColor(0, 0, 255, 128),  // More visible blue
+        FColor(0, 0, 255, 128),
         bPersistentLines,
         Duration,
         0,
-        18.0f  // Thicker lines
+        18.0f 
     );
     
     // Draw the inner boundary - red with increased alpha and thickness
@@ -58,11 +59,11 @@ void AObstacleManager::VisualizeSpawnBoundaries(bool bPersistentLines) {
         GetWorld(),
         CenterPoint,
         InnerExtent,
-        FColor(255, 0, 0, 128),  // More visible red
+        FColor(255, 0, 0, 128),  
         bPersistentLines,
         Duration,
         0,
-        18.0f  // Thicker lines
+        18.0f 
     );
     
 }
@@ -88,11 +89,9 @@ AActor* AObstacleManager::SpawnObstacle() {
     // Get random position within inner boundary
     FVector SpawnLocation = GetRandomInnerPoint();
     
-    // More detailed logging
     UE_LOG(LogTemp, Display, TEXT("Trying to spawn obstacle at %s (Inner Boundary=%f)"), 
            *SpawnLocation.ToString(), InnerBoundarySize);
     
-    // Random rotation around Z axis only
     FRotator SpawnRotation(0.0f, FMath::RandRange(0.0f, 360.0f), 0.0f);
     
     // Spawn parameters
@@ -100,12 +99,25 @@ AActor* AObstacleManager::SpawnObstacle() {
     SpawnParams.Owner = this;
     SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
     
-    // Spawn the actor using the class instead of template
     AActor* Obstacle = GetWorld()->SpawnActor<AActor>(ObstacleClass, 
                                                      SpawnLocation, 
                                                      SpawnRotation, 
                                                      SpawnParams);
-    
+    if (Obstacle)
+    {
+        UStaticMeshComponent* MeshComp = Obstacle->FindComponentByClass<UStaticMeshComponent>();
+        if (MeshComp)
+        {
+            MeshComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+            MeshComp->SetCollisionResponseToAllChannels(ECR_Block);
+        }
+        Obstacle->Tags.Add(ObstacleManager_ObstacleTag);
+        UE_LOG(LogTemp, Log, TEXT("Spawned obstacle %s with tag '%s'"), *Obstacle->GetName(), *ObstacleManager_ObstacleTag.ToString());
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("Failed to spawn obstacle actor!"));
+    }
     return Obstacle;
 }
 
@@ -263,12 +275,10 @@ FVector AObstacleManager::GetPositionLocation(EGoalPosition Position) {
 }
 
 void AObstacleManager::MoveDroneToOppositeOfGoal(EGoalPosition GoalPos) {
-    // If random was selected, pick one of the four positions
     if (GoalPos == EGoalPosition::Random) {
         GoalPos = static_cast<EGoalPosition>(FMath::RandRange(0, 3));
     }
     
-    // Calculate center point
     FVector CenterPoint = GetActorLocation();
     float HalfOuterSize = OuterBoundarySize * 0.5f;
     
@@ -306,7 +316,7 @@ void AObstacleManager::MoveDroneToOppositeOfGoal(EGoalPosition GoalPos) {
             break;
     }
     
-    DroneLocation.Z = ObstacleSpawnHeight; // Set proper height
+    DroneLocation.Z = ObstacleSpawnHeight + 250.0f; // Set proper height
     
     // Additional logging for debugging
     UE_LOG(LogTemp, Display, TEXT("Moving drone to %s based on opposite position %d"), 
@@ -338,4 +348,11 @@ void AObstacleManager::MoveDroneToOppositeOfGoal(EGoalPosition GoalPos) {
     } else {
         UE_LOG(LogTemp, Warning, TEXT("No drones found in the world!"));
     }
+}
+
+FVector AObstacleManager::GetGoalPosition() const {
+    if (SpawnedGoal) {
+        return SpawnedGoal->GetActorLocation();
+    }
+    return FVector::ZeroVector;
 }
