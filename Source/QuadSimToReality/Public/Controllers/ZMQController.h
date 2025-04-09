@@ -31,6 +31,9 @@ struct FZMQConfiguration
     UPROPERTY(EditAnywhere, Category = "ZMQ")
     int32 ObstaclePort = 5559;
     
+    UPROPERTY(EditAnywhere, Category = "ZMQ")
+    int32 CollisionPort = 5560; 
+
     UPROPERTY(EditAnywhere, Category = "Image Capture")
     FIntPoint ImageResolution = FIntPoint(128, 128);
 
@@ -95,6 +98,8 @@ private:
     TSharedPtr<zmq::socket_t> CommandSocket;
     TSharedPtr<zmq::socket_t> ControlSocket;
     TSharedPtr<zmq::socket_t> ObstacleSocket;
+    TSharedPtr<zmq::socket_t> CollisionSocket;
+
     UPROPERTY()
     AObstacleManager* ObstacleManagerInstance;
     UPROPERTY(EditAnywhere, Category = "ZMQ")

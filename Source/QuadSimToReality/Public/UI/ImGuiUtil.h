@@ -30,6 +30,7 @@ public:
 
 
     void RenderImPlot(const TArray<float>& ThrustsVal, const FVector& desiredForwardVector, const FVector& currentForwardVector, float deltaTime);
+    void RenderControlPlots(float deltaTime, const FRotator& currentRotation, float desiredRoll, float desiredPitch);
 
     void DisplayDroneInfo();
     void DisplayPIDSettings(const char* headerLabel, bool& synchronizeXYGains, bool& synchronizeGains);
@@ -69,7 +70,18 @@ private:
     TArray<float> CurrentHeadingData;  
     TArray<float> VectorErrorData;     
 
-
+    // New data members for control plots
+    TArray<float> CurrentVelocityXData;
+    TArray<float> CurrentVelocityYData;
+    TArray<float> CurrentVelocityZData;
+    TArray<float> DesiredVelocityXData;
+    TArray<float> DesiredVelocityYData;
+    TArray<float> DesiredVelocityZData;
+    TArray<float> CurrentRollData;
+    TArray<float> DesiredRollData;
+    TArray<float> CurrentPitchData;
+    TArray<float> DesiredPitchData;
+    
     // Helper method to load PID values from a CSV row
     void LoadPIDValues(const TArray<FString>& Values);
 

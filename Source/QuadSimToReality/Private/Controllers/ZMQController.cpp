@@ -141,6 +141,8 @@ void AZMQController::EndPlay(const EEndPlayReason::Type EndPlayReason)
     PublishSocket.Reset();
     CommandSocket.Reset();
     ControlSocket.Reset();
+    CollisionSocket.Reset();
+    
     Super::EndPlay(EndPlayReason);
 }
 
@@ -176,6 +178,10 @@ void AZMQController::InitializeZMQ()
         ObstacleSocket->connect(TCHAR_TO_UTF8(*ObstacleEndpoint));
         ObstacleSocket->set(zmq::sockopt::subscribe, "");
 
+        CollisionSocket = MakeShared<zmq::socket_t>(Context, zmq::socket_type::pub);
+        FString CollisionEndpoint = FString::Printf(TEXT("tcp://*:%d"), Configuration.CollisionPort);
+        CollisionSocket->bind(TCHAR_TO_UTF8(*CollisionEndpoint));
+        
         UE_LOG(LogTemp, Display, TEXT("ZMQ Initialization Successful"));
     }
     catch (const zmq::error_t& Error)
@@ -347,38 +353,64 @@ void AZMQController::HandleObstacleCommand(zmq::multipart_t& Message)
 
 void AZMQController::SendStateData()
 {
-    if (!ControlSocket || !DronePawn) return;
+    UPrimitiveComponent* RootPrimitive = nullptr;
+    if (DronePawn)
+    {
+        RootPrimitive = Cast<UPrimitiveComponent>(DronePawn->GetRootComponent());
+    }
 
-    UPrimitiveComponent* RootPrimitive = Cast<UPrimitiveComponent>(DronePawn->GetRootComponent());
     if (!RootPrimitive) return;
 
-    FVector CurrentVelocity =DroneController->GetCurrentLocalVelocity();
-    UE_LOG(LogTemp,Display,TEXT("Current Velocity in ZMQ Controller is: %f %f %f"), CurrentVelocity.X,CurrentVelocity.Y,CurrentVelocity.Z);
-    FVector CurrentPosition = DronePawn->GetActorLocation();
-    FRotator CurrentRotation = DronePawn->GetActorRotation();
-    if (ObstacleManagerInstance) {
-        CurrentGoalPosition = ObstacleManagerInstance->GetGoalPosition();
-    }
-    // UE_LOG(LogTemp, Display, TEXT("Goal Position is: %f %f %f"),CurrentGoalPosition.X, CurrentGoalPosition.Y,CurrentGoalPosition.Z);
-
-    try
+    if (ControlSocket)
     {
-        FString StateData = FString::Printf(
-            TEXT("VELOCITY:%f,%f,%f;POSITION:%f,%f,%f;GOAL:%f,%f,%f;ATTITUDE:%f,%f,%f"),
-            CurrentVelocity.X, CurrentVelocity.Y, CurrentVelocity.Z,
-            CurrentPosition.X, CurrentPosition.Y, CurrentPosition.Z,
-            CurrentGoalPosition.X, CurrentGoalPosition.Y, CurrentGoalPosition.Z,
-            CurrentRotation.Roll, CurrentRotation.Pitch, CurrentRotation.Yaw
-        );
+        FVector CurrentVelocity = DroneController ? DroneController->GetCurrentLocalVelocity() : FVector::ZeroVector;
+        FVector CurrentPosition = DronePawn->GetActorLocation();
+        FRotator CurrentRotation = DronePawn->GetActorRotation();
+        if (ObstacleManagerInstance)
+        {
+            CurrentGoalPosition = ObstacleManagerInstance->GetGoalPosition();
+        }
 
-        zmq::multipart_t Message;
-        Message.addstr(TCHAR_TO_UTF8(*StateData));
-        Message.send(*ControlSocket, static_cast<int>(zmq::send_flags::none));
+        try
+        {
+            FString StateData = FString::Printf(
+                TEXT("VELOCITY:%f,%f,%f;POSITION:%f,%f,%f;GOAL:%f,%f,%f;ATTITUDE:%f,%f,%f"),
+                CurrentVelocity.X, CurrentVelocity.Y, CurrentVelocity.Z,
+                CurrentPosition.X, CurrentPosition.Y, CurrentPosition.Z,
+                CurrentGoalPosition.X, CurrentGoalPosition.Y, CurrentGoalPosition.Z,
+                CurrentRotation.Roll, CurrentRotation.Pitch, CurrentRotation.Yaw
+            );
+
+            zmq::multipart_t Message;
+            Message.addstr(TCHAR_TO_UTF8(*StateData));
+            Message.send(*ControlSocket, static_cast<int>(zmq::send_flags::none));
+        }
+        catch (const zmq::error_t& Error)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Failed to send state data: %s"),
+                   *FString(UTF8_TO_TCHAR(Error.what())));
+        }
     }
-    catch (const zmq::error_t& Error)
+
+    if (CollisionSocket && DronePawn)
     {
-        UE_LOG(LogTemp, Warning, TEXT("Failed to send state data: %s"),
-               *FString(UTF8_TO_TCHAR(Error.what())));
+        bool bCollision = DronePawn->HasCollided();
+        try
+        {
+            std::string collision_msg_str = bCollision ? "1" : "0";
+            zmq::message_t collision_msg(collision_msg_str.begin(), collision_msg_str.end());
+            CollisionSocket->send(collision_msg, zmq::send_flags::none);
+
+            // Optional: Reset collision status on pawn after sending it
+            // if (bCollision) {
+            //     DronePawn->ResetCollisionStatus();
+            // }
+        }
+        catch (const zmq::error_t& Error)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Failed to send collision data: %s"),
+                   *FString(UTF8_TO_TCHAR(Error.what())));
+        }
     }
 }
 

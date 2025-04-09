@@ -34,6 +34,8 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	, AltitudePID(nullptr)
 	, bHoverModeActive(false)
 	, hoverTargetAltitude(0.0f)
+	, desiredYawRate(0.0f) // Added missing member initialization
+	, bManualThrustMode(false) 
 {
 	const auto& Config = UDroneJSONConfig::Get().Config;
 	maxPIDOutput = Config.FlightParams.MaxPIDOutput;
@@ -43,27 +45,27 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	FFullPIDSet VelocitySet;
 	VelocitySet.XPID = new QuadPIDController();
 	VelocitySet.XPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-	VelocitySet.XPID->SetGains(-0.6f, 0.f, 0.f);
+	VelocitySet.XPID->SetGains(-0.03f, 0.f, 0.0f);
 
 	VelocitySet.YPID = new QuadPIDController();
 	VelocitySet.YPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-	VelocitySet.YPID->SetGains(0.6f, 0.f, 0.f);
+	VelocitySet.YPID->SetGains(0.03f, 0.0f, 0.0f);
 
 	VelocitySet.ZPID = new QuadPIDController();
 	VelocitySet.ZPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-	VelocitySet.ZPID->SetGains(5.f, 0.f, 0.f);
+	VelocitySet.ZPID->SetGains(5.f, 0.0f, 0.0f);
 
 	VelocitySet.RollPID = new QuadPIDController();
 	VelocitySet.RollPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-	VelocitySet.RollPID->SetGains(4.75f, 0.3f, 2.347f);
+	VelocitySet.RollPID->SetGains(0.31f, 0.2f, 0.34f);
 
 	VelocitySet.PitchPID = new QuadPIDController();
 	VelocitySet.PitchPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-	VelocitySet.PitchPID->SetGains(4.75f, 0.3f, 2.347f);
+	VelocitySet.PitchPID->SetGains(0.35f, 0.16f, 0.25f);
 
 	VelocitySet.YawPID = new QuadPIDController();
 	VelocitySet.YawPID->SetLimits(-maxPIDOutput, maxPIDOutput);
-	VelocitySet.YawPID->SetGains(1.f, 0.f, 0.f);
+	VelocitySet.YawPID->SetGains(1.0f, 0.0f, 0.0f);
 	PIDMap.Add(VelocitySet);
 
 	AltitudePID = new QuadPIDController();
@@ -128,7 +130,6 @@ void UQuadDroneController::VelocityControl(double DeltaTime)
 
 	FRotator yawOnlyRotation(0, currentRotation.Yaw, 0);
 	currentLocalVelocity = yawOnlyRotation.UnrotateVector(currentVelocity);
-	UE_LOG(LogTemp,Display,TEXT("Current Velocity in QuadDRONE Controller is: %f %f %f"), currentLocalVelocity.X,currentLocalVelocity.Y,currentLocalVelocity.Z);
 	FVector velocityError = desiredLocalVelocity - currentLocalVelocity;
 	SafetyReset();
 
@@ -165,7 +166,7 @@ void UQuadDroneController::VelocityControl(double DeltaTime)
 			if (dronePawn == selectedPawn)
 			{
 				dronePawn->ImGuiUtil->VelocityHud(Thrusts, y_output, x_output, currentRotation,
-					FVector::ZeroVector, currentPosition, FVector::ZeroVector, currentVelocity,
+					FVector::ZeroVector, currentPosition, FVector::ZeroVector, currentLocalVelocity,
 					x_output, y_output, z_output, DeltaTime);
 			}
 		}
@@ -459,8 +460,6 @@ void UQuadDroneController::ApplyManualThrusts()
 void UQuadDroneController::SetDesiredVelocity(const FVector& NewVelocity)
 {
 	desiredNewVelocity = NewVelocity;
-	UE_LOG(LogTemp, Display, TEXT("[QuadDroneController] SetDesiredVelocity called: X=%.2f, Y=%.2f, Z=%.2f"),
-		NewVelocity.X, NewVelocity.Y, NewVelocity.Z);
 }
 
 void UQuadDroneController::SetManualThrustMode(bool bEnable)
@@ -481,7 +480,6 @@ void UQuadDroneController::SetHoverMode(bool bActive, float TargetAltitude)
 {
 	if (bActive && bHoverModeActive && dronePawn && TargetAltitude != hoverTargetAltitude)
 	{
-		// If already in hover mode, just update the target altitude
 		hoverTargetAltitude = TargetAltitude;
 		UE_LOG(LogTemp, Display, TEXT("Hover mode target altitude updated to: %.2f"), hoverTargetAltitude);
 	}

@@ -7,13 +7,11 @@
 #include "Controllers/ZMQController.h"
 #include "Core/ThrusterComponent.h"
 #include "UI/ImGuiUtil.h"
+#include "Components/PrimitiveComponent.h" 
 #include "QuadPawn.generated.h"
 
 #define ACCEPTABLE_DIST 200
 
-// -- Waypoint Mode related types --
-// These are used for navigation / waypoint input. If you’re not implementing 
-// autonomous waypoint control right now, you could remove these.
 enum class EWaypointMode
 {
 	WaitingForModeSelection,	
@@ -84,12 +82,21 @@ public:
 	void ToggleImguiInput();
 	void ReloadJSONConfig();
 
-	// This helper is used by the controller to get the drone’s mass.
 	float GetMass() { return DroneBody->GetMass(); };
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Collision")
+	bool bHasCollidedWithObstacle; 
+
+	UFUNCTION(BlueprintPure, Category = "Collision")
+	bool HasCollided() const { return bHasCollidedWithObstacle; }
+
+	UFUNCTION(BlueprintCallable, Category = "Collision")
+	void ResetCollisionStatus();
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+	UFUNCTION() 
+	void OnDroneHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
 private:
 	// Updates control each tick.
