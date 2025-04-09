@@ -20,6 +20,7 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	, Thrusts({ 0, 0, 0, 0 })
 	, desiredYaw(0.f)
 	, desiredAltitude(0.0f)
+	, currentLocalVelocity(FVector::ZeroVector)
 	, desiredNewVelocity(FVector::ZeroVector)
 	, initialTakeoff(true)
 	, altitudeReached(false)
@@ -126,7 +127,8 @@ void UQuadDroneController::VelocityControl(double DeltaTime)
 	}
 
 	FRotator yawOnlyRotation(0, currentRotation.Yaw, 0);
-	FVector currentLocalVelocity = yawOnlyRotation.UnrotateVector(currentVelocity);
+	currentLocalVelocity = yawOnlyRotation.UnrotateVector(currentVelocity);
+	UE_LOG(LogTemp,Display,TEXT("Current Velocity in QuadDRONE Controller is: %f %f %f"), currentLocalVelocity.X,currentLocalVelocity.Y,currentLocalVelocity.Z);
 	FVector velocityError = desiredLocalVelocity - currentLocalVelocity;
 	SafetyReset();
 
@@ -144,8 +146,6 @@ void UQuadDroneController::VelocityControl(double DeltaTime)
 	x_output = FMath::Clamp(x_output, -maxAngle, maxAngle);
 	float pitch_error = x_output-currentRotation.Pitch;
 	pitch_output = CurrentSet->PitchPID->Calculate(pitch_error, DeltaTime);
-
-
 
 	ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
 	YawRateControl(DeltaTime);

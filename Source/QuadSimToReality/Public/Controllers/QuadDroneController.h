@@ -76,6 +76,7 @@ public:
     void SetDebugVisualsEnabled(bool bEnabled) { bDebugVisualsEnabled = bEnabled; }
     void SetDesiredYawRate(float NewYawRate) { desiredYawRate = NewYawRate; }
     float GetDesiredYawRate() const { return desiredYawRate; }
+    FVector GetCurrentLocalVelocity() const { return currentLocalVelocity; }
     void SetDesiredRoll(float NewRoll) { desiredRoll = NewRoll; }
     void SetDesiredPitch(float NewPitch) { desiredPitch = NewPitch; }
     void SetDesiredAngle(float newAngle) { maxAngle = newAngle; }
@@ -87,6 +88,7 @@ private:
 
     float desiredYaw;
     float desiredAltitude;
+    FVector currentLocalVelocity;
     FVector desiredNewVelocity;
 
     float maxVelocity;
@@ -99,8 +101,7 @@ private:
     bool initialTakeoff;
     bool altitudeReached;
     bool bDebugVisualsEnabled = false;
-
-
+    
     double MaxAngularVelocity;
     double YawTorqueForce;
     double LastYawTorqueApplied;
@@ -117,4 +118,5 @@ private:
     float desiredRoll;
     float desiredPitch;
 
+    
 };

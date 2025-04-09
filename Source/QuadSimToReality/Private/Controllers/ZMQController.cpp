@@ -352,7 +352,8 @@ void AZMQController::SendStateData()
     UPrimitiveComponent* RootPrimitive = Cast<UPrimitiveComponent>(DronePawn->GetRootComponent());
     if (!RootPrimitive) return;
 
-    FVector CurrentVelocity = RootPrimitive->GetPhysicsLinearVelocity();
+    FVector CurrentVelocity =DroneController->GetCurrentLocalVelocity();
+    UE_LOG(LogTemp,Display,TEXT("Current Velocity in ZMQ Controller is: %f %f %f"), CurrentVelocity.X,CurrentVelocity.Y,CurrentVelocity.Z);
     FVector CurrentPosition = DronePawn->GetActorLocation();
     FRotator CurrentRotation = DronePawn->GetActorRotation();
     if (ObstacleManagerInstance) {
