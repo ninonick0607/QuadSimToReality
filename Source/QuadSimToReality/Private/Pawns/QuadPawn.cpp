@@ -11,6 +11,7 @@
 #include "Core/ThrusterComponent.h"       
 #include "UI/ImGuiUtil.h"   
 #include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetMathLibrary.h"
 
 #define EPSILON 0.0001f
 
@@ -21,13 +22,14 @@ AQuadPawn::AQuadPawn()
 	, SpringArm(nullptr)
 	, Camera(nullptr)
 	, CameraFPV(nullptr)
+	, CameraGroundTrack(nullptr) 
 	, QuadController(nullptr)
-	, bHasCollidedWithObstacle(false) 
-	, Input_ToggleImguiInput(nullptr)
+	, ImGuiUtil(nullptr)
+	, bHasCollidedWithObstacle(false)
+	, CurrentCameraMode(ECameraMode::ThirdPerson)
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	// Create and configure DroneBody
 	DroneBody = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("DroneBody"));
     RootComponent = DroneBody;
 	DroneBody->SetSimulatePhysics(true);
@@ -38,21 +40,23 @@ AQuadPawn::AQuadPawn()
 	CameraFPV = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraFPV"));
 	CameraFPV->SetupAttachment(DroneBody,TEXT("FPVCam"));
 	CameraFPV->SetRelativeScale3D(FVector(0.1f));
+	CameraFPV->bAutoActivate = true; 
 
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(DroneBody);
-
-	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
-	Camera->SetupAttachment(SpringArm);
-
-	// Configure SpringArm
 	SpringArm->TargetArmLength = 200.f;
 	SpringArm->SetRelativeRotation(FRotator(-20.f, 0.f, 0.f));
 	SpringArm->bDoCollisionTest = false;
 	SpringArm->bInheritPitch = false;
 	SpringArm->bInheritRoll = false;
 
-	// Setup propellers and thrusters
+	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
+	Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName); 
+	Camera->bAutoActivate = false; 
+	
+	CameraGroundTrack = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraGroundTrack"));
+	CameraGroundTrack->bAutoActivate = false;
+	
 	const FString propellerNames[] = { TEXT("MotorFL"), TEXT("MotorFR"), TEXT("MotorBL"), TEXT("MotorBR") };
 	const FString socketNames[] = { TEXT("MotorSocketFL"), TEXT("MotorSocketFR"), TEXT("MotorSocketBL"), TEXT("MotorSocketBR") };
 
@@ -77,9 +81,7 @@ AQuadPawn::AQuadPawn()
 
 	}
 
-	// Create additional components
 	ImGuiUtil = CreateDefaultSubobject<UImGuiUtil>(TEXT("DroneImGuiUtil"));
-
 	AutoPossessPlayer = EAutoReceiveInput::Player0;
 }
 
@@ -107,6 +109,11 @@ void AQuadPawn::BeginPlay()
 	DroneBody->OnComponentHit.AddDynamic(this, &AQuadPawn::OnDroneHit);
 	
 	ResetCollisionStatus();
+
+	Camera->SetActive(false);
+	CameraFPV->SetActive(true);
+	CameraGroundTrack->SetActive(false);
+	CurrentCameraMode = ECameraMode::FPV;
 }
 
 void AQuadPawn::Tick(float DeltaTime)
@@ -118,6 +125,8 @@ void AQuadPawn::Tick(float DeltaTime)
 	{
 		if (Propellers[i])
 		{
+			float CurrentThrustVal = QuadController->GetCurrentThrustOutput(i);
+			PropellerRPMs[i] = FMath::Abs(CurrentThrustVal) * 1;
 			float DirectionMultiplier = 1.0f;
 			if (MotorClockwiseDirections.IsValidIndex(i))
 			{
@@ -129,6 +138,8 @@ void AQuadPawn::Tick(float DeltaTime)
 		}
 	}
 
+	UpdateGroundCameraTracking();
+
 }
 
 void AQuadPawn::UpdateControl(float DeltaTime)
@@ -139,21 +150,82 @@ void AQuadPawn::UpdateControl(float DeltaTime)
 	}
 }
 
-void AQuadPawn::SwitchCamera() const
+void AQuadPawn::SwitchCamera()
 {
-	if (CameraFPV->IsActive())
+	if (!Camera || !CameraFPV || !CameraGroundTrack)
 	{
-		// Switch to third-person view.
-		CameraFPV->SetActive(false);
-		Camera->SetActive(true);
+		UE_LOG(LogTemp, Warning, TEXT("SwitchCamera: One or more camera components are missing!"));
+		return;
 	}
-	else
+
+	Camera->SetActive(false);
+	CameraFPV->SetActive(false);
+	CameraGroundTrack->SetActive(false);
+
+	switch (CurrentCameraMode)
 	{
-		// Switch to first-person view.
+	case ECameraMode::ThirdPerson:
+		CurrentCameraMode = ECameraMode::FPV;
 		CameraFPV->SetActive(true);
-		Camera->SetActive(false);
+		UE_LOG(LogTemp, Log, TEXT("Camera Mode: FPV"));
+		break;
+
+	case ECameraMode::FPV:
+		CurrentCameraMode = ECameraMode::GroundTrack;
+		CameraGroundTrack->SetActive(true);
+		ResetGroundCameraPosition();
+		UE_LOG(LogTemp, Log, TEXT("Camera Mode: Ground Track"));
+		break;
+
+	case ECameraMode::GroundTrack:
+		CurrentCameraMode = ECameraMode::ThirdPerson;
+		Camera->SetActive(true);
+		UE_LOG(LogTemp, Log, TEXT("Camera Mode: Third Person"));
+		break;
 	}
 }
+
+
+void AQuadPawn::ResetGroundCameraPosition()
+{
+	if (!CameraGroundTrack || !DroneBody) return;
+
+	const float GroundOffsetDistance = 200.0f; // 5 meters
+
+	FVector DroneLocation = GetActorLocation();
+	FRotator DroneYawRotation(0, GetActorRotation().Yaw, 0);
+
+	FVector RightVector = UKismetMathLibrary::GetRightVector(DroneYawRotation);
+
+	FVector GroundPos = FVector(DroneLocation.X, DroneLocation.Y, 10.0f);
+	FVector CameraTargetPosition = GroundPos + RightVector * GroundOffsetDistance;
+
+	CameraGroundTrack->SetWorldLocation(CameraTargetPosition);
+
+	UpdateGroundCameraTracking();
+}
+
+void AQuadPawn::UpdateGroundCameraTracking()
+{
+	if (CurrentCameraMode == ECameraMode::GroundTrack && CameraGroundTrack && CameraGroundTrack->IsActive() && DroneBody)
+	{
+		FVector CameraLocation = CameraGroundTrack->GetComponentLocation();
+		FVector DroneLocation = GetActorLocation(); 
+
+		if (FVector::DistSquaredXY(CameraLocation, DroneLocation) < 1.0f) 
+		{
+			return;
+		}
+
+		FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(CameraLocation, DroneLocation);
+
+		FRotator CurrentRotation = CameraGroundTrack->GetComponentRotation();
+		FRotator TargetRotation = FMath::RInterpTo(CurrentRotation, LookAtRotation, GetWorld()->GetDeltaSeconds(), 10.0f); // Adjust interp speed
+		CameraGroundTrack->SetWorldRotation(TargetRotation);
+
+	}
+}
+
 
 void AQuadPawn::ToggleImguiInput()
 {
@@ -195,4 +267,9 @@ void AQuadPawn::ResetCollisionStatus()
 		UE_LOG(LogTemp, Log, TEXT("%s collision status reset."), *GetName());
 	}
 	bHasCollidedWithObstacle = false;
+}
+
+float AQuadPawn::GetMass()
+{
+	return DroneBody ? DroneBody->GetMass() : 0.0f;
 }

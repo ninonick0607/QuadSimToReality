@@ -63,6 +63,9 @@ public:
     FFullPIDSet* GetPIDSet() { return PIDMap.Num() > 0 ? &PIDMap[0] : nullptr; }
     float GetDesiredYaw() const { return desiredYaw; }
     FVector GetDesiredVelocity() const { return desiredNewVelocity; }
+    UFUNCTION(BlueprintPure, Category = "Drone State")
+    float GetCurrentThrustOutput(int32 ThrusterIndex) const;
+
 
     void SetManualThrustMode(bool bEnable);
     void SafetyReset();

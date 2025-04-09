@@ -22,7 +22,7 @@ public:
     void VelocityHud(TArray<float>& ThrustsVal,
                      float rollError, float pitchError,
                      const FRotator& currentRotation,
-                     const FVector& waypoint, const FVector& currLoc,
+                     const FVector& currLoc,
                      const FVector& error,
                      const FVector& currentVelocity,
                      float xOutput, float yOutput, float zOutput, float deltaTime);
@@ -31,10 +31,8 @@ public:
     void RenderImPlot(const TArray<float>& ThrustsVal, const FVector& desiredForwardVector, const FVector& currentForwardVector, float deltaTime);
     void RenderControlPlots(float deltaTime, const FRotator& currentRotation, float desiredRoll, float desiredPitch);
 
-    void DisplayDroneInfo();
     void DisplayPIDSettings(const char* headerLabel, bool& synchronizeXYGains, bool& synchronizeGains);
-    void DisplayCameraControls();
-    void DisplayResetDroneButtons();
+    void DisplayButtons();
     void DisplayDesiredVelocities();
     void DisplayPIDHistoryWindow();
 
@@ -54,7 +52,8 @@ private:
     // Parameters (stored by value now)
     float maxVelocity;
     float maxAngle;
-
+    float maxThrust;
+    bool plotSwitch; 
     // Data for plotting
     TArray<float> TimeData;
     TArray<float> Thrust0Data;

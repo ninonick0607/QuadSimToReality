@@ -4,21 +4,26 @@
 #include "GameFramework/Pawn.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
-#include "Core/ThrusterComponent.h"
-#include "UI/ImGuiUtil.h"
+#include "Core/ThrusterComponent.h" 
+#include "UI/ImGuiUtil.h"        
 #include "QuadPawn.generated.h"
 
-#define ACCEPTABLE_DIST 200
+// Forward Declarations
+class UQuadDroneController;
+class UImGuiUtil;
+class UThrusterComponent;
 
-enum class EWaypointMode
+// Enum to track camera state
+UENUM(BlueprintType)
+enum class ECameraMode : uint8
 {
-	WaitingForModeSelection,	
-	ManualWaypointInput,
-	ReadyToStart
+	ThirdPerson UMETA(DisplayName = "Third Person"),
+	FPV         UMETA(DisplayName = "First Person"),
+	GroundTrack UMETA(DisplayName = "Ground Track")
 };
 
 UCLASS()
-class QUADSIMTOREALITY_API AQuadPawn : public APawn
+class QUADSIMTOREALITY_API AQuadPawn : public APawn 
 {
 	GENERATED_BODY()
 
@@ -31,76 +36,79 @@ public:
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
-	
+
 	// --- Drone Components ---
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UStaticMeshComponent* DroneBody;
 
 	// --- Camera Components ---
-	UPROPERTY(VisibleAnywhere, Category = "Camera")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	USpringArmComponent* SpringArm;
 
-	UPROPERTY(VisibleAnywhere, Category = "Camera")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	UCameraComponent* Camera;
 
-	UPROPERTY(VisibleAnywhere, Category = "Camera")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	UCameraComponent* CameraFPV;
-	
+
+	// Ground tracking camera
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
+	UCameraComponent* CameraGroundTrack;
+
 	// --- Thruster Components ---
-	UPROPERTY(VisibleAnywhere, Category = "Components")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TArray<UStaticMeshComponent*> Propellers;
-	UPROPERTY(VisibleAnywhere, Category = "Components")
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TArray<UThrusterComponent*> Thrusters;
 
 	// --- Drone Configuration ---
-	// Array to specify motor rotation directions.
 	UPROPERTY(EditDefaultsOnly, Category = "Drone Configuration")
-	TArray<bool> MotorClockwiseDirections = { false, true, true, false };
+	TArray<bool> MotorClockwiseDirections = { false, true, true, false }; // FL, FR, BL, BR
 
-	// Propeller RPM values (used to visually animate the propellers)
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Drone Components")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Drone State")
 	TArray<float> PropellerRPMs;
-	
-	// --- Controller Components ---
-	UPROPERTY(VisibleAnywhere, Category = "Controller")
-	class UQuadDroneController* QuadController;
 
-	UPROPERTY()
-	class UImGuiUtil* ImGuiUtil;
-	
-	// --- Identification ---
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Controller")
+	UQuadDroneController* QuadController;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI")
+	UImGuiUtil* ImGuiUtil;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Identification")
 	FString DroneID;
-	
-	UPROPERTY(VisibleAnywhere)
-	FString PawnLocalID;
 
 	// --- Helper Functions ---
-	void SwitchCamera() const;
+void SwitchCamera();
+
 	void ToggleImguiInput();
+
 	void ReloadJSONConfig();
 
-	float GetMass() { return DroneBody->GetMass(); };
+	UFUNCTION(BlueprintPure, Category = "Drone State")
+	float GetMass();
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Collision")
-	bool bHasCollidedWithObstacle; 
+	bool bHasCollidedWithObstacle;
 
 	UFUNCTION(BlueprintPure, Category = "Collision")
 	bool HasCollided() const { return bHasCollidedWithObstacle; }
 
 	UFUNCTION(BlueprintCallable, Category = "Collision")
 	void ResetCollisionStatus();
+
 protected:
-	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-	UFUNCTION() 
+
+	UFUNCTION()
 	void OnDroneHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
-private:
-	// Updates control each tick.
-	void UpdateControl(float DeltaTime);
-	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
+	ECameraMode CurrentCameraMode;
 
-	UPROPERTY(VisibleAnywhere)
-	UInputComponent* Input_ToggleImguiInput;
+private:
+	void UpdateControl(float DeltaTime);
+	void ResetGroundCameraPosition();
+	void UpdateGroundCameraTracking();
+
 };
