@@ -47,17 +47,7 @@ if __name__ == "__main__":
 
     configs = ({
         # obs_norm should contain the parameters for the distribution of the observations: normalized = (original - loc) / scale
-        'name': "MLP_no_obstacle_0",
-        'train': False,
-        'log': False,
-        "obs_norm": {
-            "loc": [0] * 6,
-            "scale": [600] * 3 + [2200] + [1] * 2
-        },
-        'reward_fn': reward_fn
-    }, {
-        # obs_norm should contain the parameters for the distribution of the observations: normalized = (original - loc) / scale
-        'name': "MLP_no_obstacle_1",
+        'name': "LSTM_no_obstacle_0",
         'train': False,
         'log': False,
         "obs_norm": {
@@ -67,7 +57,7 @@ if __name__ == "__main__":
         'reward_fn': reward_fn_angle_penalty
     }, {
         # obs_norm should contain the parameters for the distribution of the observations: normalized = (original - loc) / scale
-        'name': "MLP_no_obstacle_2",
+        'name': "LSTM_no_obstacle_1",
         'train': False,
         'log': False,
         "obs_norm": {
@@ -77,7 +67,7 @@ if __name__ == "__main__":
         'reward_fn': reward_fn
     }, {
         # obs_norm should contain the parameters for the distribution of the observations: normalized = (original - loc) / scale
-        'name': "MLP_no_obstacle_3",
+        'name': "LSTM_no_obstacle_2",
         'train': False,
         'log': False,
         "obs_norm": {
@@ -85,7 +75,17 @@ if __name__ == "__main__":
             "scale": [600] * 3 + [2200] + [1] * 2
         },
         'reward_fn': reward_fn_angle_penalty
-    })
+    }, {
+        # obs_norm should contain the parameters for the distribution of the observations: normalized = (original - loc) / scale
+        'name': "LSTM_no_obstacle_3",
+        'train': False,
+        'log': False,
+        "obs_norm": {
+            "loc": [0] * 6,
+            "scale": [600] * 3 + [2200] + [1] * 2
+        },
+        'reward_fn': reward_fn
+    },)
 
     for config in configs:
 
@@ -119,4 +119,3 @@ if __name__ == "__main__":
                     with open(f"runs/{config['name']}/error_log.txt", "w") as f:
                         f.write(str(e))
                 continue
-            

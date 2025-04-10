@@ -34,7 +34,7 @@ from quadsimenv import QuadSimEnv
 
 
 class RenderPixels(Transform):
-    def __init__(self, display, **kwargs):
+    def __init__(self, display: pygame.Surface, **kwargs):
         super(RenderPixels, self).__init__(**kwargs)
         self.display = display
     def _apply_transform(self, pixels):
@@ -45,7 +45,6 @@ class RenderPixels(Transform):
         self.display.fill((0, 0, 0))
         image = pixels.squeeze().cpu().numpy()
         image = cv2.resize(image, (256, 256))
-        image = image * 255
         image = image.transpose(1, 0, 2)
         self.display.blit(pygame.surfarray.make_surface(image), (0, 0))
         pygame.display.update()
@@ -108,10 +107,10 @@ class RL_Algorithm:
         """
 
         # TODO: Add support for aux heads, and use config
-        # features_extractor_arch = LSTM(device=self.device)
-        obs_shape = self.env.observation_spec["observation"].shape[0]
+        features_extractor_arch = LSTM(device=self.device)
+        # obs_shape = self.env.observation_spec["observation"].shape[0]
         critic_arch = nn.Sequential(
-            nn.Linear(obs_shape, 128),
+            nn.Linear(128, 128),
             nn.Tanh(),
             nn.Linear(128, 128),
             nn.Tanh(),
@@ -120,7 +119,7 @@ class RL_Algorithm:
             nn.Linear(128, 1),
         )
         actor_arch = nn.Sequential(
-            nn.Linear(obs_shape, 128),
+            nn.Linear(128, 128),
             nn.Tanh(),
             nn.Linear(128, 128),
             nn.Tanh(),
@@ -129,8 +128,8 @@ class RL_Algorithm:
             nn.Linear(128, 2 * self.env.action_spec.shape[0]),  # 2 * for loc and scale
             NormalParamExtractor()
         )
-        critic = ValueOperator(critic_arch, in_keys=["observation"]).to(self.device)
-        actor = TensorDictModule(actor_arch, in_keys=["observation"], out_keys=["loc", "scale"])
+        critic = ValueOperator(critic_arch, in_keys=["features"]).to(self.device)
+        actor = TensorDictModule(actor_arch, in_keys=["features"], out_keys=["loc", "scale"])
         actor = ProbabilisticActor(
             actor, 
             spec=self.env.action_spec,
@@ -142,10 +141,10 @@ class RL_Algorithm:
             },
             return_log_prob=True
         ).to(self.device)
-        # features_extractor = TensorDictModule(features_extractor_arch, in_keys=["observation", "pixels_transformed", "is_init"], 
-        #                                       out_keys=["features", "aux_pred", "aux_target"]).to(self.device)
+        features_extractor = TensorDictModule(features_extractor_arch, in_keys=["observation", "pixels_transformed", "is_init"], 
+                                              out_keys=["features"]).to(self.device)
         self.modules = OrderedDict([
-            # ("features_extractor", features_extractor),
+            ("features_extractor", features_extractor),
             ("actor", actor),
             ("critic", critic)
         ])
@@ -162,8 +161,7 @@ class RL_Algorithm:
 
         self.collector = SyncDataCollector(
             self.env,
-            # self.sequential_select(["features_extractor", "actor"]),
-            self.modules["actor"],
+            self.sequential_select(["features_extractor", "actor"]),
             frames_per_batch=512,
             reset_at_each_iter=True,
             device=self.device
@@ -202,8 +200,7 @@ class RL_Algorithm:
         Note: To parametrize the training loop, you would need to change the `create_training_utils` function as well (eg. episode length, learning rate, etc.)
         """
 
-        # critic_op = self.sequential_select(["features_extractor", "critic"])
-        critic_op = self.modules["critic"]
+        critic_op = self.sequential_select(["features_extractor", "critic"])
 
         for i, data in enumerate(self.collector):
 
@@ -217,6 +214,7 @@ class RL_Algorithm:
                 split_tensors = torch.split(rewards, split_sizes.tolist())
                 episode_rewards = torch.tensor([t.sum().item() for t in split_tensors])
                 logs["mean_episode_reward"] = episode_rewards.mean().item()
+                logs["mean_episode_length"] = split_sizes.mean(dtype=float).item()
 
             for epoch in range(10):
                 with torch.no_grad():
@@ -236,18 +234,14 @@ class RL_Algorithm:
                 
                 for k in range(16):
 
-                    # self.modules["features_extractor"].module.reset()
+                    self.modules["features_extractor"].module.reset()
                     batch = minibatches[k]
                     batch = batch.to(self.device)
 
-                    # batch = self.modules["features_extractor"](batch)
+                    batch = self.modules["features_extractor"](batch)
                     loss = self.loss_module(batch)
-                    # angle_loss = self.loss_fn(batch["aux_pred"][-1, :2], batch["aux_target"][-1, :2])
-                    # angular_velocity_loss = self.loss_fn(batch["aux_pred"][-1, 2], batch["aux_target"][-1, 2])
-                    total_loss = loss["loss_objective"] + loss["loss_critic"] + loss["loss_entropy"] # + angle_loss + angular_velocity_loss
+                    total_loss = loss["loss_objective"] + loss["loss_critic"] + loss["loss_entropy"]
                     logs["loss"].append(total_loss.item())
-                    # logs["angle_loss"].append(angle_loss.item())
-                    # logs["angular_velocity_loss"].append(angular_velocity_loss.item())
                     logs["critic"].append(loss["loss_critic"].item())
                     logs["objective"].append(loss["loss_objective"].item())
                     logs["entropy"].append(loss["loss_entropy"].item())
@@ -260,19 +254,16 @@ class RL_Algorithm:
 
 
             episode_loss = np.mean(logs["loss"])
-            episode_angle_loss = np.mean(logs["angle_loss"])
-            episode_angular_velocity_loss = np.mean(logs["angular_velocity_loss"])
             explained_var = np.mean(logs["explained_variance"])
-            print(f"Episode {i}, Loss: {episode_loss:.4f}, Angle Loss: {episode_angle_loss:.4f}, Angular Velocity Loss: {episode_angular_velocity_loss:.4f}, Critic Loss: {np.mean(logs['critic']):.4f}, Explained Variance: {explained_var:.4f}")
+            print(f"Episode {i}, Loss: {episode_loss:.4f}, Critic Loss: {np.mean(logs['critic']):.4f}, Explained Variance: {explained_var:.4f}")
             if hasattr(self, "writer"):
                 self.writer.add_scalar("losses/total_loss", episode_loss, i)
-                self.writer.add_scalar("losses/angle", episode_angle_loss, i)
-                self.writer.add_scalar("losses/angular_velocity", episode_angular_velocity_loss, i)
                 self.writer.add_scalar("losses/critic", np.mean(logs["critic"]), i)
                 self.writer.add_scalar("losses/objective", np.mean(logs["objective"]), i)
                 self.writer.add_scalar("losses/entropy", np.mean(logs["entropy"]), i)
                 self.writer.add_scalar("training/explained_variance", explained_var, i)
                 self.writer.add_scalar("training/episode_reward", logs["mean_episode_reward"], i)
+                self.writer.add_scalar("training/episode_length", logs["mean_episode_length"], i)
                 self.writer.add_scalar("misc/memory_usage", torch.cuda.memory_allocated() / 1e9, i)
                 self.writer.flush()
 
@@ -291,12 +282,11 @@ class RL_Algorithm:
         This function runs the trained model in the environment for 200 steps, and renders the environment using Pygame.
         """
 
+        pygame.init()
+        display = pygame.display.set_mode((256, 256))
 
-        # pygame.init()
-        # display = pygame.display.set_mode((256, 256))
-
-        env = self.env # .append_transform(RenderPixels(display=display, in_keys=["pixels"], out_keys=["pixels"]))
-        actor_op = self.modules["actor"].to(self.device)
+        env = self.env.append_transform(RenderPixels(display=display, in_keys=["pixels"], out_keys=["pixels"]))
+        actor_op = self.sequential_select(["features_extractor", "actor"]).to(self.device)
         i=0
         with set_exploration_type(ExplorationType.RANDOM):
             while True:

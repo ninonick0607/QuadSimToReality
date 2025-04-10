@@ -100,7 +100,7 @@ class QuadSimEnv(gym.Env):
 
     def reset(self, seed=None):
         # self.send_reset_command()
-        self.send_obstacle_command(0, True)
+        self.send_obstacle_command(10, True)
         time.sleep(0.1)  # Wait for the reset to take effect
         self.handle_data()
         self.steps = 0
@@ -122,8 +122,7 @@ class QuadSimEnv(gym.Env):
 
         self.handle_data()
         observation = self.get_observation()
-        # if self.steps % 5 == 0:
-        #     self.image = self.retrieve_image()
+        self.image = self.retrieve_image()
         complete_obs = OrderedDict([
             ('pixels', self.image),
             ('observation', observation)
@@ -206,7 +205,7 @@ class QuadSimEnv(gym.Env):
             image_data = np.frombuffer(message, dtype=np.uint8)
             image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
             if image is not None:
-                print("Image received! Shape:", image.shape)
+                # print("Image received! Shape:", image.shape)
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                 return image
             else:

@@ -22,23 +22,20 @@ class LSTM(nn.Module):
             nn.MaxPool2d(kernel_size=2, stride=2)
         )
         self.embedding_ff = nn.LazyLinear(64)
-        self.lstm = nn.LSTM(64, 64, 2, batch_first=True)
+        self.lstm = nn.LSTM(128, 128, 2, batch_first=True)
 
-        self.angle_head = nn.Sequential(
-            nn.Linear(64, 32),
-            nn.Tanh(),
-            nn.Linear(32, 2)
-        )
-        self.angular_velocity_head = nn.Sequential(
-            nn.Linear(64, 32),
-            nn.Tanh(),
-            nn.Linear(32, 1)
+        self.state_mlp = nn.Sequential(
+            nn.LazyLinear(64),
+            nn.ReLU(),
+            nn.Linear(64, 64),
+            nn.ReLU(),
+            nn.Linear(64, 64)
         )
 
 
     def reset(self):
 
-        self.h_c = (torch.zeros(2, 64).to(device=self.device), torch.zeros(2, 64).to(device=self.device))
+        self.h_c = (torch.zeros(2, 128).to(device=self.device), torch.zeros(2, 128).to(device=self.device))
 
 
     def forward(self, x: torch.Tensor, pixels: torch.Tensor, is_init: torch.Tensor) -> torch.Tensor:
@@ -48,36 +45,36 @@ class LSTM(nn.Module):
             if is_init[0]: self.reset()
 
             # x: (3) --> (cos(theta), sin(theta), angular_velocity)
-            obs = pixels
-            target = x
+            obs = x
+            image = pixels
 
-            # embed: (3, 64, 64) --> (1, 64)
-            embed = self.embedding(obs)
+            # embed: (3, 64, 64) + (obs) --> (1, 128)
+            embed = self.embedding(image)
             embed = torch.flatten(embed)
             embed = self.embedding_ff(embed)
             embed = torch.tanh(embed)
             embed = embed.unsqueeze(0)
+            state_embed = self.state_mlp(obs)
+            state_embed = state_embed.unsqueeze(0)
+            embed = torch.cat((embed, state_embed), dim=1)
 
             time_informed_embed, self.h_c = self.lstm(embed, self.h_c)
-            
-            angle = self.angle_head(embed.squeeze().detach())
-            angular_velocity = self.angular_velocity_head(time_informed_embed.squeeze().detach())
 
-            output = torch.cat((angle, angular_velocity), dim=-1)
-
-            return time_informed_embed.squeeze(), output, target
+            return time_informed_embed.squeeze()
     
         else:
             
             # x: (batch, 3) --> (batch, cos(theta), sin(theta), angular_velocity)
-            obs = pixels
-            target = x
+            obs = x
+            image = pixels
 
-            # embed: (batch, 3, 64, 64) --> (batch, 64)
-            embed = self.embedding(obs)
+            # embed: (batch, 3, 64, 64) + (batch, obs) --> (batch, 128)
+            embed = self.embedding(image)
             embed = torch.flatten(embed, start_dim=1)
             embed = self.embedding_ff(embed)
             embed = torch.tanh(embed)
+            state_embed = self.state_mlp(obs)
+            embed = torch.cat((embed, state_embed), dim=1)
 
             # Split the embed by trajectory
             if is_init.any():
@@ -95,10 +92,5 @@ class LSTM(nn.Module):
                 time_informed_embeds.append(time_informed_embed)
             time_informed_embed = torch.cat(time_informed_embeds, dim=0)            
 
-            angle = self.angle_head(embed.detach())
-            angular_velocity = self.angular_velocity_head(time_informed_embed.detach())
-
-            output = torch.cat((angle, angular_velocity), dim=-1)
-
-            return time_informed_embed, output, target
+            return time_informed_embed
     
