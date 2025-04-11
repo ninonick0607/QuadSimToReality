@@ -48,8 +48,8 @@ if __name__ == "__main__":
     configs = ({
         # obs_norm should contain the parameters for the distribution of the observations: normalized = (original - loc) / scale
         'name': "LSTM_no_obstacle_0",
-        'train': False,
-        'log': False,
+        'train': True,
+        'log': True,
         "obs_norm": {
             "loc": [0] * 6,
             "scale": [600] * 3 + [2200] + [1] * 2
@@ -58,8 +58,8 @@ if __name__ == "__main__":
     }, {
         # obs_norm should contain the parameters for the distribution of the observations: normalized = (original - loc) / scale
         'name': "LSTM_no_obstacle_1",
-        'train': False,
-        'log': False,
+        'train': True,
+        'log': True,
         "obs_norm": {
             "loc": [0] * 6,
             "scale": [600] * 3 + [2200] + [1] * 2
@@ -68,8 +68,8 @@ if __name__ == "__main__":
     }, {
         # obs_norm should contain the parameters for the distribution of the observations: normalized = (original - loc) / scale
         'name': "LSTM_no_obstacle_2",
-        'train': False,
-        'log': False,
+        'train': True,
+        'log': True,
         "obs_norm": {
             "loc": [0] * 6,
             "scale": [600] * 3 + [2200] + [1] * 2
@@ -78,8 +78,8 @@ if __name__ == "__main__":
     }, {
         # obs_norm should contain the parameters for the distribution of the observations: normalized = (original - loc) / scale
         'name': "LSTM_no_obstacle_3",
-        'train': False,
-        'log': False,
+        'train': True,
+        'log': True,
         "obs_norm": {
             "loc": [0] * 6,
             "scale": [600] * 3 + [2200] + [1] * 2

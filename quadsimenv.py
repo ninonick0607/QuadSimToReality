@@ -100,7 +100,7 @@ class QuadSimEnv(gym.Env):
 
     def reset(self, seed=None):
         # self.send_reset_command()
-        self.send_obstacle_command(10, True)
+        self.send_obstacle_command(0, True)
         time.sleep(0.1)  # Wait for the reset to take effect
         self.handle_data()
         self.steps = 0
