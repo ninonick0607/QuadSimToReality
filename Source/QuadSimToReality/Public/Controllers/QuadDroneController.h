@@ -7,6 +7,15 @@
 
 class AQuadPawn;
 
+UENUM(BlueprintType)
+enum class EFlightMode : uint8
+{
+    None UMETA(DisplayName = "None"),
+    AutoWaypoint UMETA(DisplayName = "AutoWaypoint"),
+    JoyStickControl UMETA(DisplayName = "JoyStickControl"),
+    VelocityControl UMETA(DisplayName = "VelocityControl")
+};
+
 USTRUCT()
 struct FFullPIDSet
 {
@@ -42,14 +51,16 @@ public:
     AQuadPawn* dronePawn;
     UPROPERTY()
     TArray<float> Thrusts;
-
     UQuadDroneController(const FObjectInitializer& ObjectInitializer);
     virtual ~UQuadDroneController();
 
     void Initialize(AQuadPawn* InPawn);
-    void Update(double DeltaTime);
 
+    void Update(double DeltaTime);
+    
     void VelocityControl(double a_deltaTime);
+    //void ApplyControllerInput(double a_deltaTime);
+    void AutoWaypointControl(double DeltaTime);
     void ThrustMixer(double currentRoll, double currentPitch, double zOutput, double rollOutput, double pitchOutput);
     void YawStabilization(double DeltaTime);
     void YawRateControl(double DeltaTime);
@@ -57,10 +68,10 @@ public:
     void ResetDroneIntegral();
     void ResetDroneHigh();
     void ResetDroneOrigin();
-
-    void DrawDebugVisuals(const FVector& horizontalVelocity) const;
+    
+    void DrawDebugVisuals(const FVector& currentPosition, const FVector& setPoint)const;
+    //void DrawDebugVisuals(const FVector& horizontalVelocity) const;
     void SetDesiredVelocity(const FVector& NewVelocity);
-    FFullPIDSet* GetPIDSet() { return PIDMap.Num() > 0 ? &PIDMap[0] : nullptr; }
     float GetDesiredYaw() const { return desiredYaw; }
     FVector GetDesiredVelocity() const { return desiredNewVelocity; }
 
@@ -77,15 +88,38 @@ public:
     void SetDesiredYawRate(float NewYawRate) { desiredYawRate = NewYawRate; }
     float GetDesiredYawRate() const { return desiredYawRate; }
     FVector GetCurrentLocalVelocity() const { return currentLocalVelocity; }
-    void SetDesiredRoll(float NewRoll) { desiredRoll = NewRoll; }
-    void SetDesiredPitch(float NewPitch) { desiredPitch = NewPitch; }
     void SetDesiredAngle(float newAngle) { maxAngle = newAngle; }
-
+    void AddNavPlan(const FString& name, const TArray<FVector>& waypoints);
+    void SetNavPlan(const FString& name);
+    void SetFlightMode(EFlightMode NewMode);
+    EFlightMode GetFlightMode() const;
+    FFullPIDSet* GetPIDSet(EFlightMode Mode)
+    {
+        return PIDMap.Find(Mode); 
+    }
+    
 private:
 
     UPROPERTY()
-    TArray<FFullPIDSet> PIDMap;
+    TMap<EFlightMode, FFullPIDSet> PIDMap;
 
+
+    EFlightMode currentFlightMode;
+    
+    struct NavPlan
+    {
+        TArray<FVector> waypoints;
+        FString name;
+    };
+
+    TArray<NavPlan> setPointNavigation;
+    NavPlan* currentNav;
+    int32 curPos;
+     
+    // TUniquePtr<ImGuiUtil> AutoWaypointHUD;
+    // TUniquePtr<ImGuiUtil> VelocityHUD;
+    // TUniquePtr<ImGuiUtil>JoyStickHUD;
+    
     float desiredYaw;
     float desiredAltitude;
     FVector currentLocalVelocity;
@@ -112,11 +146,16 @@ private:
     QuadPIDController* AltitudePID;
     bool bHoverModeActive;
     float hoverTargetAltitude;
-
-
+    
     float desiredYawRate;
-    float desiredRoll;
-    float desiredPitch;
 
+    bool Debug_DrawDroneCollisionSphere;
+    bool Debug_DrawDroneWaypoint;
+    float thrustInput;
+    float yawInput;
+    float pitchInput;
+    float rollInput;
+    bool bHoverThrustInitialized;
+    
     
 };

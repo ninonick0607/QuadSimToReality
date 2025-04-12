@@ -150,9 +150,7 @@ void AZMQController::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
 
-    // Process incoming commands
     ProcessCommands();
-    // Send state data
     SendStateData();
 }
 
@@ -297,7 +295,6 @@ void AZMQController::HandleObstacleCommand(zmq::multipart_t& Message)
     int32 numObstacles = 0;
     
     if (ObstacleCountMsg.size() == sizeof(float)) {
-        // Make sure to dereference the data correctly
         numObstacles = static_cast<int32>(*static_cast<float*>(ObstacleCountMsg.data()));
         UE_LOG(LogTemp, Display, TEXT("Obstacle count: %d"), numObstacles);
     } else {

@@ -48,6 +48,11 @@ public:
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
 	UCameraComponent* CameraFPV;
 	
+	EWaypointMode WaypointMode;
+	TArray<FVector> ManualWaypoints;
+	FVector NewWaypoint;
+
+	
 	// --- Thruster Components ---
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TArray<UStaticMeshComponent*> Propellers;
@@ -63,12 +68,14 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Drone Components")
 	TArray<float> PropellerRPMs;
 	
-	// --- Controller Components ---
+	// --- Controller Components ---	
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UImGuiUtil> ImGuiUtil;
+
+
 	UPROPERTY(VisibleAnywhere, Category = "Controller")
 	class UQuadDroneController* QuadController;
-
-	UPROPERTY()
-	class UImGuiUtil* ImGuiUtil;
 	
 	// --- Identification ---
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
@@ -102,6 +109,7 @@ private:
 	// Updates control each tick.
 	void UpdateControl(float DeltaTime);
 	
+	bool bWaypointModeSelected;
 
 	UPROPERTY(VisibleAnywhere)
 	UInputComponent* Input_ToggleImguiInput;

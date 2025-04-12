@@ -4,6 +4,8 @@
 #include "Camera/CameraComponent.h"
 #include "Math/UnrealMathUtility.h"
 #include "Core/DroneJSONConfig.h"
+#include "EngineUtils.h"
+
 #include "Engine/Engine.h"
 #include "Components/StaticMeshComponent.h" 
 #include "Components/PrimitiveComponent.h" 
@@ -13,17 +15,92 @@
 #include "Kismet/GameplayStatics.h"
 
 #define EPSILON 0.0001f
+// At the top of QuadPawn.cpp
+
+namespace DroneWaypointConfig 
+{
+	static constexpr float startHeight = 1000.0f;
+	static constexpr float maxHeight = 10000.0f;
+	static constexpr float radius = 3000.0f;
+	static constexpr float heightStep = 500.0f;
+	static constexpr int32 pointsPerLoop = 8;
+	static constexpr float angleStep = 2.0f * PI / pointsPerLoop;
+}
+
+const FVector start = FVector(0, 0, 1000);
+
+
+static TArray<FVector> spiralWaypoints()
+{
+    TArray<FVector> xyzSetpoint;
+    FVector currentPos = FVector::ZeroVector;
+
+    // Find the drone in the world
+    for (TActorIterator<AQuadPawn> ActorItr(GWorld); ActorItr; ++ActorItr)
+    {
+        if (*ActorItr)
+        {
+            currentPos = (*ActorItr)->GetActorLocation();
+            break;
+        }
+    }
+
+    // First point at starting height above current position
+    xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + DroneWaypointConfig::startHeight));
+
+    // Calculate number of loops needed
+    int numLoops = FMath::CeilToInt((DroneWaypointConfig::maxHeight - DroneWaypointConfig::startHeight) 
+                                   / DroneWaypointConfig::heightStep);
+
+    // Generate upward spiral
+    for (int loop = 0; loop < numLoops; loop++)
+    {
+        float height = currentPos.Z + DroneWaypointConfig::startHeight + (loop * DroneWaypointConfig::heightStep);
+
+        for (int point = 0; point < DroneWaypointConfig::pointsPerLoop; point++)
+        {
+            float angle = point * DroneWaypointConfig::angleStep;
+            float x = currentPos.X + DroneWaypointConfig::radius * FMath::Cos(angle);
+            float y = currentPos.Y + DroneWaypointConfig::radius * FMath::Sin(angle);
+            xyzSetpoint.Add(FVector(x, y, height));
+        }
+    }
+
+    // Add point at max height above current position
+    xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + DroneWaypointConfig::maxHeight));
+
+    // Generate downward spiral (in reverse order)
+    for (int loop = numLoops - 1; loop >= 0; loop--)
+    {
+        float height = currentPos.Z + DroneWaypointConfig::startHeight + (loop * DroneWaypointConfig::heightStep);
+
+        for (int point = DroneWaypointConfig::pointsPerLoop - 1; point >= 0; point--)
+        {
+            float angle = point * DroneWaypointConfig::angleStep;
+            float x = currentPos.X + DroneWaypointConfig::radius * FMath::Cos(angle);
+            float y = currentPos.Y + DroneWaypointConfig::radius * FMath::Sin(angle);
+            xyzSetpoint.Add(FVector(x, y, height));
+        }
+    }
+
+    // Final point back at starting height above current position
+    xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + DroneWaypointConfig::startHeight));
+
+    return xyzSetpoint;
+}
 
 const FName ObstacleCollisionTag = FName("Obstacle");
 
 AQuadPawn::AQuadPawn()
-	: DroneBody(nullptr)
-	, SpringArm(nullptr)
-	, Camera(nullptr)
-	, CameraFPV(nullptr)
-	, QuadController(nullptr)
-	, Input_ToggleImguiInput(nullptr)
-	, bHasCollidedWithObstacle(false) 
+	: DroneBody(nullptr) // 1
+	  , SpringArm(nullptr) // 3
+	  , Camera(nullptr) // 4
+	  , CameraFPV(nullptr) // 5
+	  , WaypointMode(EWaypointMode::WaitingForModeSelection) // 14
+	  , NewWaypoint(FVector::ZeroVector) // 16
+	  , QuadController(nullptr) // 20
+	  , bWaypointModeSelected(false) // 21
+	  , Input_ToggleImguiInput(nullptr)
 {
 	PrimaryActorTick.bCanEverTick = true;
 
@@ -99,11 +176,25 @@ void AQuadPawn::BeginPlay()
 
 	UE_LOG(LogTemp, Display, TEXT("QuadPawn BeginPlay: Pawn=%p, Name=%s"), this, *GetName());
 	
-	if (ImGuiUtil)
+	// If ImGuiUtil is not created through CreateDefaultSubobject
+	if (!ImGuiUtil)
 	{
+		ImGuiUtil = NewObject<UImGuiUtil>(this, UImGuiUtil::StaticClass(), TEXT("DroneImGuiUtil"));
 		ImGuiUtil->Initialize(this, QuadController);
 	}
 
+	// Continue with any other initialization (like binding or logging)
+	if (ImGuiUtil)
+	{
+		UE_LOG(LogTemp, Display, TEXT("ImGuiUtil successfully created and initialized"));
+		ImGuiUtil->Initialize(this, QuadController);
+	}
+
+	// Add spiral waypoints navigation plan
+	this->QuadController->AddNavPlan("TestPlan", spiralWaypoints());
+	this->QuadController->SetNavPlan("TestPlan");
+    
+	// Reset PID controllers
 	QuadController->ResetPID();
 	DroneBody->OnComponentHit.AddDynamic(this, &AQuadPawn::OnDroneHit);
 	

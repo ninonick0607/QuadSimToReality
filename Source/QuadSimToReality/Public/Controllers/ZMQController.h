@@ -53,7 +53,6 @@ public:
     AZMQController();
     virtual ~AZMQController();
 
-    // Call this to initialize the controller with a target pawn and its drone controller.
     UFUNCTION(BlueprintCallable, Category = "ZMQ")
     void Initialize(AQuadPawn* InPawn, UQuadDroneController* InDroneController, const FZMQConfiguration& Config);
 
@@ -69,7 +68,6 @@ public:
     UFUNCTION(BlueprintCallable, Category = "ZMQ")
     void SetDroneID(const FString& NewID);
 
-    // This property is used to point to the drone this controller is responsible for.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="ZMQ")
     AQuadPawn* TargetPawn;
     UPROPERTY(EditAnywhere, Category = "ZMQ")
