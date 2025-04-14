@@ -51,7 +51,7 @@ class QuadSimEnv(gym.Env):
         self.prev_goal_state = np.zeros(3, dtype=np.float32)
         self.prev_action = 0.0  
         self.prev_velocity = 0.0
-        self.image = np.zeros((128, 128, 3), dtype=np.uint8)  # Placeholder for image
+        self.image = np.zeros((128, 128, 3), dtype=np.uint8)
         self.action_frequency = action_frequency
         self.context = zmq.Context()
 
