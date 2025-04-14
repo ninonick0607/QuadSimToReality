@@ -19,10 +19,9 @@ The project leverages Unreal Engine's physics system to create a physically accu
 
 ### Software Requirements
 - **Operating System**: Windows 11
-- **Unreal Engine**: Version 5.5
+- **Unreal Engine**: Version 5.4
 - **Python**: Version 3.8+
 - **Git LFS**: For handling large files in the repository
-- **Compiler**: GCC 11+ (comes with Ubuntu 22.04)
 
 ### Hardware Requirements
 - **CPU**: 4+ cores recommended
