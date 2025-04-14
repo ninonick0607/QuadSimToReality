@@ -22,7 +22,7 @@ class LSTM(nn.Module):
             nn.MaxPool2d(kernel_size=2, stride=2)
         )
         self.embedding_ff = nn.LazyLinear(64)
-        self.lstm = nn.LSTM(128, 128, 2, batch_first=True)
+        self.lstm = nn.LSTM(64, 64, 2, batch_first=True)
 
         self.state_mlp = nn.Sequential(
             nn.LazyLinear(64),
@@ -35,7 +35,7 @@ class LSTM(nn.Module):
 
     def reset(self):
 
-        self.h_c = (torch.zeros(2, 128).to(device=self.device), torch.zeros(2, 128).to(device=self.device))
+        self.h_c = (torch.zeros(2, 64).to(device=self.device), torch.zeros(2, 64).to(device=self.device))
 
 
     def forward(self, x: torch.Tensor, pixels: torch.Tensor, is_init: torch.Tensor) -> torch.Tensor:
@@ -48,17 +48,18 @@ class LSTM(nn.Module):
             obs = x
             image = pixels
 
-            # embed: (3, 64, 64) + (obs) --> (1, 128)
+            # embed: (3, 64, 64) + (obs) --> (1, 64)
             embed = self.embedding(image)
             embed = torch.flatten(embed)
             embed = self.embedding_ff(embed)
             embed = torch.tanh(embed)
             embed = embed.unsqueeze(0)
-            state_embed = self.state_mlp(obs)
-            state_embed = state_embed.unsqueeze(0)
-            embed = torch.cat((embed, state_embed), dim=1)
 
             time_informed_embed, self.h_c = self.lstm(embed, self.h_c)
+
+            state_embed = self.state_mlp(obs)
+            state_embed = state_embed.unsqueeze(0)
+            time_informed_embed = torch.cat((time_informed_embed, state_embed), dim=1)
 
             return time_informed_embed.squeeze()
     
@@ -68,13 +69,11 @@ class LSTM(nn.Module):
             obs = x
             image = pixels
 
-            # embed: (batch, 3, 64, 64) + (batch, obs) --> (batch, 128)
+            # embed: (batch, 3, 64, 64) + (batch, obs) --> (batch, 64)
             embed = self.embedding(image)
             embed = torch.flatten(embed, start_dim=1)
             embed = self.embedding_ff(embed)
             embed = torch.tanh(embed)
-            state_embed = self.state_mlp(obs)
-            embed = torch.cat((embed, state_embed), dim=1)
 
             # Split the embed by trajectory
             if is_init.any():
@@ -91,6 +90,9 @@ class LSTM(nn.Module):
                 time_informed_embed, self.h_c = self.lstm(emb)
                 time_informed_embeds.append(time_informed_embed)
             time_informed_embed = torch.cat(time_informed_embeds, dim=0)            
+
+            state_embed = self.state_mlp(obs)
+            time_informed_embed = torch.cat((time_informed_embed, state_embed), dim=1)
 
             return time_informed_embed
     

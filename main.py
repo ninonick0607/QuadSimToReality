@@ -47,7 +47,7 @@ if __name__ == "__main__":
 
     configs = ({
         # obs_norm should contain the parameters for the distribution of the observations: normalized = (original - loc) / scale
-        'name': "LSTM_no_obstacle_0",
+        'name': "LSTM_no_obstacle_4",
         'train': True,
         'log': True,
         "obs_norm": {
@@ -57,7 +57,7 @@ if __name__ == "__main__":
         'reward_fn': reward_fn_angle_penalty
     }, {
         # obs_norm should contain the parameters for the distribution of the observations: normalized = (original - loc) / scale
-        'name': "LSTM_no_obstacle_1",
+        'name': "LSTM_no_obstacle_5",
         'train': True,
         'log': True,
         "obs_norm": {
@@ -67,7 +67,7 @@ if __name__ == "__main__":
         'reward_fn': reward_fn
     }, {
         # obs_norm should contain the parameters for the distribution of the observations: normalized = (original - loc) / scale
-        'name': "LSTM_no_obstacle_2",
+        'name': "LSTM_no_obstacle_6",
         'train': True,
         'log': True,
         "obs_norm": {
@@ -77,7 +77,7 @@ if __name__ == "__main__":
         'reward_fn': reward_fn_angle_penalty
     }, {
         # obs_norm should contain the parameters for the distribution of the observations: normalized = (original - loc) / scale
-        'name': "LSTM_no_obstacle_3",
+        'name': "LSTM_no_obstacle_7",
         'train': True,
         'log': True,
         "obs_norm": {
