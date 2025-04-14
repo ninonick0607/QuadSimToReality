@@ -21,9 +21,7 @@ UImGuiUtil::UImGuiUtil()
 {
 	const auto& Config = UDroneJSONConfig::Get().Config;
 	PrimaryComponentTick.bCanEverTick = true;
-	maxVelocity = Config.FlightParams.MaxVelocity;
-	maxAngle = Config.FlightParams.MaxAngle;
-
+	maxVelocityBound = Config.FlightParams.MaxVelocityBound;
 }
 
 void UImGuiUtil::Initialize(AQuadPawn* InPawn, UQuadDroneController* InController)
@@ -50,6 +48,8 @@ void UImGuiUtil::ImGuiHud(EFlightMode CurrentMode,TArray<float>& ThrustsVal,
                                   const FVector& waypoint, const FVector& currLoc,
                                   const FVector& error,
                                   const FVector& currentVelocity,
+								  float maxVelocity,
+								  float maxAngle,
                                   float xOutput, float yOutput, float zOutput, float deltaTime)
 {
 	UE_LOG(LogTemp, Display, TEXT("IN IMGUI!!"));
@@ -58,7 +58,6 @@ void UImGuiUtil::ImGuiHud(EFlightMode CurrentMode,TArray<float>& ThrustsVal,
 	ImGui::SetNextWindowPos(ImVec2(420, 10), ImGuiCond_FirstUseEver);
 	ImGui::SetNextWindowSize(ImVec2(500, 500), ImGuiCond_FirstUseEver);
 
-	 // Instead of looking for a component on the pawn, we search the world for our dedicated actor.
 	 AZMQController* zmqControllerCurrent = nullptr;
 	 TArray<AActor*> FoundActors;
 	 UGameplayStatics::GetAllActorsOfClass(GetWorld(), AZMQController::StaticClass(), FoundActors);
@@ -88,80 +87,30 @@ void UImGuiUtil::ImGuiHud(EFlightMode CurrentMode,TArray<float>& ThrustsVal,
 			Controller->SetManualThrustMode(bLocalManualMode);
 		}
 	}
+
 	// Display drone info and various UI elements
 	DisplayDroneInfo();
-	ImGui::SliderFloat("Max velocity", &maxVelocity, 0.0f, 600.0f);
+	ImGui::SliderFloat("Max velocity", &maxVelocity, 0.0f, maxVelocityBound);
 	ImGui::SliderFloat("Max tilt angle", &maxAngle, 0.0f, 45.0f);
 	Controller->SetDesiredAngle(maxAngle);
-	DisplayDesiredVelocities();
-
-	ImGui::Separator();
-	ImGui::Text("Thruster Power");
-
-	static float AllThrustValue = 0.0f;
-	if (ImGui::SliderFloat("All Thrusts", &AllThrustValue, 0, 700.0f))
+	Controller->SetMaxVelocity(maxVelocity);
+	switch (CurrentMode)
 	{
-		for (int i = 0; i < ThrustsVal.Num(); i++)
-		{
-			ThrustsVal[i] = AllThrustValue;
-		}
+	case EFlightMode::None:
+		return;
+	case EFlightMode::AutoWaypoint:
+		DisplayDesiredPositions();
+		break;
+	case EFlightMode::JoyStickControl:
+		break;
+	case EFlightMode::VelocityControl:
+		DisplayDesiredVelocities(maxVelocity);
+		break;
 	}
 
-	ImGui::Separator();
-	ImGui::Text("Thruster Power");
 
-	static bool synchronizeDiagonal1 = false;
-	static bool synchronizeDiagonal2 = false;
-	ImGui::Checkbox("Synchronize Diagonal Motors FL & BR", &synchronizeDiagonal1);
-	ImGui::Checkbox("Synchronize Diagonal Motors FR & BL", &synchronizeDiagonal2);
+	DisplayThrust(ThrustsVal);
 
-	ImGui::Separator();
-
-	if (ThrustsVal.Num() >= 4)
-	{
-		ImGui::Text("Diagonal 1 Motors");
-    
-		// Push a unique ID to differentiate these widgets
-		ImGui::PushID("Diag1");
-		ImGui::Indent();
-		if (synchronizeDiagonal1)
-		{
-			if (ImGui::SliderFloat("FL & BR Thrust", &ThrustsVal[0], 0, 700.0f))
-			{
-				ThrustsVal[3] = ThrustsVal[0];
-			}
-			ImGui::Text("Back Right (Synchronized): %.2f", ThrustsVal[3]);
-		}
-		else
-		{
-			// "Front Left" is effectively "Diag1/Front Left"
-			ImGui::SliderFloat("Front Left", &ThrustsVal[0], 0, 700.0f);
-			ImGui::SliderFloat("Back Right", &ThrustsVal[3], 0, 700.0f);
-		}
-		ImGui::Unindent();
-		ImGui::PopID();  // pop "Diag1"
-
-		// -------------------- Diagonal 2 --------------------
-		ImGui::Text("Diagonal 2 Motors");
-    
-		ImGui::PushID("Diag2");
-		ImGui::Indent();
-		if (synchronizeDiagonal2)
-		{
-			if (ImGui::SliderFloat("FR & BL Thrust", &ThrustsVal[1], 0, 700.0f))
-			{
-				ThrustsVal[2] = ThrustsVal[1];
-			}
-			ImGui::Text("Back Left (Synchronized): %.2f", ThrustsVal[2]);
-		}
-		else
-		{
-			ImGui::SliderFloat("Front Right", &ThrustsVal[1], 0, 700.0f);
-			ImGui::SliderFloat("Back Left", &ThrustsVal[2], 0, 700.0f);
-		}
-		ImGui::Unindent();
-		ImGui::PopID(); // pop "Diag2"
-	}
     FVector currentDesiredVelocity = Controller->GetDesiredVelocity();
 
 	ImGui::Separator();
@@ -197,15 +146,14 @@ void UImGuiUtil::ImGuiHud(EFlightMode CurrentMode,TArray<float>& ThrustsVal,
 	DisplayResetDroneButtons();
 	DisplayPIDHistoryWindow();
 
-	//RenderControlPlots(deltaTime, currentRotation, desiredRollAngle, desiredPitchAngle);
+	//RenderControlPlots(deltaTime, currentRotation, desiredRollAngle, desiredPitchAngle,maxAngle);
 
 	
 	ImGui::End();
 
 }
 
-
-void UImGuiUtil::RenderControlPlots(float deltaTime, const FRotator& currentRotation, float desiredRoll, float desiredPitch)
+void UImGuiUtil::RenderControlPlots(float deltaTime, const FRotator& currentRotation, float desiredRoll, float desiredPitch,float maxAngle)
 {
     if (!Controller) return;
 
@@ -349,7 +297,7 @@ void UImGuiUtil::RenderControlPlots(float deltaTime, const FRotator& currentRota
     {
         ImPlot::SetupAxes("Time (s)", "Angle (degrees)", axisFlags, axisFlags);
         ImPlot::SetupAxisLimits(ImAxis_X1, CumulativeTime - MaxPlotTime, CumulativeTime, ImGuiCond_Always);
-         ImPlot::SetupAxisLimits(ImAxis_Y1, -maxAngle-10, maxAngle+10, ImPlotCond_Once);
+        ImPlot::SetupAxisLimits(ImAxis_Y1, -maxAngle-10, maxAngle+10, ImPlotCond_Once);
 
         if (dataCount > 0)
         {
@@ -362,8 +310,79 @@ void UImGuiUtil::RenderControlPlots(float deltaTime, const FRotator& currentRota
         ImPlot::EndPlot();
     }
 
-
     ImGui::End(); // End Control Plots window
+}
+
+void UImGuiUtil::DisplayThrust(TArray<float>& ThrustsNum) {
+
+	ImGui::Separator();
+	ImGui::Text("Thruster Power");
+
+	static float AllThrustValue = 0.0f;
+	if (ImGui::SliderFloat("All Thrusts", &AllThrustValue, 0, 700.0f))
+	{
+		for (int i = 0; i < ThrustsNum.Num(); i++)
+		{
+			ThrustsNum[i] = AllThrustValue;
+		}
+	}
+
+	ImGui::Separator();
+	ImGui::Text("Thruster Power");
+
+	static bool synchronizeDiagonal1 = false;
+	static bool synchronizeDiagonal2 = false;
+	ImGui::Checkbox("Synchronize Diagonal Motors FL & BR", &synchronizeDiagonal1);
+	ImGui::Checkbox("Synchronize Diagonal Motors FR & BL", &synchronizeDiagonal2);
+
+	ImGui::Separator();
+
+	if (ThrustsNum.Num() >= 4)
+	{
+		ImGui::Text("Diagonal 1 Motors");
+
+		// Push a unique ID to differentiate these widgets
+		ImGui::PushID("Diag1");
+		ImGui::Indent();
+		if (synchronizeDiagonal1)
+		{
+			if (ImGui::SliderFloat("FL & BR Thrust", &ThrustsNum[0], 0, 700.0f))
+			{
+				ThrustsNum[3] = ThrustsNum[0];
+			}
+			ImGui::Text("Back Right (Synchronized): %.2f", ThrustsNum[3]);
+		}
+		else
+		{
+			// "Front Left" is effectively "Diag1/Front Left"
+			ImGui::SliderFloat("Front Left", &ThrustsNum[0], 0, 700.0f);
+			ImGui::SliderFloat("Back Right", &ThrustsNum[3], 0, 700.0f);
+		}
+		ImGui::Unindent();
+		ImGui::PopID();  // pop "Diag1"
+
+		// -------------------- Diagonal 2 --------------------
+		ImGui::Text("Diagonal 2 Motors");
+
+		ImGui::PushID("Diag2");
+		ImGui::Indent();
+		if (synchronizeDiagonal2)
+		{
+			if (ImGui::SliderFloat("FR & BL Thrust", &ThrustsNum[1], 0, 700.0f))
+			{
+				ThrustsNum[2] = ThrustsNum[1];
+			}
+			ImGui::Text("Back Left (Synchronized): %.2f", ThrustsNum[2]);
+		}
+		else
+		{
+			ImGui::SliderFloat("Front Right", &ThrustsNum[1], 0, 700.0f);
+			ImGui::SliderFloat("Back Left", &ThrustsNum[2], 0, 700.0f);
+		}
+		ImGui::Unindent();
+		ImGui::PopID(); // pop "Diag2"
+	}
+
 }
 
 void UImGuiUtil::DisplayDroneInfo()
@@ -695,7 +714,7 @@ void UImGuiUtil::DisplayResetDroneButtons()
 	}
 }
 
-void UImGuiUtil::DisplayDesiredVelocities()
+void UImGuiUtil::DisplayDesiredVelocities(float maxVelocity)
 {
     ImGui::Text("Desired Velocities");
 
@@ -854,6 +873,123 @@ void UImGuiUtil::DisplayDesiredVelocities()
     }
 
     ImGui::Separator();
+}
+
+
+void UImGuiUtil::DisplayDesiredPositions()
+{
+	if (!Controller)
+	{
+		ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Controller not available!");
+		return;
+	}
+
+	ImGui::Text("Desired Position Setpoint (m)");
+
+	static float prevPx = 0.0f;
+	static float prevPy = 0.0f;
+	static float prevPz = 0.0f;
+	static bool firstRun = true;
+
+	static bool resetXChecked = false;
+	static bool resetYChecked = false;
+	static bool resetZChecked = false;
+
+	FVector currentSetpoint_cm = Controller->GetCurrentSetPoint();
+
+	float tempPx_cm = currentSetpoint_cm.X;
+	float tempPy_cm = currentSetpoint_cm.Y;
+	float tempPz_cm = currentSetpoint_cm.Z;
+
+	float displayPx_m = tempPx_cm / 100.0f;
+	float displayPy_m = tempPy_cm / 100.0f;
+	float displayPz_m = tempPz_cm / 100.0f;
+
+	bool positionChanged = false;
+
+	const float maxPositionBound_m = 2000.0f;
+	const float minPositionBound_m = -2000.0f;
+	const float maxPositionBoundZ_m = 1000.0f;
+	const float minPositionBoundZ_m = 0.0f;
+
+	ImGui::Spacing();
+
+	if (ImGui::SliderFloat("Desired Position X (m)", &displayPx_m, minPositionBound_m, maxPositionBound_m))
+	{
+		tempPx_cm = displayPx_m * 100.0f;
+		positionChanged = true;
+	}
+	ImGui::SameLine();
+	if (ImGui::Checkbox("Reset X to 0##Pos", &resetXChecked))
+	{
+		if (resetXChecked)
+		{
+			tempPx_cm = 0.0f;
+			displayPx_m = 0.0f;
+			positionChanged = true;
+		}
+		resetXChecked = false;
+	}
+
+	if (ImGui::SliderFloat("Desired Position Y (m)", &displayPy_m, minPositionBound_m, maxPositionBound_m))
+	{
+		tempPy_cm = displayPy_m * 100.0f;
+		positionChanged = true;
+	}
+	ImGui::SameLine();
+	if (ImGui::Checkbox("Reset Y to 0##Pos", &resetYChecked))
+	{
+		if (resetYChecked)
+		{
+			tempPy_cm = 0.0f;
+			displayPy_m = 0.0f;
+			positionChanged = true;
+		}
+		resetYChecked = false;
+	}
+
+	if (ImGui::SliderFloat("Desired Position Z (m)", &displayPz_m, minPositionBoundZ_m, maxPositionBoundZ_m))
+	{
+		tempPz_cm = displayPz_m * 100.0f;
+		positionChanged = true;
+	}
+	ImGui::SameLine();
+	if (ImGui::Checkbox("Reset Z to 0##Pos", &resetZChecked))
+	{
+		if (resetZChecked)
+		{
+			tempPz_cm = 0.0f;
+			displayPz_m = 0.0f;
+			positionChanged = true;
+		}
+		resetZChecked = false;
+	}
+
+	if (firstRun)
+	{
+		prevPx = tempPx_cm;
+		prevPy = tempPy_cm;
+		prevPz = tempPz_cm;
+		firstRun = false;
+	}
+
+	const float threshold_cm = 0.1f;
+	bool significantChange = (FMath::Abs(tempPx_cm - prevPx) > threshold_cm) ||
+		(FMath::Abs(tempPy_cm - prevPy) > threshold_cm) ||
+		(FMath::Abs(tempPz_cm - prevPz) > threshold_cm);
+
+
+	if (significantChange || positionChanged)
+	{
+		FVector desiredNewPosition_cm = FVector(tempPx_cm, tempPy_cm, tempPz_cm);
+		Controller->SetDestination(desiredNewPosition_cm);
+
+		prevPx = tempPx_cm;
+		prevPy = tempPy_cm;
+		prevPz = tempPz_cm;
+	}
+
+	ImGui::Separator();
 }
 
 void UImGuiUtil::DisplayPIDHistoryWindow()

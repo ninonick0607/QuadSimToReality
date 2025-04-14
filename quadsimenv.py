@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import glob 
 import os
 import struct
+import cv2                
 from collections import OrderedDict
 from typing import Callable
 from stable_baselines3 import PPO
@@ -85,7 +86,12 @@ class QuadSimEnv(gym.Env):
         self.collision_socket.setsockopt(zmq.CONFLATE, 1)
         self.collision_socket.connect("tcp://localhost:5560") # Connect to the new CollisionPort
         self.collision_socket.setsockopt_string(zmq.SUBSCRIBE, '')
-
+        # --- Matplotlib Setup ---
+        self.fig, self.ax = plt.subplots()
+        self.im_display = self.ax.imshow(self.image) # Initial display object
+        plt.ion() # Turn on interactive mode
+        plt.show(block=False) # Show the plot without blocking
+        # --- End Matplotlib Setup ---
         self.steps = 0
         time.sleep(0.1)
 
@@ -230,23 +236,35 @@ class QuadSimEnv(gym.Env):
         except Exception as e:
             print(f"!!! Collision handling EXCEPTION: {str(e)}") # DEBUG PRINT
             self.collision_state = False
+# Inside QuadSimEnv class:
     def retrieve_image(self):
-        return
-        # try:
-        #     message = self.image_socket.recv_multipart(flags=zmq.NOBLOCK)[0]
-        #     image_data = np.frombuffer(message, dtype=np.uint8)
-        #     image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
-        #     if image is not None:
-        #         print("Image received! Shape:", image.shape)
-        #         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        #         return image
-        #     else:
-        #         raise Exception("Failed to decode image")
-        # except zmq.Again:
-        #     return self.image  # Return the last image if no new one is available
-        # except Exception as e:
-        #     print(f"Error receiving image: {str(e)}")
-        #     return self.image
+        """Receives and decodes image data from the ZMQ socket."""
+        try:
+            # Use recv() assuming the whole message is the image bytes
+            message = self.image_socket.recv(flags=zmq.NOBLOCK)
+            image_data = np.frombuffer(message, dtype=np.uint8)
+            # Decode assuming it's a standard format like JPEG or PNG
+            image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
+            if image is not None:
+                # print("Image received! Shape:", image.shape) # Optional debug
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB) # Convert BGR to RGB for Matplotlib
+                # Ensure the image has the expected shape (optional resize/crop)
+                if image.shape[0:2] != (128, 128):
+                     # Example: Resize if it's not the correct size
+                     image = cv2.resize(image, (128, 128), interpolation=cv2.INTER_AREA)
+                self.image = image # Update the class's image attribute
+                return image
+            else:
+                # Failed decoding, keep the old image
+                print("Warning: Failed to decode image")
+                return self.image
+        except zmq.Again:
+            # No new message, return the last known image
+            return self.image
+        except Exception as e:
+            print(f"Error receiving/processing image: {str(e)}")
+            # Return the last known image on other errors
+            return self.image
         
     def close(self):
         # Terminate the ZeroMQ context
@@ -255,9 +273,6 @@ class QuadSimEnv(gym.Env):
             self.context = None
         super().close()
 
-# Lower architecture to 8x8, 16x16 or even 32x32
-# Increase learning rate a little bit
-# Simplify reward functions
 
 if __name__ == "__main__":
     best_model_path = "./RL_training/best_model/best_model.zip"
@@ -272,132 +287,26 @@ if __name__ == "__main__":
         while True:
             env.handle_data()
             env.handle_collision_data()
-            time.sleep(0.2)
+
+            # --- Retrieve and Display Image ---
+            current_image = env.retrieve_image() # Gets latest or last known image
+            env.im_display.set_data(current_image) # Update plot data
+            plt.pause(0.05) # Allow plot to redraw (adjust pause as needed)
+            # --- End Image Display ---
+
+            # You might add dummy actions or other logic here for testing
+            # action = env.action_space.sample() # Example
+            # obs, reward, done, _, info = env.step(action) # Example
+            # if done:
+            #    env.reset()
+
+            time.sleep(0.1) # Control loop speed
             step_count += 1
+            if step_count > 500: # Limit test duration
+                 break
 
     except KeyboardInterrupt:
         print("\nLoop interrupted by user.")
     finally:
         print("Closing environment.")
         env.close()
-
-
-
-
-'''
-if __name__ == "__main__":
-    # Hard-coded paths
-    checkpoints_dir = "./RL_training/checkpoints"
-    best_model_dir = "./RL_training/best_model"
-    logs_dir = "./RL_training/logs"
-
-    # Create the environment
-    env = Monitor(QuadSimEnv(), logs_dir)
-    
-    # Set up evaluation and checkpoint callbacks
-    eval_callback = EvalCallback(
-        env,
-        best_model_save_path=best_model_dir,
-        log_path=logs_dir,
-        eval_freq=5000,
-        deterministic=True,
-        render=False
-    )
-
-    checkpoint_callback = CheckpointCallback(
-        save_freq=5000,
-        save_path=checkpoints_dir,
-        name_prefix="quad_model",
-        save_replay_buffer=True,
-        save_vecnormalize=True,
-        verbose=1
-    )
-    
-    # Check for existing model checkpoints to continue training
-    latest_model = None
-    
-    # First check best model
-    best_model_path = best_model_dir + "/best_model.zip"
-    if os.path.exists(best_model_path):
-        latest_model = best_model_path
-        print(f"Found best model: {latest_model}")
-    
-    # If no best model, check checkpoints
-    if not latest_model:
-        checkpoint_files = glob.glob(checkpoints_dir + "/*.zip")
-        if checkpoint_files:
-            # Sort by modification time (most recent first)
-            checkpoint_files.sort(key=os.path.getmtime, reverse=True)
-            latest_model = checkpoint_files[0]
-            print(f"Found checkpoint: {latest_model}")
-    
-    # Create or load the model
-    if latest_model:
-        print(f"Continuing training from: {latest_model}")
-        model = PPO.load(
-            latest_model, 
-            env=env,
-            tensorboard_log=logs_dir
-        )
-        # Update learning rate and other hyperparameters if needed
-        model.learning_rate = 2e-4
-    ### TODO: Lower network architecture, 32x32
-    else:
-        print("Starting new training run")
-        model = PPO(
-            "MlpPolicy", 
-            env,
-            policy_kwargs=dict(net_arch=[128, 128]),
-            learning_rate=2e-4,
-            n_steps=2048,
-            batch_size=64,
-            gamma=0.99,
-            verbose=1,
-            tensorboard_log=logs_dir
-        )
-    
-    try:
-        # Begin training with the modified environment and callbacks
-        model.learn(
-            total_timesteps=512 * 1000,
-            callback=[checkpoint_callback, eval_callback]
-        )
-    except KeyboardInterrupt:
-        print("Training interrupted by user.")
-
-'''
-
-
-'''
-class ImageDisplayCallback(BaseCallback):
-    def __init__(self, update_freq=10, verbose=0):
-        super(ImageDisplayCallback, self).__init__(verbose)
-        self.update_freq = update_freq
-        self.fig, self.ax = plt.subplots()
-        self.img_disp = None
-        plt.ion()
-        plt.show()
-        self.counter = 0
-
-    def _on_step(self) -> bool:
-        self.counter += 1
-        if self.counter % self.update_freq == 0:
-            try:
-                env = self.training_env.envs[0].unwrapped
-                image = env.get_data()
-                # If no new image is available, use the last displayed image
-                if image is None and self.img_disp is not None:
-                    image = self.img_disp.get_array()
-                elif image is None:
-                    image = np.zeros((128, 128, 3), dtype=np.uint8)
-
-                if self.img_disp is None:
-                    self.img_disp = self.ax.imshow(image)
-                else:
-                    self.img_disp.set_data(image)
-                self.fig.canvas.draw_idle()
-                self.fig.canvas.flush_events()
-            except Exception as e:
-                print("Error updating image:", e)
-        return True
-'''

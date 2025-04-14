@@ -7,7 +7,6 @@
 #include "Controllers/ZMQController.h"
 #include "Core/ThrusterComponent.h"
 #include "UI/ImGuiUtil.h"
-#include "Utility/NavigationComponent.h"	
 #include "Components/PrimitiveComponent.h" 
 #include "QuadPawn.generated.h"
 
@@ -100,10 +99,6 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Collision")
 	void ResetCollisionStatus();
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Navigation")
-	UNavigationComponent* NavigationComponent;
-
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;

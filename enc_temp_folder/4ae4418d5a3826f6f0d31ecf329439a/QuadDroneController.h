@@ -80,7 +80,10 @@ public:
     void DrawDebugVisualsVel(const FVector& horizontalVelocity) const;
     void SafetyReset();
     void ApplyManualThrusts();
- 
+
+    void AddNavPlan(const FString& name, const TArray<FVector>& waypoints);
+    void SetNavPlan(const FString& name);
+
     float GetDesiredYaw() const { return desiredYaw; }
     FVector GetDesiredVelocity() const { return desiredNewVelocity; }
     bool GetDebugVisualsEnabled() const { return bDebugVisualsEnabled; }
@@ -120,9 +123,18 @@ private:
     bool bDebugVisualsEnabled = false;
 
     // AutoWaypointControl variables
+    struct NavPlan
+    {
+        TArray<FVector> waypoints;
+        FString name;
+    };
+    TArray<NavPlan> setPointNavigation;
+    NavPlan* currentNav;
+    int32 curPos;
     FVector setPoint;
     float minAltitudeLocal;
     float acceptableDistance;
+    bool altitudeReached;
 
     // VelocityControl
     FVector desiredNewVelocity;
