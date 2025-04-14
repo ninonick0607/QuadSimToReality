@@ -7,6 +7,7 @@
 #include "Controllers/ZMQController.h"
 #include "Core/ThrusterComponent.h"
 #include "UI/ImGuiUtil.h"
+#include "Utility/NavigationComponent.h"	
 #include "Components/PrimitiveComponent.h" 
 #include "QuadPawn.generated.h"
 
@@ -48,6 +49,11 @@ public:
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
 	UCameraComponent* CameraFPV;
 	
+	EWaypointMode WaypointMode;
+	TArray<FVector> ManualWaypoints;
+	FVector NewWaypoint;
+
+	
 	// --- Thruster Components ---
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TArray<UStaticMeshComponent*> Propellers;
@@ -63,12 +69,14 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Drone Components")
 	TArray<float> PropellerRPMs;
 	
-	// --- Controller Components ---
+	// --- Controller Components ---	
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UImGuiUtil> ImGuiUtil;
+
+
 	UPROPERTY(VisibleAnywhere, Category = "Controller")
 	class UQuadDroneController* QuadController;
-
-	UPROPERTY()
-	class UImGuiUtil* ImGuiUtil;
 	
 	// --- Identification ---
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
@@ -92,6 +100,10 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Collision")
 	void ResetCollisionStatus();
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Navigation")
+	UNavigationComponent* NavigationComponent;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -102,6 +114,7 @@ private:
 	// Updates control each tick.
 	void UpdateControl(float DeltaTime);
 	
+	bool bWaypointModeSelected;
 
 	UPROPERTY(VisibleAnywhere)
 	UInputComponent* Input_ToggleImguiInput;
