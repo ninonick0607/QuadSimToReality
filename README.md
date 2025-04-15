@@ -2,7 +2,8 @@
 
 A high-fidelity quadcopter simulation environment that bridges the gap between simulation and reality using Unreal Engine 5.
 
-![Quadcopter Simulation](https://example.com/quad_simulation_screenshot.png)
+⚠️ For windows use, please switch to Windows-main branch
+------------------------------------------------------
 
 ## Overview
 
