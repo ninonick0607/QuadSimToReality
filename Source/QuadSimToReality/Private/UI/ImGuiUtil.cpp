@@ -817,7 +817,7 @@ void UImGuiUtil::DisplayDesiredVelocities()
     static float prevVy = 0.0f;
     static float prevVz = 0.0f;
     static float prevYr = 0.0f;
-    static float desiredHoverAltitude = 250.0f; // Default hover altitude (e.g., 2.5 meters)
+    static float desiredHoverAltitude; // Default hover altitude (e.g., 2.5 meters)
     static bool firstRun = true;
 
     FVector currentDesiredVelocity = Controller->GetDesiredVelocity();
@@ -838,29 +838,26 @@ void UImGuiUtil::DisplayDesiredVelocities()
     if (ImGui::Button(hoverModeActive ? "HOVER MODE ACTIVE" : "ACTIVATE HOVER MODE", ImVec2(200, 35)))
     {
         bool activateHover = !hoverModeActive;
-        Controller->SetHoverMode(activateHover, activateHover ? desiredHoverAltitude : 0.0f); // Pass altitude only when activating
-        hoverModeActive = activateHover; // Update local state immediately for UI feedback
+        Controller->SetHoverMode(activateHover, activateHover ? desiredHoverAltitude : 0.0f); 
+        hoverModeActive = activateHover; 
         if (hoverModeActive)
         {
-             tempVz = 0.0f; // Ensure desired Z velocity is zero when hover starts
+             tempVz = 0.0f; 
         }
         velocityChanged = true; // Force update controller state
     }
     ImGui::PopStyleColor(3);
-
-    // Display hover altitude slider ONLY if hover mode is active OR about to be activated (conceptually)
-    // Always showing it might be simpler UI wise. Let's always show it but label it clearly.
+	
     ImGui::SliderFloat("Desired Hover Altitude (cm)", &desiredHoverAltitude, 50.0f, 1000.0f, "%.0f cm");
     if (hoverModeActive)
     {
         ImGui::SameLine();
         ImGui::TextColored(ImVec4(0.1f, 0.8f, 0.6f, 1.0f), "Target Altitude: %.0f cm", desiredHoverAltitude);
-        // If adjusting altitude while hovering should immediately update the target:
-        // static float lastSentAltitude = -1.0f; // Track last sent value
-        // if (fabs(desiredHoverAltitude - lastSentAltitude) > 1.0f) { // Add deadzone/check
-        //    Controller->SetHoverMode(true, desiredHoverAltitude); // Re-send command with new altitude
-        //    lastSentAltitude = desiredHoverAltitude;
-        // }
+        static float lastSentAltitude = -1.0f; // Track last sent value
+        if (fabs(desiredHoverAltitude - lastSentAltitude) > 1.0f) { // Add deadzone/check
+           Controller->SetHoverMode(true, desiredHoverAltitude); // Re-send command with new altitude
+           lastSentAltitude = desiredHoverAltitude;
+        }
     }
 
     ImGui::Spacing();

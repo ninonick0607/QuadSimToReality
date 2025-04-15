@@ -12,6 +12,8 @@
 #include "Msgs/ROS2Float64.h"
 #include "Msgs/ROS2Twist.h"
 #include "Msgs/ROS2Str.h"
+#include "Msgs/ROS2Odom.h"
+#include "Msgs/ROS2Empty.h"
 
 class AObstacleManager;
 class AQuadPawn;
@@ -35,6 +37,11 @@ public:
 	FString Namespace = TEXT("");
 
     // --- Publisher Topics & Config ---
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Publishers|Odometry")
+	FString OdometryTopicName = TEXT("/odom"); 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Publishers|Odometry")
+	float OdometryFrequencyHz = 30.f; 
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Publishers|Position")
 	FString PositionTopicName = TEXT("/drone/position");
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Publishers|Position")
@@ -43,6 +50,9 @@ public:
 	FString PositionGoalTopicName = TEXT("/goal/position");
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Publishers|Goal")
 	float GoalFrequenzyHz = 1.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Publishers|Goal")
+ 	FString CollisionTopicName = TEXT("/drone/collision");
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Publishers|Image")
 	FString ImageTopicName = TEXT("/camera/image");
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Publishers|Image")
@@ -57,14 +67,12 @@ public:
     FString CmdVelTopicName = TEXT("/cmd_vel");
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Subscribers") 
     FString ResetTopicName = TEXT("/reset");
-
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Subscribers") 
+	FString HoverTopicName = TEXT("/hover/height");
+	
     // --- Pawn & Manager References ---
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Control")
 	AQuadPawn* QuadPawn;
-
-    // --- Goal Altitude (Temporary) ---
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Control|Goal") // <--- ADDED PROPERTY
-    float TargetAltitude = 1000.0f; // Target Z in cm
 
     // --- Image Capture Component ---
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Image Capture")
@@ -80,27 +88,32 @@ private:
 	void CaptureImage();
 	void ProcessCapturedImage(const TArray<FColor>& Pixels);
 	void SetupObstacleManager();
-
-    // --- Publisher Update Callbacks ---
+	
 	UFUNCTION()
-	void UpdatePositionMessage(UROS2GenericMsg* InMessage); // Still uses GenericMsg as base type
+	void UpdateOdometryMessage(UROS2GenericMsg* InMessage); 
 	UFUNCTION()
 	void UpdateGoalPositionMessage(UROS2GenericMsg* InMessage);
 	UFUNCTION()
 	void UpdateImageMessage(UROS2GenericMsg* InMessage);
-    // --- Subscriber Handler Callbacks ---
+	UFUNCTION()
+	void UpdateCollisionMessage(UROS2GenericMsg* InMessage);
+
 	UFUNCTION()
 	void HandleObstacleMessage(const UROS2GenericMsg* InMsg); 
     UFUNCTION() 
     void HandleVelocityCommand(const UROS2GenericMsg* InMsg);
     UFUNCTION() 
     void HandleResetCommand(const UROS2GenericMsg* InMsg);
+	UFUNCTION() 
+	void HandleHoverCommand(const UROS2GenericMsg* InMsg);
 
 	// --- ROS2 Components (Internal) ---
 	UPROPERTY()
 	UROS2NodeComponent* Node;
 	UPROPERTY()
-	UROS2Publisher* PositionPublisher;
+	UROS2Publisher* OdometryPublisher;
+	UPROPERTY()
+	UROS2Publisher* CollisionPublisher;
 	UPROPERTY()
 	UROS2Publisher* ImagePublisher;
 	UPROPERTY()
@@ -111,7 +124,8 @@ private:
     UROS2Subscriber* CmdVelSubscriber;
     UPROPERTY()
     UROS2Subscriber* ResetSubscriber;
-
+	UPROPERTY()
+	UROS2Subscriber* HoverSubscriber;
     // --- Internal State ---
 	UPROPERTY()
 	AObstacleManager* ObstacleManagerInstance;
@@ -120,4 +134,6 @@ private:
 	FTimerHandle CaptureTimerHandle;
 	int32 CurrentRenderTargetIndex = 0;
 	bool bIsProcessingImage = false;
+	int32 LastReceivedObstacleCount = 0;
+
 };

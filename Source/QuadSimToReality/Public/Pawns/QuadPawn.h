@@ -79,7 +79,7 @@ public:
 	FString DroneID;
 
 	// --- Helper Functions ---
-void SwitchCamera();
+	void SwitchCamera();
 
 	void ToggleImguiInput();
 
@@ -88,6 +88,8 @@ void SwitchCamera();
 	UFUNCTION(BlueprintPure, Category = "Drone State")
 	float GetMass();
 
+	bool getCollisionState(){return bHasCollidedWithObstacle;}
+	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Collision")
 	bool bHasCollidedWithObstacle;
 
@@ -110,5 +112,6 @@ private:
 	void UpdateControl(float DeltaTime);
 	void ResetGroundCameraPosition();
 	void UpdateGroundCameraTracking();
-
+	float LastCollisionTime;
+	float CollisionTimeout = 0.2f; 
 };

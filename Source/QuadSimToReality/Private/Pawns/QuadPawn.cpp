@@ -139,7 +139,15 @@ void AQuadPawn::Tick(float DeltaTime)
 	}
 
 	UpdateGroundCameraTracking();
-
+	if (bHasCollidedWithObstacle)
+	{
+		float CurrentTime = GetWorld()->GetTimeSeconds();
+		if (CurrentTime - LastCollisionTime > CollisionTimeout)
+		{
+			bHasCollidedWithObstacle = false;
+			UE_LOG(LogTemp, Display, TEXT("%s collision status cleared due to inactivity."), *GetName());
+		}
+	}
 }
 
 void AQuadPawn::UpdateControl(float DeltaTime)
@@ -246,20 +254,18 @@ void AQuadPawn::ReloadJSONConfig()
 
 void AQuadPawn::OnDroneHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
-	if (OtherActor && OtherActor != this)
+	if (OtherActor && OtherActor != this && OtherActor->ActorHasTag(ObstacleCollisionTag))
 	{
-		UE_LOG(LogTemp, Display, TEXT("Hit detected with: %s"), *OtherActor->GetName());
-
-		if (OtherActor->ActorHasTag(ObstacleCollisionTag))
+		// Update the timestamp every time a collision is detected.
+		LastCollisionTime = GetWorld()->GetTimeSeconds();
+		if (!bHasCollidedWithObstacle)
 		{
-			if (!bHasCollidedWithObstacle)
-			{
-				bHasCollidedWithObstacle = true;
-				UE_LOG(LogTemp, Display, TEXT("%s collided with obstacle: %s"), *GetName(), *OtherActor->GetName());
-			}
+			bHasCollidedWithObstacle = true;
+			UE_LOG(LogTemp, Display, TEXT("%s collided with obstacle: %s"), *GetName(), *OtherActor->GetName());
 		}
 	}
 }
+
 void AQuadPawn::ResetCollisionStatus()
 {
 	if (bHasCollidedWithObstacle) 

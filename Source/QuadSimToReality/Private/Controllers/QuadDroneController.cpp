@@ -163,7 +163,7 @@ void UQuadDroneController::VelocityControl(double DeltaTime)
  			if (dronePawn == selectedPawn)
  			{
  				dronePawn->ImGuiUtil->VelocityHud(Thrusts, y_output, x_output, currentRotation,
- 					currentPosition, FVector::ZeroVector, currentVelocity,
+ 					currentPosition, FVector::ZeroVector, currentLocalVelocity,
  					x_output, y_output, z_output, DeltaTime);
  			}
  		}
@@ -229,7 +229,6 @@ void UQuadDroneController::YawRateControl(double DeltaTime)
 		}
 	}
 }
-
 void UQuadDroneController::YawStabilization(double DeltaTime)
 {
 	// Early exit if the drone pawn or its physics body is missing.
@@ -299,8 +298,6 @@ void UQuadDroneController::YawStabilization(double DeltaTime)
 
 }
 
-
-
 // ---------------------- Reset Functions ------------------------
 
 void UQuadDroneController::ResetPID()
@@ -327,7 +324,6 @@ void UQuadDroneController::ResetDroneIntegral()
 	CurrentSet->PitchPID->ResetIntegral();
 	CurrentSet->YawPID->ResetIntegral();
 }
-
 void UQuadDroneController::ResetDroneHigh()
 {
 	if (dronePawn)
@@ -355,7 +351,6 @@ void UQuadDroneController::ResetDroneHigh()
 		altitudeReached = false;
 	}
 }
-
 void UQuadDroneController::ResetDroneOrigin()
 {
 	if (dronePawn)
@@ -415,8 +410,6 @@ void UQuadDroneController::DrawDebugVisuals(const FVector& horizontalVelocity) c
 			nullptr, FColor::White, 0.0f, true, 1.2f);
 	}
 }
-
-
 void UQuadDroneController::SafetyReset()
 {
 
@@ -442,7 +435,6 @@ void UQuadDroneController::SafetyReset()
 		}
 	}
 }
-
 void UQuadDroneController::ApplyManualThrusts()
 {
 	if (!dronePawn)
@@ -465,7 +457,6 @@ void UQuadDroneController::SetDesiredVelocity(const FVector& NewVelocity)
 {
 	desiredNewVelocity = NewVelocity;
 }
-
 void UQuadDroneController::SetManualThrustMode(bool bEnable)
 {
 	bManualThrustMode = bEnable;
@@ -478,9 +469,6 @@ void UQuadDroneController::SetManualThrustMode(bool bEnable)
 		UE_LOG(LogTemp, Display, TEXT("Manual Thrust Mode DISABLED"));
 	}
 }
-
-
-
 void UQuadDroneController::SetHoverMode(bool bActive, float TargetAltitudeCm) 
 {
     if (bActive && !bHoverModeActive)
@@ -515,7 +503,6 @@ void UQuadDroneController::SetHoverMode(bool bActive, float TargetAltitudeCm)
 
     }
 }
-
 float UQuadDroneController::GetCurrentThrustOutput(int32 ThrusterIndex) const
 {
 	if (Thrusts.IsValidIndex(ThrusterIndex))
@@ -524,3 +511,39 @@ float UQuadDroneController::GetCurrentThrustOutput(int32 ThrusterIndex) const
 	}
 	return 0.0f;
 }
+
+FQuat UQuadDroneController::GetOrientationAsQuat() const 
+{
+	if (IsValid(dronePawn))
+	{
+		const FRotator WorldRotation = dronePawn->GetActorRotation();
+		return FQuat(WorldRotation); 
+	}
+	return FQuat::Identity; 
+}
+
+FVector UQuadDroneController::GetCurrentAngularVelocityRADPS() const
+{
+	if (IsValid(dronePawn) && IsValid(dronePawn->DroneBody))
+	{
+		FVector AngularVelocityDegS = dronePawn->DroneBody->GetPhysicsAngularVelocityInDegrees();
+		return FVector(
+			FMath::DegreesToRadians(AngularVelocityDegS.X),
+			FMath::DegreesToRadians(AngularVelocityDegS.Y),
+			FMath::DegreesToRadians(AngularVelocityDegS.Z)
+		);
+	}
+	UE_LOG(LogTemp, Warning, TEXT("GetCurrentAngularVelocityRADPS: dronePawn or DroneBody invalid. Returning zero vector."));
+	return FVector::ZeroVector;
+}
+
+FVector UQuadDroneController::GetCurrentVelocity() const
+{
+	if (IsValid(dronePawn) && IsValid(dronePawn->DroneBody))
+	{
+		return dronePawn->DroneBody->GetPhysicsLinearVelocity();
+	}
+	return FVector::ZeroVector;
+}
+
+

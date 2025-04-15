@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Utility/QuadPIDController.h"
 #include "UI/ImGuiUtil.h"
+#include "Msgs/ROS2Quat.h"
 #include "QuadDroneController.generated.h"
 
 class AQuadPawn;
@@ -59,30 +60,35 @@ public:
     void ResetDroneOrigin();
 
     void DrawDebugVisuals(const FVector& horizontalVelocity) const;
-    void SetDesiredVelocity(const FVector& NewVelocity);
-    FFullPIDSet* GetPIDSet() { return PIDMap.Num() > 0 ? &PIDMap[0] : nullptr; }
-    float GetDesiredYaw() const { return desiredYaw; }
-    FVector GetDesiredVelocity() const { return desiredNewVelocity; }
-    UFUNCTION(BlueprintPure, Category = "Drone State")
-    float GetCurrentThrustOutput(int32 ThrusterIndex) const;
-
-
     void SetManualThrustMode(bool bEnable);
     void SafetyReset();
     void ApplyManualThrusts();
 
     bool IsHoverModeActive() const { return bHoverModeActive; }
-    void SetHoverMode(bool bActive, float TargetAltitude = 250.0f);
+    void SetHoverMode(bool bActive, float TargetAltitude);
 
     bool GetDebugVisualsEnabled() const { return bDebugVisualsEnabled; }
     void SetDebugVisualsEnabled(bool bEnabled) { bDebugVisualsEnabled = bEnabled; }
     void SetDesiredYawRate(float NewYawRate) { desiredYawRate = NewYawRate; }
     float GetDesiredYawRate() const { return desiredYawRate; }
-    FVector GetCurrentLocalVelocity() const { return currentLocalVelocity; }
     void SetDesiredRoll(float NewRoll) { desiredRoll = NewRoll; }
     void SetDesiredPitch(float NewPitch) { desiredPitch = NewPitch; }
     void SetDesiredAngle(float newAngle) { maxAngle = newAngle; }
+    FFullPIDSet* GetPIDSet() { return PIDMap.Num() > 0 ? &PIDMap[0] : nullptr; }
+    float GetDesiredYaw() const { return desiredYaw; }
+    FVector GetDesiredVelocity() const { return desiredNewVelocity; }
+    float GetCurrentThrustOutput(int32 ThrusterIndex) const;
+    void SetDesiredVelocity(const FVector& NewVelocity);
+    FVector GetCurrentLocalVelocity() const { return currentLocalVelocity; }
+    UFUNCTION(BlueprintPure, Category = "Drone State")
+    FVector GetCurrentVelocity() const; // Make sure this is implemented to return world velocity
 
+    UFUNCTION(BlueprintPure, Category = "Drone State|ROS")
+    FQuat GetOrientationAsQuat() const;
+
+    UFUNCTION(BlueprintPure, Category = "Drone State|ROS")
+    FVector GetCurrentAngularVelocityRADPS() const;
+    
 private:
 
     UPROPERTY()
