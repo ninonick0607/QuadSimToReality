@@ -4,6 +4,7 @@
 #include "Camera/CameraComponent.h"
 #include "Math/UnrealMathUtility.h"
 #include "Core/DroneJSONConfig.h"
+#include "EngineUtils.h"
 #include "Engine/Engine.h"
 #include "Components/StaticMeshComponent.h" 
 #include "Components/PrimitiveComponent.h" 
@@ -14,6 +15,64 @@
 #include "Kismet/KismetMathLibrary.h"
 
 #define EPSILON 0.0001f
+// At the top of QuadPawn.cpp
+
+namespace DroneWaypointConfig
+{
+	static constexpr float startHeight = 1000.0f;
+	static constexpr float maxHeight = 10000.0f;
+	static constexpr float radius = 3000.0f;
+	static constexpr float heightStep = 500.0f;
+	static constexpr int32 pointsPerLoop = 8;
+	static constexpr float angleStep = 2.0f * PI / pointsPerLoop;
+}
+
+const FVector start = FVector(0, 0, 1000);
+
+static TArray<FVector> spiralWaypoints()
+{
+	TArray<FVector> xyzSetpoint;
+	FVector currentPos = FVector::ZeroVector;
+
+	for (TActorIterator<AQuadPawn> ActorItr(GWorld); ActorItr; ++ActorItr)
+	{
+		if (*ActorItr)
+		{
+			currentPos = (*ActorItr)->GetActorLocation();
+			break;
+		}
+	}
+
+	xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + DroneWaypointConfig::startHeight));
+	int numLoops = FMath::CeilToInt((DroneWaypointConfig::maxHeight - DroneWaypointConfig::startHeight) / DroneWaypointConfig::heightStep);
+
+	for (int loop = 0; loop < numLoops; loop++)
+	{
+		float height = currentPos.Z + DroneWaypointConfig::startHeight + (loop * DroneWaypointConfig::heightStep);
+		for (int point = 0; point < DroneWaypointConfig::pointsPerLoop; point++)
+		{
+			float angle = point * DroneWaypointConfig::angleStep;
+			float x = currentPos.X + DroneWaypointConfig::radius * FMath::Cos(angle);
+			float y = currentPos.Y + DroneWaypointConfig::radius * FMath::Sin(angle);
+			xyzSetpoint.Add(FVector(x, y, height));
+		}
+	}
+	xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + DroneWaypointConfig::maxHeight));
+
+	for (int loop = numLoops - 1; loop >= 0; loop--)
+	{
+		float height = currentPos.Z + DroneWaypointConfig::startHeight + (loop * DroneWaypointConfig::heightStep);
+		for (int point = DroneWaypointConfig::pointsPerLoop - 1; point >= 0; point--)
+		{
+			float angle = point * DroneWaypointConfig::angleStep;
+			float x = currentPos.X + DroneWaypointConfig::radius * FMath::Cos(angle);
+			float y = currentPos.Y + DroneWaypointConfig::radius * FMath::Sin(angle);
+			xyzSetpoint.Add(FVector(x, y, height));
+		}
+	}
+	xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + DroneWaypointConfig::startHeight));
+	return xyzSetpoint;
+}
 
 const FName ObstacleCollisionTag = FName("Obstacle");
 
@@ -22,11 +81,14 @@ AQuadPawn::AQuadPawn()
 	, SpringArm(nullptr)
 	, Camera(nullptr)
 	, CameraFPV(nullptr)
-	, CameraGroundTrack(nullptr) 
+	, CameraGroundTrack(nullptr)
 	, QuadController(nullptr)
 	, ImGuiUtil(nullptr)
+	, WaypointMode(EWaypointMode::WaitingForModeSelection)
+	, NewWaypoint(FVector::ZeroVector)
 	, bHasCollidedWithObstacle(false)
 	, CurrentCameraMode(ECameraMode::ThirdPerson)
+	, bWaypointModeSelected(false)
 {
 	PrimaryActorTick.bCanEverTick = true;
 
@@ -100,11 +162,19 @@ void AQuadPawn::BeginPlay()
 
 	UE_LOG(LogTemp, Display, TEXT("QuadPawn BeginPlay: Pawn=%p, Name=%s"), this, *GetName());
 	
+	if (!ImGuiUtil)
+	{
+		ImGuiUtil = NewObject<UImGuiUtil>(this, UImGuiUtil::StaticClass(), TEXT("DroneImGuiUtil"));
+		ImGuiUtil->Initialize(this, QuadController);
+	}
 	if (ImGuiUtil)
 	{
 		ImGuiUtil->Initialize(this, QuadController);
 	}
 
+	NavigationComponent->SetNavigationPlan(spiralWaypoints());
+
+	// Reset PID controllers
 	QuadController->ResetPID();
 	DroneBody->OnComponentHit.AddDynamic(this, &AQuadPawn::OnDroneHit);
 	

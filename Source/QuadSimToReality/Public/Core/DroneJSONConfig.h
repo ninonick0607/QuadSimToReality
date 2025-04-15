@@ -10,6 +10,7 @@ struct FDroneConfigData
 	GENERATED_BODY()
 
 	struct FFlightParameters {
+		float MaxVelocityBound;
 		float MaxVelocity;
 		float MaxAngle;
 		float MaxPIDOutput;

@@ -7,6 +7,8 @@ class AQuadPawn;
 class QuadPIDController;
 class UQuadDroneController;
 
+enum class EFlightMode : uint8;
+
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class QUADSIMTOREALITY_API UImGuiUtil : public UActorComponent
 {
@@ -19,21 +21,22 @@ public:
     void Initialize(AQuadPawn* InPawn, UQuadDroneController* InController);
 
     /** Main functions to draw the UI */
-    void VelocityHud(TArray<float>& ThrustsVal,
-                     float rollError, float pitchError,
-                     const FRotator& currentRotation,
-                     const FVector& currLoc,
-                     const FVector& error,
-                     const FVector& currentVelocity,
-                     float xOutput, float yOutput, float zOutput, float deltaTime);
-
-
-    void RenderImPlot(const TArray<float>& ThrustsVal, const FVector& desiredForwardVector, const FVector& currentForwardVector, float deltaTime);
-    void RenderControlPlots(float deltaTime, const FRotator& currentRotation, float desiredRoll, float desiredPitch);
-
-    void DisplayPIDSettings(const char* headerLabel, bool& synchronizeXYGains, bool& synchronizeGains);
+    void ImGuiHud(EFlightMode CurrentMode, TArray<float>& ThrustsVal,
+        float rollError, float pitchError,
+        const FRotator& currentRotation,
+        const FVector& waypoint, const FVector& currLoc,
+        const FVector& error,
+        const FVector& currentVelocity,
+        float maxVelocity,
+        float maxAngle,
+        float xOutput, float yOutput, float zOutput, float deltaTime);
+    
+    void RenderControlPlots(float deltaTime, const FRotator& currentRotation, float desiredRoll, float desiredPitch,float maxAngle);
+    void DisplayPIDSettings(EFlightMode Mode, const char* headerLabel, bool& synchronizeXYGains, bool& synchronizeGains);
     void DisplayButtons();
-    void DisplayDesiredVelocities();
+    void DisplayThrust(TArray<float>& ThrustsNum);
+    void DisplayDesiredVelocities(float maxVelocity);
+    void DisplayDesiredPositions();
     void DisplayPIDHistoryWindow();
 
 protected:
@@ -49,11 +52,9 @@ private:
     UPROPERTY()
     UQuadDroneController* Controller;
 
-    // Parameters (stored by value now)
-    float maxVelocity;
-    float maxAngle;
+    float maxVelocityBound;
+    bool plotSwitch;
     float maxThrust;
-    bool plotSwitch; 
     // Data for plotting
     TArray<float> TimeData;
     TArray<float> Thrust0Data;
@@ -81,7 +82,7 @@ private:
     TArray<float> DesiredPitchData;
     
     // Helper method to load PID values from a CSV row
-    void LoadPIDValues(const TArray<FString>& Values);
+    void LoadPIDValues(EFlightMode Mode, const TArray<FString>& Values);
 
     static const int32 MaxDataPoints = 500;
 };

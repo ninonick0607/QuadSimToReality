@@ -4,7 +4,8 @@
 #include "GameFramework/Pawn.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
-#include "Core/ThrusterComponent.h" 
+#include "Core/ThrusterComponent.h"
+#include "Utility/NavigationComponent.h"
 #include "UI/ImGuiUtil.h"        
 #include "QuadPawn.generated.h"
 
@@ -22,6 +23,12 @@ enum class ECameraMode : uint8
 	GroundTrack UMETA(DisplayName = "Ground Track")
 };
 
+enum class EWaypointMode
+{
+	WaitingForModeSelection,	
+	ManualWaypointInput,
+	ReadyToStart
+};
 UCLASS()
 class QUADSIMTOREALITY_API AQuadPawn : public APawn 
 {
@@ -78,6 +85,10 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Identification")
 	FString DroneID;
 
+	EWaypointMode WaypointMode;
+	TArray<FVector> ManualWaypoints;
+	FVector NewWaypoint;
+
 	// --- Helper Functions ---
 	void SwitchCamera();
 
@@ -99,6 +110,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Collision")
 	void ResetCollisionStatus();
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Navigation")
+	UNavigationComponent* NavigationComponent;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -113,5 +127,7 @@ private:
 	void ResetGroundCameraPosition();
 	void UpdateGroundCameraTracking();
 	float LastCollisionTime;
-	float CollisionTimeout = 0.2f; 
+	float CollisionTimeout = 0.2f;
+	bool bWaypointModeSelected;
+
 };

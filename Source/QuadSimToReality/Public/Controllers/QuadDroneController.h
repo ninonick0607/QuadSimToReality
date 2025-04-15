@@ -8,6 +8,15 @@
 
 class AQuadPawn;
 
+UENUM(BlueprintType)
+enum class EFlightMode : uint8
+{
+    None UMETA(DisplayName = "None"),
+    AutoWaypoint UMETA(DisplayName = "AutoWaypoint"),
+    JoyStickControl UMETA(DisplayName = "JoyStickControl"),
+    VelocityControl UMETA(DisplayName = "VelocityControl")
+};
+
 USTRUCT()
 struct FFullPIDSet
 {
@@ -51,80 +60,89 @@ public:
     void Update(double DeltaTime);
 
     void VelocityControl(double a_deltaTime);
+    //void ApplyControllerInput(double a_deltaTime);
+    void AutoWaypointControl(double DeltaTime);
     void ThrustMixer(double currentRoll, double currentPitch, double zOutput, double rollOutput, double pitchOutput);
     void YawStabilization(double DeltaTime);
     void YawRateControl(double DeltaTime);
+    
     void ResetPID();
     void ResetDroneIntegral();
     void ResetDroneHigh();
     void ResetDroneOrigin();
 
-    void DrawDebugVisuals(const FVector& horizontalVelocity) const;
+    void SetDesiredVelocity(const FVector& NewVelocity);
     void SetManualThrustMode(bool bEnable);
+    void SetHoverMode(bool bActive, float TargetAltitude = 250.0f);
+    void SetDestination(FVector desiredSetPoints);
+
+    void DrawDebugVisuals(const FVector& currentPosition)const;
+    void DrawDebugVisualsVel(const FVector& horizontalVelocity) const;
     void SafetyReset();
     void ApplyManualThrusts();
-
-    bool IsHoverModeActive() const { return bHoverModeActive; }
-    void SetHoverMode(bool bActive, float TargetAltitude);
-
-    bool GetDebugVisualsEnabled() const { return bDebugVisualsEnabled; }
-    void SetDebugVisualsEnabled(bool bEnabled) { bDebugVisualsEnabled = bEnabled; }
-    void SetDesiredYawRate(float NewYawRate) { desiredYawRate = NewYawRate; }
-    float GetDesiredYawRate() const { return desiredYawRate; }
-    void SetDesiredRoll(float NewRoll) { desiredRoll = NewRoll; }
-    void SetDesiredPitch(float NewPitch) { desiredPitch = NewPitch; }
-    void SetDesiredAngle(float newAngle) { maxAngle = newAngle; }
-    FFullPIDSet* GetPIDSet() { return PIDMap.Num() > 0 ? &PIDMap[0] : nullptr; }
+ 
     float GetDesiredYaw() const { return desiredYaw; }
     FVector GetDesiredVelocity() const { return desiredNewVelocity; }
-    float GetCurrentThrustOutput(int32 ThrusterIndex) const;
-    void SetDesiredVelocity(const FVector& NewVelocity);
+    bool GetDebugVisualsEnabled() const { return bDebugVisualsEnabled; }
     FVector GetCurrentLocalVelocity() const { return currentLocalVelocity; }
-    UFUNCTION(BlueprintPure, Category = "Drone State")
-    FVector GetCurrentVelocity() const; // Make sure this is implemented to return world velocity
+    float GetDesiredYawRate() const { return desiredYawRate; }
+    FVector GetCurrentSetPoint() const { return setPoint; }
 
+    void SetDebugVisualsEnabled(bool bEnabled) { bDebugVisualsEnabled = bEnabled; }
+    void SetDesiredYawRate(float NewYawRate) { desiredYawRate = NewYawRate; }
+    void SetDesiredAngle(float newAngle) { maxAngle = newAngle; }
+    void SetMaxVelocity(float newMaxVelocity) { maxVelocity = newMaxVelocity;}
+    void SetMaxAngle(float newMaxAngle) { maxAngle = newMaxAngle;}
+    bool IsHoverModeActive() const { return bHoverModeActive; }
+
+    float GetCurrentThrustOutput(int32 ThrusterIndex) const;
+    UFUNCTION(BlueprintPure, Category = "Drone State")
+    FVector GetCurrentVelocity() const; 
     UFUNCTION(BlueprintPure, Category = "Drone State|ROS")
     FQuat GetOrientationAsQuat() const;
-
     UFUNCTION(BlueprintPure, Category = "Drone State|ROS")
     FVector GetCurrentAngularVelocityRADPS() const;
+
+    FFullPIDSet* GetPIDSet(EFlightMode Mode)
+    {
+        return PIDMap.Find(Mode); 
+    }
     
 private:
 
     UPROPERTY()
-    TArray<FFullPIDSet> PIDMap;
+    TMap<EFlightMode, FFullPIDSet> PIDMap;
+    QuadPIDController* AltitudePID;
+    EFlightMode currentFlightMode;
 
+    //Global Drone Variables
     float desiredYaw;
-    float desiredAltitude;
     FVector currentLocalVelocity;
-    FVector desiredNewVelocity;
-
     float maxVelocity;
     float maxAngle;
     float maxPIDOutput;
-    float altitudeThresh;
+    FVector desiredForwardVector;
+    double YawTorqueForce;
+    double LastYawTorqueApplied; // Maybe not needed, why global??
+    float desiredYawRate;
+    bool bDebugVisualsEnabled = false;
+
+    // AutoWaypointControl variables
+    FVector setPoint;
     float minAltitudeLocal;
     float acceptableDistance;
 
-    bool initialTakeoff;
-    bool altitudeReached;
-    bool bDebugVisualsEnabled = false;
-    
-    double MaxAngularVelocity;
-    double YawTorqueForce;
-    double LastYawTorqueApplied;
-    bool UpsideDown;
-    FVector desiredForwardVector;
-    FVector initialDronePosition;
+    // VelocityControl
+    FVector desiredNewVelocity;
 
-    QuadPIDController* AltitudePID;
-    bool bHoverModeActive;
+    // Hover Mode
     float hoverTargetAltitude;
-    
-    float desiredYawRate;
-    float desiredRoll;
-    float desiredPitch;
+    bool bHoverModeActive;
 
+    // Debug
+    bool Debug_DrawDroneCollisionSphere;
+    bool Debug_DrawDroneWaypoint;
+    
     bool bManualThrustMode = false;
 
 };
