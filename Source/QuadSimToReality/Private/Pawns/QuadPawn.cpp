@@ -85,6 +85,7 @@ AQuadPawn::AQuadPawn()
 	  , NewWaypoint(FVector::ZeroVector) // 16
 	  , QuadController(nullptr) // 20
 	  , bWaypointModeSelected(false) // 21
+      , bHasCollidedWithObstacle(false)
 	  , Input_ToggleImguiInput(nullptr)
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -142,9 +143,7 @@ AQuadPawn::AQuadPawn()
 
 	// Create additional components
 	ImGuiUtil = CreateDefaultSubobject<UImGuiUtil>(TEXT("DroneImGuiUtil"));
-
 	AutoPossessPlayer = EAutoReceiveInput::Player0;
-
 	NavigationComponent = CreateDefaultSubobject<UNavigationComponent>(TEXT("NavigationComponent"));
 }
 
@@ -163,7 +162,6 @@ void AQuadPawn::BeginPlay()
 
 	UE_LOG(LogTemp, Display, TEXT("QuadPawn BeginPlay: Pawn=%p, Name=%s"), this, *GetName());
 	
-	// If ImGuiUtil is not created through CreateDefaultSubobject
 	if (!ImGuiUtil)
 	{
 		ImGuiUtil = NewObject<UImGuiUtil>(this, UImGuiUtil::StaticClass(), TEXT("DroneImGuiUtil"));
@@ -248,7 +246,8 @@ void AQuadPawn::ReloadJSONConfig()
 	UDroneJSONConfig::Get().ReloadConfig();
 }
 
-void AQuadPawn::OnDroneHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+void AQuadPawn::OnDroneHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, 
+						   UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 	if (OtherActor && OtherActor != this)
 	{
@@ -256,14 +255,20 @@ void AQuadPawn::OnDroneHit(UPrimitiveComponent* HitComponent, AActor* OtherActor
 
 		if (OtherActor->ActorHasTag(ObstacleCollisionTag))
 		{
+			// Set the collision flag if not already set
 			if (!bHasCollidedWithObstacle)
 			{
 				bHasCollidedWithObstacle = true;
 				UE_LOG(LogTemp, Display, TEXT("%s collided with obstacle: %s"), *GetName(), *OtherActor->GetName());
+                
+				GetWorld()->GetTimerManager().ClearTimer(CollisionHoldTimerHandle);
+				GetWorld()->GetTimerManager().SetTimer(CollisionHoldTimerHandle, this,
+					&AQuadPawn::ResetCollisionStatus, CollisionHoldDuration, false);
 			}
 		}
 	}
 }
+
 void AQuadPawn::ResetCollisionStatus()
 {
 	if (bHasCollidedWithObstacle) 

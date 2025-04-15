@@ -52,8 +52,6 @@ void UImGuiUtil::ImGuiHud(EFlightMode CurrentMode,TArray<float>& ThrustsVal,
 								  float maxAngle,
                                   float xOutput, float yOutput, float zOutput, float deltaTime)
 {
-	UE_LOG(LogTemp, Display, TEXT("IN IMGUI!!"));
-
 	// Set up window position and size
 	ImGui::SetNextWindowPos(ImVec2(420, 10), ImGuiCond_FirstUseEver);
 	ImGui::SetNextWindowSize(ImVec2(500, 500), ImGuiCond_FirstUseEver);

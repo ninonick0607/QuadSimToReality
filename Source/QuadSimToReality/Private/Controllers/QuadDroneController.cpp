@@ -237,7 +237,7 @@ void UQuadDroneController::VelocityControl(double DeltaTime)
 	YawRateControl(DeltaTime);
 
 	// TODO: Fix Yaw Stabilization to work in local frame 
-	YawStabilization(DeltaTime);
+	//YawStabilization(DeltaTime);
 	DrawDebugVisualsVel(FVector(desiredLocalVelocity.X, desiredLocalVelocity.Y, 0));
 	if (dronePawn && dronePawn->ImGuiUtil)
 	{

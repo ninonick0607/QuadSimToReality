@@ -350,64 +350,43 @@ void AZMQController::HandleObstacleCommand(zmq::multipart_t& Message)
 
 void AZMQController::SendStateData()
 {
-    UPrimitiveComponent* RootPrimitive = nullptr;
-    if (DronePawn)
-    {
-        RootPrimitive = Cast<UPrimitiveComponent>(DronePawn->GetRootComponent());
-    }
+    if (!ControlSocket || !DronePawn) return;
 
+    UPrimitiveComponent* RootPrimitive = Cast<UPrimitiveComponent>(DronePawn->GetRootComponent());
     if (!RootPrimitive) return;
 
-    if (ControlSocket)
-    {
-        FVector CurrentVelocity = DroneController ? DroneController->GetCurrentLocalVelocity() : FVector::ZeroVector;
-        FVector CurrentPosition = DronePawn->GetActorLocation();
-        FRotator CurrentRotation = DronePawn->GetActorRotation();
-        if (ObstacleManagerInstance)
-        {
-            CurrentGoalPosition = ObstacleManagerInstance->GetGoalPosition();
-        }
+    FVector CurrentVelocity = DroneController->GetCurrentLocalVelocity();
+    FVector CurrentPosition = DronePawn->GetActorLocation();
+    FRotator CurrentRotation = DronePawn->GetActorRotation();
 
-        try
-        {
-            FString StateData = FString::Printf(
-                TEXT("VELOCITY:%f,%f,%f;POSITION:%f,%f,%f;GOAL:%f,%f,%f;ATTITUDE:%f,%f,%f"),
-                CurrentVelocity.X, CurrentVelocity.Y, CurrentVelocity.Z,
-                CurrentPosition.X, CurrentPosition.Y, CurrentPosition.Z,
-                CurrentGoalPosition.X, CurrentGoalPosition.Y, CurrentGoalPosition.Z,
-                CurrentRotation.Roll, CurrentRotation.Pitch, CurrentRotation.Yaw
-            );
-
-            zmq::multipart_t Message;
-            Message.addstr(TCHAR_TO_UTF8(*StateData));
-            Message.send(*ControlSocket, static_cast<int>(zmq::send_flags::none));
-        }
-        catch (const zmq::error_t& Error)
-        {
-            UE_LOG(LogTemp, Warning, TEXT("Failed to send state data: %s"),
-                   *FString(UTF8_TO_TCHAR(Error.what())));
-        }
+    if (ObstacleManagerInstance) {
+        CurrentGoalPosition = ObstacleManagerInstance->GetGoalPosition();
     }
+    
+    // Retrieve collision state from the Pawn's helper function
+    bool bCollision = DronePawn->HasCollided();
+    UE_LOG(LogTemp, Display, TEXT("Drone collision state is: %s"), bCollision ? TEXT("Colliding") : TEXT("Not Colliding"));
 
-    if (CollisionSocket && DronePawn)
+    // Create state data including collision info
+    FString StateData = FString::Printf(
+        TEXT("VELOCITY:%f,%f,%f;POSITION:%f,%f,%f;GOAL:%f,%f,%f;ATTITUDE:%f,%f,%f;COLLISION:%d"),
+        CurrentVelocity.X, CurrentVelocity.Y, CurrentVelocity.Z,
+        CurrentPosition.X, CurrentPosition.Y, CurrentPosition.Z,
+        CurrentGoalPosition.X, CurrentGoalPosition.Y, CurrentGoalPosition.Z,
+        CurrentRotation.Roll, CurrentRotation.Pitch, CurrentRotation.Yaw,
+        bCollision ? 1 : 0
+    );
+    
+    try
     {
-        bool bCollision = DronePawn->HasCollided();
-        try
-        {
-            std::string collision_msg_str = bCollision ? "1" : "0";
-            zmq::message_t collision_msg(collision_msg_str.begin(), collision_msg_str.end());
-            CollisionSocket->send(collision_msg, zmq::send_flags::none);
-
-            // Optional: Reset collision status on pawn after sending it
-            // if (bCollision) {
-            //     DronePawn->ResetCollisionStatus();
-            // }
-        }
-        catch (const zmq::error_t& Error)
-        {
-            UE_LOG(LogTemp, Warning, TEXT("Failed to send collision data: %s"),
-                   *FString(UTF8_TO_TCHAR(Error.what())));
-        }
+        zmq::multipart_t Message;
+        Message.addstr(TCHAR_TO_UTF8(*StateData));
+        Message.send(*ControlSocket, static_cast<int>(zmq::send_flags::none));
+    }
+    catch (const zmq::error_t& Error)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Failed to send state data: %s"),
+               *FString(UTF8_TO_TCHAR(Error.what())));
     }
 }
 
@@ -427,6 +406,7 @@ void AZMQController::InitializeImageCapture()
     CaptureComponent = NewObject<USceneCaptureComponent2D>(this);
     CaptureComponent->SetupAttachment(DronePawn->CameraFPV);
     CaptureComponent->RegisterComponent();
+    CaptureComponent->HiddenActors.Add(DronePawn);
     CaptureComponent->TextureTarget = RenderTarget;
     if (DronePawn->CameraFPV)
     {
@@ -440,6 +420,8 @@ void AZMQController::InitializeImageCapture()
     CaptureComponent->bCaptureEveryFrame = false;
     CaptureComponent->bCaptureOnMovement = false;
     CaptureComponent->PrimitiveRenderMode = ESceneCapturePrimitiveRenderMode::PRM_LegacySceneCapture;
+    CaptureComponent->bAlwaysPersistRenderingState = true;
+
 }
 
 void AZMQController::ProcessImageCapture()
@@ -450,7 +432,12 @@ void AZMQController::ProcessImageCapture()
     }
     
     bIsCapturing = true;
-    
+
+    const FVector CaptureLocation = DronePawn->CameraFPV->GetComponentLocation();
+    const FRotator CameraFullRotation = DronePawn->CameraFPV->GetComponentRotation();
+    const FRotator CaptureYawOnlyRotation = FRotator(0.0f, CameraFullRotation.Yaw, 0.0f);
+    CaptureComponent->SetWorldLocationAndRotation(CaptureLocation, CaptureYawOnlyRotation);
+
     CaptureComponent->CaptureScene();
     RenderTarget->UpdateResourceImmediate(false);
     

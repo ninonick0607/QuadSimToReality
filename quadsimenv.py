@@ -11,18 +11,17 @@ from collections import OrderedDict
 from typing import Callable
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback, BaseCallback
-from stable_baselines3.common.  monitor import Monitor
+from stable_baselines3.common.monitor import Monitor
 
-#import tensorboard
 # --- QuadSimEnv definition ---
 class QuadSimEnv(gym.Env):
-    def __init__(self, action_frequency: int=10, reward_fn: Callable[[float], float]=None):
+    def __init__(self, action_frequency: int = 10, reward_fn: Callable[[float], float] = None):
         super(QuadSimEnv, self).__init__()  
 
         self.action_space = gym.spaces.Box(
             low=-1,  
             high=1,
-            shape=(1,), # Yaw Rate command
+            shape=(1,),  # Yaw Rate command
             dtype=np.float32
         )
 
@@ -55,10 +54,10 @@ class QuadSimEnv(gym.Env):
         self.action_frequency = action_frequency
         self.context = zmq.Context()
 
-        if reward_fn is not None: self.reward_fn = reward_fn
+        if reward_fn is not None:
+            self.reward_fn = reward_fn
         else:
             self.reward_fn = lambda angle: np.maximum(0, np.maximum(0.5 - (angle - 5) / 170, 1 - angle / 10))
-
 
         # Subscriber socket for receiving images
         self.image_socket = self.context.socket(zmq.SUB)
@@ -70,7 +69,7 @@ class QuadSimEnv(gym.Env):
         self.command_socket = self.context.socket(zmq.PUB)
         self.command_socket.bind("tcp://*:5556")  
 
-        # Subscriber socket for receiving state
+        # Subscriber socket for receiving state data (including collision)
         self.control_socket = self.context.socket(zmq.SUB)
         self.control_socket.setsockopt(zmq.CONFLATE, 1)  # Keep only the latest message
         self.control_socket.connect("tcp://localhost:5558")
@@ -80,18 +79,20 @@ class QuadSimEnv(gym.Env):
         self.obstacle_socket = self.context.socket(zmq.PUB)
         self.obstacle_socket.bind("tcp://*:5559")
         
+        # We'll store the collision state in this variable (updated via state data)
         self.collision_state = False
 
-        self.collision_socket = self.context.socket(zmq.SUB)
-        self.collision_socket.setsockopt(zmq.CONFLATE, 1)
-        self.collision_socket.connect("tcp://localhost:5560") # Connect to the new CollisionPort
-        self.collision_socket.setsockopt_string(zmq.SUBSCRIBE, '')
         # --- Matplotlib Setup ---
         self.fig, self.ax = plt.subplots()
-        self.im_display = self.ax.imshow(self.image) # Initial display object
-        plt.ion() # Turn on interactive mode
-        plt.show(block=False) # Show the plot without blocking
+        self.im_display = self.ax.imshow(self.image)  # Initial display object
+        # Text to display collision status
+        self.collision_text = self.ax.text(0.02, 0.98, '', transform=self.ax.transAxes,
+                                           color='red', fontsize=10, verticalalignment='top',
+                                           bbox=dict(boxstyle='round,pad=0.3', fc='wheat', alpha=0.7))
+        plt.ion()  # Enable interactive mode
+        plt.show(block=False)
         # --- End Matplotlib Setup ---
+
         self.steps = 0
         time.sleep(0.1)
 
@@ -102,71 +103,56 @@ class QuadSimEnv(gym.Env):
         (3) Distance to goal (scalar)
         (4-5) Angle to goal (relative to drone body, cosine and sine)
         """
-        
         vel = self.state['velocity']
         distance_to_goal = np.linalg.norm(self.state['position'][:-1] - self.goal_state[:-1])
-        global_angle_to_goal = np.arctan2(self.goal_state[1] - self.state['position'][1], self.goal_state[0] - self.state['position'][0])
+        global_angle_to_goal = np.arctan2(self.goal_state[1] - self.state['position'][1],
+                                          self.goal_state[0] - self.state['position'][0])
         local_angle_to_goal = np.rad2deg(global_angle_to_goal) - self.state['attitude'][2]
         local_angle_to_goal = np.deg2rad(local_angle_to_goal)
 
         return np.array([*vel, distance_to_goal, np.cos(local_angle_to_goal), np.sin(local_angle_to_goal)], dtype=np.float32)
 
     def reset(self, seed=None):
-        # self.send_reset_command()
         self.send_obstacle_command(1, True)
         time.sleep(0.1)  # Wait for the reset to take effect
         self.handle_data()
-        self.handle_collision_data() 
         self.steps = 0
         obs = self.get_observation()
-        # self.image = self.retrieve_image()
         complete_obs = OrderedDict([
             ('pixels', self.image),
             ('observation', obs)
         ])
         return complete_obs, {}
     
-    
     def step(self, action):
-        # Apply action and update environment
-        # full_action = np.array([*action, 0.0]) * 250.0
+        # Apply action and update environment.
         full_action = np.array([0, 0, action[0], 0])
-        
         self.send_velocity_command(full_action)
-
-        time.sleep(1 / self.action_frequency) # Action frequency is ~10 Hz
+        time.sleep(1 / self.action_frequency)  # Action frequency is ~10 Hz
 
         self.handle_data()
-        self.handle_collision_data() 
-        
         observation = self.get_observation()
-        # if self.steps % 5 == 0:
-        #     self.image = self.retrieve_image()
         complete_obs = OrderedDict([
             ('pixels', self.image),
             ('observation', observation)
         ])
 
-        # reward = 1 - (observation[6] / 13000) # Reward based on distance to goal (normalized to ~[0, 1])
-        # reward += 1 - np.abs((observation[2] - 250) / 250) # Reward based on altitude (reward 1 is 250cm, reward 0 = 0cm or 500cm)
         local_angle = np.abs(np.rad2deg(np.arctan2(observation[5], observation[4])))
-        # Reward based on angle to goal
         reward = self.reward_fn(local_angle)
 
-        # Termination conditions
         done = False
-        if self.steps >= 256: done = True; print("Max steps reached")
+        if self.steps >= 256:
+            done = True
+            print("Max steps reached")
         if self.collision_state:
-            done = True; print("Collision detected")
-            reward -= 1.0 # Optional penalty
-        # if observation[2] > 500: done = True; print("Quadrotor too high")
-        # if observation[2] < 5: done = True; print("Quadrotor too low")
-        
+            done = True
+            print("Collision detected")
+            reward -= 1.0  # Optional penalty
+
         self.steps += 1
         return complete_obs, reward, done, False, {}
 
     def send_velocity_command(self, velocity):
-        # Should be a 1D numpy array with 4 elements: [vx, vy, vz, yaw_rate]
         command_topic = "VELOCITY"
         message = np.array(velocity, dtype=np.float32).tobytes()
         self.command_socket.send_multipart([command_topic.encode(), message])
@@ -179,95 +165,68 @@ class QuadSimEnv(gym.Env):
         time.sleep(0.1)
 
     def send_obstacle_command(self, obstacleNum, bObstacleRand):
-        # print("Obstacles called")
         obstacle_topic = "CREATE_OBSTACLE"
         float_data = struct.pack('f', float(obstacleNum))
         bool_data = struct.pack('?', bool(bObstacleRand))
-        
-        self.obstacle_socket.send_multipart([
-            obstacle_topic.encode(), 
-            float_data,
-            bool_data
-        ])
+        self.obstacle_socket.send_multipart([obstacle_topic.encode(), float_data, bool_data])
         
     def handle_data(self):
-            print("Checking for state data...") # DEBUG PRINT
-            try:
-                # Use poll with a short timeout instead of NOBLOCK for initial check
-                if self.control_socket.poll(10): # Poll for 10 milliseconds
-                    unified_data = self.control_socket.recv_string()
-                    print(f"--- RAW STATE DATA RECEIVED: {unified_data}") # DEBUG PRINT
-                    data_parts = unified_data.split(";")
-                    parsed_data = {}
-                    for part in data_parts:
-                        key, values_str = part.split(":")
+        print("Checking for state data...")  # Debug print
+        try:
+            if self.control_socket.poll(10):  # Poll for 10 ms
+                unified_data = self.control_socket.recv_string()
+                print(f"--- RAW STATE DATA RECEIVED: {unified_data}")  # Debug print
+
+                data_parts = unified_data.split(";")
+                if len(data_parts) != 5:
+                    raise ValueError(f"Expected 5 parts in state data, got {len(data_parts)}. Data: {unified_data}")
+                    
+                parsed_data = {}
+                for part in data_parts:
+                    key, values_str = part.split(":")
+                    # For "COLLISION", we expect a single number
+                    if key == "COLLISION":
+                        parsed_data[key] = float(values_str)
+                    else:
                         values = values_str.split(",")
                         if len(values) != 3:
-                            print(f"!!! Invalid data for key {key}: {values_str}") # DEBUG PRINT
-                            # Optional: return or raise error
-                            return # Exit processing if format is wrong
+                            raise ValueError(f"Invalid data for key {key}: {values_str}")
                         parsed_data[key] = list(map(float, values))
 
-                    self.state.update({
-                        'velocity': np.array(parsed_data["VELOCITY"]),
-                        'position': np.array(parsed_data["POSITION"]),
-                        'attitude': np.array(parsed_data["ATTITUDE"])
-                    })
-                    self.goal_state = np.array(parsed_data["GOAL"])
-                    print("--- State data successfully parsed.") # DEBUG PRINT
-                # else: # Optional print if you want to see polls with no data
-                #     print("--- No state data available in poll.") # DEBUG PRINT
-
-            except Exception as e:
-                print(f"!!! State data handling EXCEPTION: {str(e)}") # DEBUG PRINT
-
-    def handle_collision_data(self):
-        print("Checking for collision data...") # DEBUG PRINT
-        try:
-            # Use non-blocking receive here is fine
-            collision_msg = self.collision_socket.recv_string(flags=zmq.NOBLOCK)
-            print(f"--- RAW COLLISION DATA RECEIVED: {collision_msg}") # DEBUG PRINT
-            self.collision_state = (collision_msg == "1")
-            print(f"--- Collision state set to: {self.collision_state}") # DEBUG PRINT
-        except zmq.Again:
-            # This is expected when no new message is available
-            print("--- No new collision data (zmq.Again).") # DEBUG PRINT
-            pass # Keep the last state
+                self.state.update({
+                    'velocity': np.array(parsed_data["VELOCITY"]),
+                    'position': np.array(parsed_data["POSITION"]),
+                    'attitude': np.array(parsed_data["ATTITUDE"])
+                })
+                self.goal_state = np.array(parsed_data["GOAL"])
+                self.collision_state = bool(parsed_data["COLLISION"])
+                print(f"--- State data parsed. Collision state: {self.collision_state}")
         except Exception as e:
-            print(f"!!! Collision handling EXCEPTION: {str(e)}") # DEBUG PRINT
-            self.collision_state = False
-# Inside QuadSimEnv class:
+            print(f"!!! State data handling EXCEPTION: {str(e)}")
+            self.reset()
+
     def retrieve_image(self):
         """Receives and decodes image data from the ZMQ socket."""
         try:
-            # Use recv() assuming the whole message is the image bytes
             message = self.image_socket.recv(flags=zmq.NOBLOCK)
             image_data = np.frombuffer(message, dtype=np.uint8)
-            # Decode assuming it's a standard format like JPEG or PNG
             image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
             if image is not None:
-                # print("Image received! Shape:", image.shape) # Optional debug
-                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB) # Convert BGR to RGB for Matplotlib
-                # Ensure the image has the expected shape (optional resize/crop)
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                 if image.shape[0:2] != (128, 128):
-                     # Example: Resize if it's not the correct size
-                     image = cv2.resize(image, (128, 128), interpolation=cv2.INTER_AREA)
-                self.image = image # Update the class's image attribute
+                    image = cv2.resize(image, (128, 128), interpolation=cv2.INTER_AREA)
+                self.image = image
                 return image
             else:
-                # Failed decoding, keep the old image
                 print("Warning: Failed to decode image")
                 return self.image
         except zmq.Again:
-            # No new message, return the last known image
             return self.image
         except Exception as e:
             print(f"Error receiving/processing image: {str(e)}")
-            # Return the last known image on other errors
             return self.image
         
     def close(self):
-        # Terminate the ZeroMQ context
         if hasattr(self, 'context') and self.context:
             self.context.destroy()
             self.context = None
@@ -278,32 +237,26 @@ if __name__ == "__main__":
     best_model_path = "./RL_training/best_model/best_model.zip"
     env = QuadSimEnv()
     time.sleep(1.0)
-    env.send_obstacle_command(100, True) # Optionally send command
-    # time.sleep(1.0)
-    # env.handle_data() # Initial fetch if needed
+    env.send_obstacle_command(100, True)  # Optionally send obstacle command
 
     try:
         step_count = 0
         while True:
             env.handle_data()
-            env.handle_collision_data()
 
-            # --- Retrieve and Display Image ---
-            current_image = env.retrieve_image() # Gets latest or last known image
-            env.im_display.set_data(current_image) # Update plot data
-            plt.pause(0.05) # Allow plot to redraw (adjust pause as needed)
-            # --- End Image Display ---
+            # Update collision text on the display
+            collision_status_str = f"Collision: {env.collision_state}"
+            env.collision_text.set_text(collision_status_str)
 
-            # You might add dummy actions or other logic here for testing
-            # action = env.action_space.sample() # Example
-            # obs, reward, done, _, info = env.step(action) # Example
-            # if done:
-            #    env.reset()
+            # Retrieve and display image
+            current_image = env.retrieve_image()
+            env.im_display.set_data(current_image)
+            plt.pause(0.05)
 
-            time.sleep(0.1) # Control loop speed
+            time.sleep(0.1)
             step_count += 1
-            if step_count > 500: # Limit test duration
-                 break
+            if step_count > 500:
+                break
 
     except KeyboardInterrupt:
         print("\nLoop interrupted by user.")

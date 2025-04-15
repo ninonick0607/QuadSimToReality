@@ -11,8 +11,6 @@
 #include "Components/PrimitiveComponent.h" 
 #include "QuadPawn.generated.h"
 
-#define ACCEPTABLE_DIST 200
-
 enum class EWaypointMode
 {
 	WaitingForModeSelection,	
@@ -36,17 +34,17 @@ public:
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	
 	// --- Drone Components ---
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UStaticMeshComponent* DroneBody;
 
 	// --- Camera Components ---
-	UPROPERTY(VisibleAnywhere, Category = "Camera")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	USpringArmComponent* SpringArm;
 
-	UPROPERTY(VisibleAnywhere, Category = "Camera")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	UCameraComponent* Camera;
 
-	UPROPERTY(VisibleAnywhere, Category = "Camera")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	UCameraComponent* CameraFPV;
 	
 	EWaypointMode WaypointMode;
@@ -55,9 +53,10 @@ public:
 
 	
 	// --- Thruster Components ---
-	UPROPERTY(VisibleAnywhere, Category = "Components")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TArray<UStaticMeshComponent*> Propellers;
-	UPROPERTY(VisibleAnywhere, Category = "Components")
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TArray<UThrusterComponent*> Thrusters;
 
 	// --- Drone Configuration ---
@@ -113,7 +112,9 @@ protected:
 private:
 	// Updates control each tick.
 	void UpdateControl(float DeltaTime);
-	
+	FTimerHandle CollisionHoldTimerHandle;
+	float CollisionHoldDuration = 0.5f; // seconds
+
 	bool bWaypointModeSelected;
 
 	UPROPERTY(VisibleAnywhere)
