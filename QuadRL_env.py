@@ -22,7 +22,8 @@ import sys
 import os
 import glob 
 from scipy.spatial.transform import Rotation as R 
-
+from tf2_ros import TransformBroadcaster
+from geometry_msgs.msg import TransformStamped
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
 from stable_baselines3.common.monitor import Monitor
@@ -98,6 +99,8 @@ class QuadSimEnv(Node, gym.Env):
 
         self.spin_thread = threading.Thread(target=rclpy.spin, args=(self,), daemon=True)
         self.spin_thread.start()
+        self.tf_broadcaster = TransformBroadcaster(self)
+
         self.get_logger().info("ROS2 spinning started in background thread.")
         time.sleep(1.0)
 
@@ -126,6 +129,21 @@ class QuadSimEnv(Node, gym.Env):
             # Calculate metrics immediately after state update if goal is known
             if np.any(self.goal_position_cm): # Check if goal has been set
                 self._calculate_goal_metrics()
+
+        t = TransformStamped()
+        t.header.stamp = msg.header.stamp
+        t.header.frame_id    = msg.header.frame_id    # "odom"
+        t.child_frame_id     = msg.child_frame_id     # "base_link"
+        t.transform.translation.x = msg.pose.pose.position.x
+        t.transform.translation.y = msg.pose.pose.position.y
+        t.transform.translation.z = msg.pose.pose.position.z
+
+        t.transform.rotation.x = msg.pose.pose.orientation.x
+        t.transform.rotation.y = msg.pose.pose.orientation.y
+        t.transform.rotation.z = msg.pose.pose.orientation.z
+        t.transform.rotation.w = msg.pose.pose.orientation.w
+
+        self.tf_broadcaster.sendTransform(t)
 
     def goal_callback(self, msg):
         with self.lock:

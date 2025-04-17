@@ -40,142 +40,96 @@ void UImGuiUtil::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompo
     Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 }
 
-void UImGuiUtil::ImGuiHud(EFlightMode CurrentMode,TArray<float>& ThrustsVal,
-                                  float desiredRollAngle, float desiredPitchAngle,
-                                  const FRotator& currentRotation,
-                                  const FVector& waypoint, const FVector& currLoc,
-                                  const FVector& error,
-                                  const FVector& currentVelocity,
-								  float maxVelocity,
-								  float maxAngle,
-                                  float xOutput, float yOutput, float zOutput, float deltaTime)
+
+void UImGuiUtil::ImGuiHud(EFlightMode CurrentMode, TArray<float>& ThrustsVal,
+                          float desiredRollAngle, float desiredPitchAngle,
+                          const FRotator& currentRotation,
+                          const FVector& waypoint, const FVector& currLoc,
+                          const FVector& error,
+                          const FVector& currentVelocity,
+                          float maxVelocity,
+                          float maxAngle,
+                          float xOutput, float yOutput, float zOutput, float deltaTime)
 {
-    static bool bLocalManualMode = false;
-    static bool syncXY = false;
-    static bool syncRP = false;
-    static float AllThrustValue = 0.0f;
-    static bool synchronizeDiagonal1 = false;
-    static bool synchronizeDiagonal2 = false;
-    FVector currentDesiredVelocity = Controller ? Controller->GetDesiredVelocity() : FVector::ZeroVector;
-
+    // Window setup
     ImGui::SetNextWindowPos(ImVec2(420, 10), ImGuiCond_FirstUseEver);
-    ImVec2 initialSize = ImVec2(950, 700);
-    ImGui::SetNextWindowSize(initialSize, ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(500, 600), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Drone Controller", nullptr, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+	FVector currentDesiredVelocity = Controller ? Controller->GetDesiredVelocity() : FVector::ZeroVector;
 
-    const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    if (viewport)
-    {
-        ImVec2 workPos = viewport->WorkPos;
-        ImVec2 workSize = viewport->WorkSize;
-        ImVec2 minSize = ImVec2(600, 500);
-        ImVec2 maxSize = ImVec2(workSize.x - 40.0f, workSize.y - 40.0f);
-        minSize.x = FMath::Min(minSize.x, maxSize.x);
-        minSize.y = FMath::Min(minSize.y, maxSize.y);
-        ImGui::SetNextWindowSizeConstraints(minSize, maxSize);
-    }
-
-    FString WindowName = FString::Printf(TEXT("Drone Controller"));
-    ImGui::Begin(TCHAR_TO_UTF8(*WindowName), nullptr, ImGuiWindowFlags_None);
-	ImGui::SliderFloat("Max velocity", &maxVelocity, 0.0f, maxVelocityBound);
-	ImGui::SliderFloat("Max tilt angle", &maxAngle, 0.0f, 45.0f);
-	Controller->SetDesiredAngle(maxAngle);
-	Controller->SetMaxVelocity(maxVelocity);
-
-    if (ImGui::Checkbox("Manual Thrust Mode", &bLocalManualMode)) {
-        if (Controller) Controller->SetManualThrustMode(bLocalManualMode);
-    }
-    ImGui::SameLine(0, 20);
-    if (Controller) {
-        bool currentDebugState = Controller->GetDebugVisualsEnabled();
-        if (ImGui::Checkbox("Debug Visuals", &currentDebugState)) {
-            Controller->SetDebugVisualsEnabled(currentDebugState);
-        }
-    } else {
-        ImGui::TextDisabled("Debug Visuals (No Controller)");
-    }
+    // Top controls
+    static bool bLocalManualMode = false;
+    if (ImGui::Checkbox("Manual Thrust Mode", &bLocalManualMode))
+        Controller->SetManualThrustMode(bLocalManualMode);
+    ImGui::SameLine(200);
+    static bool bDebugVis = false;
+    if (ImGui::Checkbox("Debug Visuals", &bDebugVis))
+        Controller->SetDebugVisualsEnabled(bDebugVis);
     ImGui::Separator();
 
-    ImGui::Text("Primary Tuning & Control");
+    // Global sliders
+    ImGui::SliderFloat("Max velocity", &maxVelocity, 0.0f, maxVelocityBound);
+    ImGui::SliderFloat("Max tilt angle", &maxAngle, 0.0f, 45.0f);
+    Controller->SetMaxVelocity(maxVelocity);
+    Controller->SetDesiredAngle(maxAngle);
+    ImGui::Separator();
 
-    float tableHeight = ImGui::GetContentRegionAvail().y;
-    // Estimate height reduction needed for the "Actions" section below the table
-    float actionsHeightEst = ImGui::GetTextLineHeightWithSpacing() * 2 + ImGui::GetStyle().ItemSpacing.y * 2; // Approx height for "Actions" title, checkbox, buttons
-    float tableTargetHeight = tableHeight - actionsHeightEst - ImGui::GetStyle().ItemSpacing.y * 2; // Subtract action height and some padding
-    tableTargetHeight = FMath::Max(200.0f, tableTargetHeight);
-    ImVec2 tableOuterSize = ImVec2(0, tableTargetHeight);
-
-
-    if (ImGui::BeginTable("DroneControlTable", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollY, tableOuterSize))
+    // Main content depending on mode
+    switch (CurrentMode)
     {
-        ImGui::TableNextColumn(); // Left Column: Velocity, Thrust, Feedback
-        if (ImGui::CollapsingHeader("Velocity, Thrust & Feedback", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            ImGui::Text("Desired Velocity Controls");
-            ImGui::Separator();
-        	switch (CurrentMode)
-        	{
-        	case EFlightMode::None:
-        		return;
-        	case EFlightMode::AutoWaypoint:
-        		DisplayDesiredPositions();
-        		break;
-        	case EFlightMode::JoyStickControl:
-        		break;
-        	case EFlightMode::VelocityControl:
-        		DisplayDesiredVelocities(maxVelocity);
-        		break;
-        	}
-
-            ImGui::Separator();
-            ImGui::Spacing();
-
-            ImGui::Text("Thruster Power Control");
-            ImGui::Separator();
-            ImGui::Spacing();
-        	
-			DisplayThrust(ThrustsVal);
-
-            ImGui::Separator();
-            ImGui::Text("======= Current State & Feedback =======");
-        	if (DronePawn && DronePawn->DroneBody)
-        	{
-        		float droneMass = DronePawn->GetMass();
-        		ImGui::Text("Drone Mass: %.2f kg", droneMass);
-        	}
-        	else
-        	{
-        		ImGui::Text("Drone Pawn or Drone Body is null!");
-        	}
-        	ImGui::Separator();
-            ImGui::Spacing();
-            ImGui::Text("==== Attitude ====");
-            ImGui::Text("Current: Roll: %.2f || Pitch: %.2f", currentRotation.Roll, currentRotation.Pitch);
-            ImGui::Text("Desired: Roll: %.2f || Pitch: %.2f ", desiredRollAngle, desiredPitchAngle);
-            ImGui::Text("==== Position ====");
-            ImGui::Text("Current: %.1f, %.1f, %.1f ", currLoc.X, currLoc.Y, currLoc.Z);
-            ImGui::Text("==== Velocity ====");
-            ImGui::Text("Current: %.1f, %.1f, %.1f", currentVelocity.X, currentVelocity.Y, currentVelocity.Z);
-            ImGui::Text("Desired: %.1f, %.1f, %.1f", currentDesiredVelocity.X, currentDesiredVelocity.Y, currentDesiredVelocity.Z);
-        }
-
-        ImGui::TableNextColumn();
-    	DisplayPIDSettings(CurrentMode,"PID Settings", syncXY, syncRP);
-
-        ImGui::EndTable();
+    case EFlightMode::None: break;
+    case EFlightMode::AutoWaypoint:
+        DisplayDesiredPositions();
+        break;
+    case EFlightMode::VelocityControl:
+        DisplayDesiredVelocities(maxVelocity);
+        break;
+    case EFlightMode::JoyStickControl:
+        // joy-stick UI if needed
+        break;
     }
 
+    // Thruster & state info
+    DisplayThrust(ThrustsVal);
     ImGui::Separator();
-    ImGui::Text("Actions");
+    ImGui::Text("===== Current State & Feedback =====");
+	ImGui::Text("======= Current State & Feedback =======");
+	if (DronePawn && DronePawn->DroneBody)
+	{
+		float droneMass = DronePawn->GetMass();
+		ImGui::Text("Drone Mass: %.2f kg", droneMass);
+	}
+	else
+	{
+		ImGui::Text("Drone Pawn or Drone Body is null!");
+	}
+	ImGui::Separator();
+	ImGui::Spacing();
+	ImGui::Text("==== Attitude ====");
+	ImGui::Text("Current: Roll: %.2f || Pitch: %.2f", currentRotation.Roll, currentRotation.Pitch);
+	ImGui::Text("Desired: Roll: %.2f || Pitch: %.2f ", desiredRollAngle, desiredPitchAngle);
+	ImGui::Text("==== Position ====");
+	ImGui::Text("Current: %.1f, %.1f, %.1f ", currLoc.X, currLoc.Y, currLoc.Z);
+	ImGui::Text("==== Velocity ====");
+	ImGui::Text("Current: %.1f, %.1f, %.1f", currentVelocity.X, currentVelocity.Y, currentVelocity.Z);
+	ImGui::Text("Desired: %.1f, %.1f, %.1f", currentDesiredVelocity.X, currentDesiredVelocity.Y, currentDesiredVelocity.Z);
+       
+    ImGui::Separator();
+
+    // PID settings
+    static bool syncXY = false, syncRP = false;
+    DisplayPIDSettings(CurrentMode, "PID Settings", syncXY, syncRP);
+    ImGui::Separator();
+
+    // Actions
     ImGui::Checkbox("Enable Plots", &plotSwitch);
-    ImGui::SameLine(0, 20); 
-    DisplayButtons(); 
+    ImGui::SameLine(); DisplayButtons();
+    ImGui::Separator();
 
     ImGui::End();
 
-	if (plotSwitch)
-    {
-        RenderControlPlots(deltaTime, currentRotation, desiredRollAngle, desiredPitchAngle,maxAngle);
-    }
+    if (plotSwitch)
+        RenderControlPlots(deltaTime, currentRotation, desiredRollAngle, desiredPitchAngle, maxAngle);
 
     DisplayPIDHistoryWindow();
 }

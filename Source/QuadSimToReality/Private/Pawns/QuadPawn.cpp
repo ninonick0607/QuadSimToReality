@@ -145,6 +145,8 @@ AQuadPawn::AQuadPawn()
 
 	ImGuiUtil = CreateDefaultSubobject<UImGuiUtil>(TEXT("DroneImGuiUtil"));
 	AutoPossessPlayer = EAutoReceiveInput::Player0;
+	NavigationComponent = CreateDefaultSubobject<UNavigationComponent>(TEXT("NavigationComponent"));
+	
 }
 
 void AQuadPawn::BeginPlay()
