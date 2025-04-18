@@ -19,10 +19,10 @@
 
 namespace DroneWaypointConfig
 {
-	static constexpr float startHeight = 1000.0f;
-	static constexpr float maxHeight = 10000.0f;
-	static constexpr float radius = 3000.0f;
-	static constexpr float heightStep = 500.0f;
+	static constexpr float startHeight = 500.0f;
+	static constexpr float maxHeight = 1000.0f;
+	static constexpr float radius = 1000.0f;
+	static constexpr float heightStep = 100.0f;
 	static constexpr int32 pointsPerLoop = 8;
 	static constexpr float angleStep = 2.0f * PI / pointsPerLoop;
 }
@@ -192,13 +192,15 @@ void AQuadPawn::Tick(float DeltaTime)
 	{
 		if (Propellers[i])
 		{
+			float CurrentThrustVal = QuadController->GetCurrentThrustOutput(i);
+			PropellerRPMs[i] = FMath::Abs(CurrentThrustVal) * 1;
 			float DirectionMultiplier = 1.0f;
 			if (MotorClockwiseDirections.IsValidIndex(i))
 			{
 				DirectionMultiplier = MotorClockwiseDirections[i] ? -1.0f : 1.0f;
 			}
 			float DegreesPerSecond = PropellerRPMs[i] * 6.0f;
-            float DeltaRotation = DegreesPerSecond * DeltaTime * DirectionMultiplier;
+			float DeltaRotation = DegreesPerSecond * DeltaTime * DirectionMultiplier;
 			Propellers[i]->AddLocalRotation(FRotator(0.f, DeltaRotation, 0.f));
 		}
 	}

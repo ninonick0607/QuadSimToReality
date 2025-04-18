@@ -37,20 +37,6 @@ void UThrusterComponent::ApplyForce(double Force)
     const FVector ForceLocation = GetComponentLocation();
     RootPrim->AddForceAtLocation(ForceVector, ForceLocation);
 
-#if WITH_EDITOR
-    if (Force > 0.01f)
-    {
-        DrawDebugLine(GetWorld(),
-            ForceLocation,
-            ForceLocation + (Direction * Force * 0.01f),
-            FColor::Blue,
-            false, 
-            -1.0f, 
-            0,
-            2.0f
-        );
-    }
-#endif
 }
 void UThrusterComponent::ApplyTorque(const FVector& Torque, bool bIsDegrees /*= true*/)
 {

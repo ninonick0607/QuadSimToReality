@@ -696,3 +696,12 @@ void UQuadDroneController::ApplyManualThrusts()
 		dronePawn->Thrusters[i]->ApplyForce(force);
 	}
 }
+
+float UQuadDroneController::GetCurrentThrustOutput(int32 ThrusterIndex) const
+{
+	if (Thrusts.IsValidIndex(ThrusterIndex))
+	{
+		return Thrusts[ThrusterIndex];
+	}
+	return 0.0f;
+}

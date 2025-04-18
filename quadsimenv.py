@@ -82,15 +82,15 @@ class QuadSimEnv(gym.Env):
         # We'll store the collision state in this variable (updated via state data)
         self.collision_state = False
 
-        # --- Matplotlib Setup ---
-        self.fig, self.ax = plt.subplots()
-        self.im_display = self.ax.imshow(self.image)  # Initial display object
-        # Text to display collision status
-        self.collision_text = self.ax.text(0.02, 0.98, '', transform=self.ax.transAxes,
-                                           color='red', fontsize=10, verticalalignment='top',
-                                           bbox=dict(boxstyle='round,pad=0.3', fc='wheat', alpha=0.7))
-        plt.ion()  # Enable interactive mode
-        plt.show(block=False)
+        # # --- Matplotlib Setup ---
+        # self.fig, self.ax = plt.subplots()
+        # self.im_display = self.ax.imshow(self.image)  # Initial display object
+        # # Text to display collision status
+        # self.collision_text = self.ax.text(0.02, 0.98, '', transform=self.ax.transAxes,
+        #                                    color='red', fontsize=10, verticalalignment='top',
+        #                                    bbox=dict(boxstyle='round,pad=0.3', fc='wheat', alpha=0.7))
+        # plt.ion()  # Enable interactive mode
+        # plt.show(block=False)
         # --- End Matplotlib Setup ---
 
         self.steps = 0
@@ -237,7 +237,7 @@ if __name__ == "__main__":
     best_model_path = "./RL_training/best_model/best_model.zip"
     env = QuadSimEnv()
     time.sleep(1.0)
-    env.send_obstacle_command(100, True)  # Optionally send obstacle command
+    env.send_obstacle_command(150, True)  # Optionally send obstacle command
 
     try:
         step_count = 0
@@ -248,10 +248,10 @@ if __name__ == "__main__":
             collision_status_str = f"Collision: {env.collision_state}"
             env.collision_text.set_text(collision_status_str)
 
-            # Retrieve and display image
-            current_image = env.retrieve_image()
-            env.im_display.set_data(current_image)
-            plt.pause(0.05)
+            # # Retrieve and display image
+            # current_image = env.retrieve_image()
+            # env.im_display.set_data(current_image)
+            # plt.pause(0.05)
 
             time.sleep(0.1)
             step_count += 1

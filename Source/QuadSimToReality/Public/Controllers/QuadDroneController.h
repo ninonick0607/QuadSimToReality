@@ -94,6 +94,7 @@ public:
     void SetMaxVelocity(float newMaxVelocity) { maxVelocity = newMaxVelocity;}
     void SetMaxAngle(float newMaxAngle) { maxAngle = newMaxAngle;}
     bool IsHoverModeActive() const { return bHoverModeActive; }
+    float GetCurrentThrustOutput(int32 ThrusterIndex) const;
 
     FFullPIDSet* GetPIDSet(EFlightMode Mode)
     {
