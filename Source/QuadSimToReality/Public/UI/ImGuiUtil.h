@@ -87,4 +87,6 @@ private:
     void LoadPIDValues(EFlightMode Mode, const TArray<FString>& Values);
 
     static const int32 MaxDataPoints = 500;
+    // Flag to toggle settings window
+    bool bShowSettingsUI;
 };

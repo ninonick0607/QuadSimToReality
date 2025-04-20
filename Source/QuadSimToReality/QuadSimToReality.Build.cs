@@ -14,7 +14,7 @@ public class QuadSimToReality : ModuleRules
             "Engine",
             "InputCore",
             "EnhancedInput",
-            "ChaosVehicles",
+            // "ChaosVehicles", // removed: not used or managed via plugin
             "PhysicsCore", 
             "RenderCore",
             "RHI",

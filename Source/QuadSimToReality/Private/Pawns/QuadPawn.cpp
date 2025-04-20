@@ -29,24 +29,17 @@ namespace DroneWaypointConfig
 
 const FVector start = FVector(0, 0, 1000);
 
-static TArray<FVector> spiralWaypoints()
+// Generate a spiral of waypoints around a given start position
+static TArray<FVector> spiralWaypoints(const FVector& startPos)
 {
-	TArray<FVector> xyzSetpoint;
-	FVector currentPos = FVector::ZeroVector;
+    TArray<FVector> xyzSetpoint;
+    // Use provided start position (ground-level origin)
+    FVector currentPos = startPos;
 
-	for (TActorIterator<AQuadPawn> ActorItr(GWorld); ActorItr; ++ActorItr)
-	{
-		if (*ActorItr)
-		{
-			currentPos = (*ActorItr)->GetActorLocation();
-			break;
-		}
-	}
-
-	xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + DroneWaypointConfig::startHeight));
+    xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + DroneWaypointConfig::startHeight));
 	int numLoops = FMath::CeilToInt((DroneWaypointConfig::maxHeight - DroneWaypointConfig::startHeight) / DroneWaypointConfig::heightStep);
 
-	for (int loop = 0; loop < numLoops; loop++)
+    for (int loop = 0; loop < numLoops; loop++)
 	{
 		float height = currentPos.Z + DroneWaypointConfig::startHeight + (loop * DroneWaypointConfig::heightStep);
 		for (int point = 0; point < DroneWaypointConfig::pointsPerLoop; point++)
@@ -57,9 +50,9 @@ static TArray<FVector> spiralWaypoints()
 			xyzSetpoint.Add(FVector(x, y, height));
 		}
 	}
-	xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + DroneWaypointConfig::maxHeight));
+    xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + DroneWaypointConfig::maxHeight));
 
-	for (int loop = numLoops - 1; loop >= 0; loop--)
+    for (int loop = numLoops - 1; loop >= 0; loop--)
 	{
 		float height = currentPos.Z + DroneWaypointConfig::startHeight + (loop * DroneWaypointConfig::heightStep);
 		for (int point = DroneWaypointConfig::pointsPerLoop - 1; point >= 0; point--)
@@ -70,8 +63,8 @@ static TArray<FVector> spiralWaypoints()
 			xyzSetpoint.Add(FVector(x, y, height));
 		}
 	}
-	xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + DroneWaypointConfig::startHeight));
-	return xyzSetpoint;
+    xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + DroneWaypointConfig::startHeight));
+    return xyzSetpoint;
 }
 
 const FName ObstacleCollisionTag = FName("Obstacle");
@@ -175,7 +168,8 @@ void AQuadPawn::BeginPlay()
 		ImGuiUtil->Initialize(this, QuadController);
 	}
 
-	NavigationComponent->SetNavigationPlan(spiralWaypoints());
+   // Initialize navigation plan with spiral waypoints starting at this pawn's position
+   NavigationComponent->SetNavigationPlan(spiralWaypoints(GetActorLocation()));
 
 	// Reset PID controllers
 	QuadController->ResetPID();

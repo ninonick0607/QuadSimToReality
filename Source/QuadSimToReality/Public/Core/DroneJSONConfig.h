@@ -44,6 +44,9 @@ public:
 	static UDroneJSONConfig& Get();
 	bool LoadConfig();
 	bool ReloadConfig();
+    // Save the current configuration back to the JSON file
+    UFUNCTION(BlueprintCallable, Category = "Drone Config")
+    bool SaveConfig();
 
 	FDroneConfigData Config;
 

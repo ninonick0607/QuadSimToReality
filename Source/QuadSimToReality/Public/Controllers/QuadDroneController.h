@@ -95,6 +95,10 @@ public:
     void SetMaxAngle(float newMaxAngle) { maxAngle = newMaxAngle;}
     bool IsHoverModeActive() const { return bHoverModeActive; }
     float GetCurrentThrustOutput(int32 ThrusterIndex) const;
+    
+    // Set flight mode (used for swarm control broadcasts)
+    UFUNCTION(BlueprintCallable, Category = "Flight")
+    void SetFlightMode(EFlightMode NewMode);
 
     FFullPIDSet* GetPIDSet(EFlightMode Mode)
     {
