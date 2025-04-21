@@ -85,4 +85,5 @@ private:
     void LoadPIDValues(EFlightMode Mode, const TArray<FString>& Values);
 
     static const int32 MaxDataPoints = 500;
+    bool bShowSettingsUI;
 };

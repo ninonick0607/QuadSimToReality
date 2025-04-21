@@ -133,7 +133,7 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 
 UQuadDroneController::~UQuadDroneController()
 {
-	DroneGlobalState::Get().UnbindController();
+	DroneGlobalState::Get().UnbindController(this);
 }
 
 // ---------------------- Initialization ------------------------
@@ -150,6 +150,14 @@ void UQuadDroneController::Initialize(AQuadPawn* InPawn)
 	{
 		UE_LOG(LogTemp, Display, TEXT("Initializing controller for pawn: %s"), *InPawn->GetName());
 		dronePawn = InPawn;
+		// Register this controller with the global DroneManager for swarm broadcasts
+		if (UWorld* World = dronePawn->GetWorld())
+		{
+			if (ADroneManager* Manager = ADroneManager::Get(World))
+			{
+				Manager->RegisterDroneController(this);
+			}
+		}
 	}
 
 
@@ -159,22 +167,58 @@ void UQuadDroneController::Initialize(AQuadPawn* InPawn)
 
 void UQuadDroneController::Update(double a_deltaTime)
 {
-	ImGui::Begin("Flight Mode Selector");
-	
-	if (ImGui::Button("Auto Waypoint", ImVec2(200, 50)))
+
+
+	ADroneManager* Manager = ADroneManager::Get(dronePawn ? dronePawn->GetWorld() : nullptr);
+	bool bShowUI = true;
+	if (Manager)
 	{
-		currentFlightMode = EFlightMode::AutoWaypoint;
+		if (!Manager->IsSwarmMode())
+		{
+			// Independent mode: only show UI on the possessed pawn
+			APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+			if (PC && PC->GetPawn() != dronePawn)
+			{
+				bShowUI = false;
+			}
+		}
+		else
+		{
+			// Swarm mode: only show UI on first drone (index 0)
+			int32 MyIndex = Manager->GetDroneIndex(dronePawn);
+			if (MyIndex != 0)
+			{
+				bShowUI = false;
+			}
+		}
 	}
-	if (ImGui::Button("JoyStick Control", ImVec2(200, 50)))
+     
+	if (bShowUI)
 	{
-		currentFlightMode = EFlightMode::JoyStickControl;
+		// Unique window name per drone to avoid ID conflicts
+		FString WinName = FString::Printf(TEXT("Flight Mode Selector##%s"), *dronePawn->DroneID);
+		ImGui::Begin(TCHAR_TO_UTF8(*WinName));
+		// Flight mode buttons
+		if (ImGui::Button("Auto Waypoint", ImVec2(200, 50)))
+		{
+			currentFlightMode = EFlightMode::AutoWaypoint;
+			if (Manager && Manager->IsSwarmMode())
+				Manager->OnGlobalFlightModeChanged.Broadcast(currentFlightMode);
+		}
+		if (ImGui::Button("JoyStick Control", ImVec2(200, 50)))
+		{
+			currentFlightMode = EFlightMode::JoyStickControl;
+			if (Manager && Manager->IsSwarmMode())
+				Manager->OnGlobalFlightModeChanged.Broadcast(currentFlightMode);
+		}
+		if (ImGui::Button("Move By Velocity", ImVec2(200, 50)))
+		{
+			currentFlightMode = EFlightMode::VelocityControl;
+			if (Manager && Manager->IsSwarmMode())
+				Manager->OnGlobalFlightModeChanged.Broadcast(currentFlightMode);
+		}
+		ImGui::End();
 	}
-	if (ImGui::Button("Move By Velocity", ImVec2(200, 50)))
-	{
-		currentFlightMode = EFlightMode::VelocityControl;
-	}
-	
-	ImGui::End();
 	
 	switch (currentFlightMode)
 	{
@@ -236,11 +280,27 @@ void UQuadDroneController::VelocityControl(double DeltaTime)
  	// TODO: Fix Yaw Stabilization to work in local frame 
  	//YawStabilization(DeltaTime);
 	DrawDebugVisualsVel(FVector(desiredLocalVelocity.X, desiredLocalVelocity.Y, 0));
+	// UI: only show for possessed (independent) or first drone in swarm
 	if (dronePawn && dronePawn->ImGuiUtil)
 	{
-		dronePawn->ImGuiUtil->ImGuiHud(currentFlightMode,Thrusts, y_output, x_output, currentRotation,
-		FVector::ZeroVector, currentPosition, FVector::ZeroVector, currentLocalVelocity,maxVelocity,maxAngle,
-				x_output, y_output, z_output, DeltaTime);
+		APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+		ADroneManager* Manager = ADroneManager::Get(dronePawn->GetWorld());
+		bool bSwarm = Manager && Manager->IsSwarmMode();
+		bool bPossessed = PC && PC->GetPawn() == dronePawn;
+		bool bShowUI = true;
+		if (Manager)
+		{
+			if (!bSwarm)
+				bShowUI = bPossessed;
+			else
+				bShowUI = (Manager->GetDroneIndex(dronePawn) == 0);
+		}
+		if (bShowUI)
+		{
+			dronePawn->ImGuiUtil->ImGuiHud(currentFlightMode, Thrusts, y_output, x_output, currentRotation,
+				FVector::ZeroVector, currentPosition, FVector::ZeroVector, currentLocalVelocity,
+				maxVelocity, maxAngle, x_output, y_output, z_output, DeltaTime);
+		}
 	}
  }
 
@@ -289,13 +349,28 @@ void UQuadDroneController::AutoWaypointControl(double a_deltaTime)
 
 	ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
 	YawRateControl(a_deltaTime);
-
-
+     
+	// UI: show only for independent possessed drone or first in swarm
 	if (dronePawn && dronePawn->ImGuiUtil)
 	{
-		dronePawn->ImGuiUtil->ImGuiHud(currentFlightMode,Thrusts, y_output, x_output, currentRotation,
-		FVector::ZeroVector, currentPosition, FVector::ZeroVector, currentLocalVelocity, maxVelocity, maxAngle,
-				x_output, y_output, z_output, a_deltaTime);
+		APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+		ADroneManager* Manager = ADroneManager::Get(dronePawn->GetWorld());
+		bool bSwarm = Manager && Manager->IsSwarmMode();
+		bool bPossessed = PC && PC->GetPawn() == dronePawn;
+		bool bShowUI = true;
+		if (Manager)
+		{
+			if (!bSwarm)
+				bShowUI = bPossessed;
+			else
+				bShowUI = (Manager->GetDroneIndex(dronePawn) == 0);
+		}
+		if (bShowUI)
+		{
+			dronePawn->ImGuiUtil->ImGuiHud(currentFlightMode, Thrusts, y_output, x_output, currentRotation,
+				FVector::ZeroVector, currentPosition, FVector::ZeroVector, currentLocalVelocity,
+				maxVelocity, maxAngle, x_output, y_output, z_output, a_deltaTime);
+		}
 	}
 }
 
@@ -718,3 +793,9 @@ FVector UQuadDroneController::GetCurrentVelocity() const
 }
 
 
+
+
+void UQuadDroneController::SetFlightMode(EFlightMode NewMode)
+{
+	currentFlightMode = NewMode;
+}

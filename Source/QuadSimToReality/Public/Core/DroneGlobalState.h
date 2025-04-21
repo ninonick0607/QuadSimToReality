@@ -20,7 +20,8 @@ public:
     // Declare these functions here, define them in the cpp file
     void SetDesiredVelocity(const FVector& NewVelocity);
     void BindController(UQuadDroneController* Controller);
-    void UnbindController();
+    // Unbind a controller from receiving global velocity updates
+    void UnbindController(UQuadDroneController* Controller);
 
 private:
     // Private constructor declaration only
@@ -32,5 +33,6 @@ private:
     DroneGlobalState& operator=(const DroneGlobalState&) = delete;
 
     FVector DesiredVelocity;
-    UQuadDroneController* BoundController;
+    // List of controllers bound for global velocity updates
+    TArray<UQuadDroneController*> BoundControllers;
 };

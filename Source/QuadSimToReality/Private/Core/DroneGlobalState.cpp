@@ -3,8 +3,8 @@
 
 DroneGlobalState::DroneGlobalState()
     : DesiredVelocity(FVector::ZeroVector)
-    , BoundController(nullptr)
 {
+    // BoundControllers defaults to empty list
 }
 
 DroneGlobalState::~DroneGlobalState()
@@ -14,18 +14,29 @@ DroneGlobalState::~DroneGlobalState()
 void DroneGlobalState::SetDesiredVelocity(const FVector& NewVelocity)
 {
     DesiredVelocity = NewVelocity;
-    if (BoundController)
+    // Broadcast velocity command to all bound controllers
+    for (UQuadDroneController* Controller : BoundControllers)
     {
-        BoundController->SetDesiredVelocity(NewVelocity);
+        if (Controller)
+        {
+            Controller->SetDesiredVelocity(NewVelocity);
+        }
     }
 }
 
 void DroneGlobalState::BindController(UQuadDroneController* Controller)
 {
-    BoundController = Controller;
+    // Register controller if not already bound
+    if (Controller && !BoundControllers.Contains(Controller))
+    {
+        BoundControllers.Add(Controller);
+    }
 }
 
-void DroneGlobalState::UnbindController()
+void DroneGlobalState::UnbindController(UQuadDroneController* Controller)
 {
-    BoundController = nullptr;
+    if (Controller)
+    {
+        BoundControllers.RemoveSingle(Controller);
+    }
 }

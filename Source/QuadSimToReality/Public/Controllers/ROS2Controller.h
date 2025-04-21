@@ -27,7 +27,14 @@ class QUADSIMTOREALITY_API AROS2Controller : public AActor
 	GENERATED_BODY()
 
 public:
-	AROS2Controller();
+    AROS2Controller();
+    
+    // Accessors for UI
+    UFUNCTION(BlueprintPure, Category = "ROS2")
+    FVector GetCurrentGoalPosition() const;
+
+    UFUNCTION(BlueprintPure, Category = "ROS2")
+    FString GetDroneID() const;
 
     // --- ROS2 Node Configuration ---
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2")
@@ -71,8 +78,9 @@ public:
 	FString HoverTopicName = TEXT("/hover/height");
 	
     // --- Pawn & Manager References ---
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Control")
+	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, meta=(ExposeOnSpawn=true), Category="References")
 	AQuadPawn* QuadPawn;
+
 
     // --- Image Capture Component ---
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Image Capture")

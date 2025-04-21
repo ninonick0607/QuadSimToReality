@@ -102,7 +102,9 @@ public:
     FQuat GetOrientationAsQuat() const;
     UFUNCTION(BlueprintPure, Category = "Drone State|ROS")
     FVector GetCurrentAngularVelocityRADPS() const;
-
+    
+    UFUNCTION(BlueprintCallable, Category = "Flight")
+    void SetFlightMode(EFlightMode NewMode);
     FFullPIDSet* GetPIDSet(EFlightMode Mode)
     {
         return PIDMap.Find(Mode); 

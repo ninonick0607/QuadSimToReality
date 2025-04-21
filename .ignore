@@ -1,5 +1,4 @@
 /logs
-/RL_training
 /.vscode
 /Content
 /Saved
@@ -7,7 +6,6 @@
 /Info
 /Saved-PID-Gains
 /Intermediate
-/ROS2_Config
 /.git
 /ThirdParty
 /.idea

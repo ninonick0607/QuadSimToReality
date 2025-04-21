@@ -6,6 +6,8 @@
 
 class AQuadPawn;
 class AROS2Controller;
+// Forward declaration for flight modes
+enum class EFlightMode : uint8;
 
 UCLASS()
 class QUADSIMTOREALITY_API ADroneManager : public AActor
@@ -24,9 +26,26 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Drone Manager")
 	TArray<AQuadPawn*> GetDroneList() const;
 
-	// Function for ROS2Controllers to register themselves.
-	UFUNCTION(BlueprintCallable, Category = "Drone Manager")
-	void RegisterROS2Controller(AROS2Controller* Controller);
+    
+    // Register a quad-drone controller for global flight mode broadcasts
+    void RegisterDroneController(class UQuadDroneController* Controller);
+
+    // Toggle and query swarm mode
+    UFUNCTION(BlueprintCallable, Category = "Swarm")
+    void SetSwarmMode(bool bEnable);
+    UFUNCTION(BlueprintCallable, Category = "Swarm")
+    bool IsSwarmMode() const;
+
+    // Get index of the given drone in the manager list
+    UFUNCTION(BlueprintCallable, Category = "Swarm")
+    int32 GetDroneIndex(AQuadPawn* Pawn) const;
+
+    // Static accessor for the drone manager in the world
+    static ADroneManager* Get(UWorld* World);
+
+    // Delegate to broadcast global flight mode changes
+    DECLARE_MULTICAST_DELEGATE_OneParam(FOnGlobalFlightModeChanged, EFlightMode /*NewMode*/);
+    FOnGlobalFlightModeChanged OnGlobalFlightModeChanged;
 
 	UPROPERTY(VisibleAnywhere, Category = "Drone Manager")
 	int32 SelectedDroneIndex;
@@ -38,18 +57,22 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Drone Manager")
 	TSubclassOf<AQuadPawn> QuadPawnClass;
 
-	// The blueprint class for ROS2Controller.
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Drone Manager")
-	TSubclassOf<AROS2Controller> ROS2ControllerClass;
+    // The blueprint class for ROS2Controller.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Drone Manager")
+    TSubclassOf<AROS2Controller> ROS2ControllerClass;
 
 	UPROPERTY(VisibleAnywhere, Category = "Drone Manager")
 	TArray<TWeakObjectPtr<AQuadPawn>> AllDrones;
 
-	// Array to keep track of all spawned ROS2Controllers.
-	UPROPERTY(VisibleAnywhere, Category = "Drone Manager")
-	TArray<TWeakObjectPtr<AROS2Controller>> AllROS2Controllers;
+    
+private:
+    // Whether swarm mode is enabled.
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Swarm", meta=(AllowPrivateAccess="true"))
+    bool bSwarmMode = false;
 
 	void OnActorSpawned(AActor* SpawnedActor);
 
-	FDelegateHandle OnActorSpawnedHandle;
+    FDelegateHandle OnActorSpawnedHandle;
+    // Last spawn location used for positioning new drones
+    FVector LastSpawnLocation = FVector::ZeroVector;
 };

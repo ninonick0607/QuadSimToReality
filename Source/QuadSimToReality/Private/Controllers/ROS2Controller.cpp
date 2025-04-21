@@ -441,3 +441,13 @@ void AROS2Controller::ProcessCapturedImage(const TArray<FColor>& Pixels)
 void AROS2Controller::UpdateImageMessage(UROS2GenericMsg* InMessage)
 {
 }
+// Accessor implementations for UI
+FVector AROS2Controller::GetCurrentGoalPosition() const
+{
+    return ObstacleManagerInstance ? ObstacleManagerInstance->GetGoalPosition() : FVector::ZeroVector;
+}
+
+FString AROS2Controller::GetDroneID() const
+{
+    return QuadPawn ? QuadPawn->DroneID : FString(TEXT("Unknown"));
+}

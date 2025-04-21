@@ -45,7 +45,8 @@ public:
 	static UDroneJSONConfig& Get();
 	bool LoadConfig();
 	bool ReloadConfig();
-
+	UFUNCTION(BlueprintCallable, Category = "Drone Config")
+	bool SaveConfig();
 	FDroneConfigData Config;
 
 private:
