@@ -11,6 +11,7 @@
 #include "Misc/Paths.h"
 #include <string>
 #include "Misc/DateTime.h"
+#include "Core/DroneManager.h"
 
 UImGuiUtil::UImGuiUtil()
 	: DronePawn(nullptr)
@@ -61,25 +62,46 @@ void UImGuiUtil::ImGuiHud(EFlightMode CurrentMode, TArray<float>& ThrustsVal,
 	ImGui::SetNextWindowPos(ImVec2(420, 10), ImGuiCond_FirstUseEver);
 	ImGui::SetNextWindowSize(ImVec2(500, 500), ImGuiCond_FirstUseEver);
  
-    // Find ROS2Controller in the world to query goal state and drone ID
+    // Get the ROS2Controller attached to this Pawn to query goal state
     AROS2Controller* ros2ControllerCurrent = nullptr;
-    TArray<AActor*> FoundActors;
-    UGameplayStatics::GetAllActorsOfClass(GetWorld(), AROS2Controller::StaticClass(), FoundActors);
-    if (FoundActors.Num() > 0)
+    if (DronePawn)
     {
-        ros2ControllerCurrent = Cast<AROS2Controller>(FoundActors[0]);
+        TArray<AActor*> AttachedActors;
+        DronePawn->GetAttachedActors(AttachedActors);
+        for (AActor* Actor : AttachedActors)
+        {
+            ros2ControllerCurrent = Cast<AROS2Controller>(Actor);
+            if (ros2ControllerCurrent)
+            {
+                break;
+            }
+        }
     }
-
     FVector currentGoalState = FVector::ZeroVector;
-    FString droneID = FString(TEXT("Unknown"));
-    if (ros2ControllerCurrent && ros2ControllerCurrent->IsValidLowLevel())
+    // Use Pawn's DroneID as identifier
+    FString droneID = DronePawn ? DronePawn->DroneID : FString(TEXT("Unknown"));
+    if (ros2ControllerCurrent)
     {
         currentGoalState = ros2ControllerCurrent->GetCurrentGoalPosition();
-        droneID = ros2ControllerCurrent->GetDroneID();
     }
  
 	FString WindowName = FString::Printf(TEXT("Drone Controller##%s"), *droneID);
     ImGui::Begin(TCHAR_TO_UTF8(*WindowName), nullptr, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+    // Swarm mode broadcast helper
+    ADroneManager* Manager = ADroneManager::Get(GetWorld());
+    bool bSwarm = Manager && Manager->IsSwarmMode();
+    auto applyToControllers = [&](auto&& Func) {
+        if (bSwarm && Manager) {
+            TArray<AQuadPawn*> drones = Manager->GetDroneList();
+            for (AQuadPawn* pawn : drones) {
+                if (pawn && pawn->QuadController) {
+                    Func(pawn->QuadController);
+                }
+            }
+        } else {
+            if (Controller) Func(Controller);
+        }
+    };
 
 
     if (ImGui::Button("Settings")) {
@@ -130,18 +152,18 @@ void UImGuiUtil::ImGuiHud(EFlightMode CurrentMode, TArray<float>& ThrustsVal,
     // Top controls
     static bool bLocalManualMode = false;
     if (ImGui::Checkbox("Manual Thrust Mode", &bLocalManualMode))
-        Controller->SetManualThrustMode(bLocalManualMode);
+        applyToControllers([&](UQuadDroneController* C){ C->SetManualThrustMode(bLocalManualMode); });
     ImGui::SameLine(200);
     static bool bDebugVis = false;
     if (ImGui::Checkbox("Debug Visuals", &bDebugVis))
-        Controller->SetDebugVisualsEnabled(bDebugVis);
+        applyToControllers([&](UQuadDroneController* C){ C->SetDebugVisualsEnabled(bDebugVis); });
     ImGui::Separator();
 
     // Global sliders
     ImGui::SliderFloat("Max velocity", &maxVelocity, 0.0f, maxVelocityBound);
     ImGui::SliderFloat("Max tilt angle", &maxAngle, 0.0f, 45.0f);
-    Controller->SetMaxVelocity(maxVelocity);
-    Controller->SetDesiredAngle(maxAngle);
+    applyToControllers([&](UQuadDroneController* C){ C->SetMaxVelocity(maxVelocity); });
+    applyToControllers([&](UQuadDroneController* C){ C->SetDesiredAngle(maxAngle); });
     ImGui::Separator();
 
     // Main content depending on mode
@@ -730,22 +752,42 @@ void UImGuiUtil::DisplayButtons()
 	}
 	ImGui::SameLine(0, 10);
 
-	if (ImGui::Button("Reset Drone up high", ImVec2(100, 50)))
-	{
-		if (Controller)
-		{
-			Controller->ResetDroneHigh();
-		}
-	}
+   if (ImGui::Button("Reset Drone up high", ImVec2(100, 50)))
+   {
+       // Reset high for one or all controllers
+       ADroneManager* Manager = ADroneManager::Get(GetWorld());
+       if (Manager && Manager->IsSwarmMode())
+       {
+           for (AQuadPawn* pawn : Manager->GetDroneList())
+           {
+               if (pawn && pawn->QuadController)
+                   pawn->QuadController->ResetDroneHigh();
+           }
+       }
+       else if (Controller)
+       {
+           Controller->ResetDroneHigh();
+       }
+   }
 	ImGui::SameLine(0, 10);
 
-	if (ImGui::Button("Reset Drone 0 point", ImVec2(100, 50)))
-	{
-		if (Controller)
-		{
-			Controller->ResetDroneOrigin();
-		}
-	}
+   if (ImGui::Button("Reset Drone 0 point", ImVec2(100, 50)))
+   {
+       // Reset origin for one or all controllers
+       ADroneManager* Manager = ADroneManager::Get(GetWorld());
+       if (Manager && Manager->IsSwarmMode())
+       {
+           for (AQuadPawn* pawn : Manager->GetDroneList())
+           {
+               if (pawn && pawn->QuadController)
+                   pawn->QuadController->ResetDroneOrigin();
+           }
+       }
+       else if (Controller)
+       {
+           Controller->ResetDroneOrigin();
+       }
+   }
 	
 }
 
@@ -778,13 +820,28 @@ void UImGuiUtil::DisplayDesiredVelocities(float maxVelocity)
     if (ImGui::Button(hoverModeActive ? "HOVER MODE ACTIVE" : "ACTIVATE HOVER MODE", ImVec2(200, 35)))
     {
         bool activateHover = !hoverModeActive;
-        Controller->SetHoverMode(activateHover, activateHover ? desiredHoverAltitude : 0.0f); 
-        hoverModeActive = activateHover; 
+        // Apply hover mode to swarm or single
+        ADroneManager* Manager = ADroneManager::Get(GetWorld());
+        if (Manager && Manager->IsSwarmMode())
+        {
+            for (AQuadPawn* pawn : Manager->GetDroneList())
+            {
+                if (pawn && pawn->QuadController)
+                {
+                    pawn->QuadController->SetHoverMode(activateHover, activateHover ? desiredHoverAltitude : 0.0f);
+                }
+            }
+        }
+        else if (Controller)
+        {
+            Controller->SetHoverMode(activateHover, activateHover ? desiredHoverAltitude : 0.0f);
+        }
+        hoverModeActive = activateHover;
         if (hoverModeActive)
         {
-             tempVz = 0.0f; 
+            tempVz = 0.0f;
         }
-        velocityChanged = true; // Force update controller state
+        velocityChanged = true;
     }
     ImGui::PopStyleColor(3);
 	
@@ -795,8 +852,18 @@ void UImGuiUtil::DisplayDesiredVelocities(float maxVelocity)
         ImGui::TextColored(ImVec4(0.1f, 0.8f, 0.6f, 1.0f), "Target Altitude: %.0f cm", desiredHoverAltitude);
         static float lastSentAltitude = -1.0f; // Track last sent value
         if (fabs(desiredHoverAltitude - lastSentAltitude) > 1.0f) { // Add deadzone/check
-           Controller->SetHoverMode(true, desiredHoverAltitude); // Re-send command with new altitude
-           lastSentAltitude = desiredHoverAltitude;
+            // Re-send hover command for swarm or single
+            ADroneManager* Manager = ADroneManager::Get(GetWorld());
+            if (Manager && Manager->IsSwarmMode()) {
+                for (AQuadPawn* pawn : Manager->GetDroneList()) {
+                    if (pawn && pawn->QuadController) {
+                        pawn->QuadController->SetHoverMode(true, desiredHoverAltitude);
+                    }
+                }
+            } else if (Controller) {
+                Controller->SetHoverMode(true, desiredHoverAltitude);
+            }
+            lastSentAltitude = desiredHoverAltitude;
         }
     }
 
@@ -883,7 +950,20 @@ void UImGuiUtil::DisplayDesiredVelocities(float maxVelocity)
         if (hoverModeActive) tempVz = 0.0f;
 
         FVector desiredNewVelocity = FVector(tempVx, tempVy, tempVz);
-        if (Controller) // Check controller validity again just in case
+        // Apply velocity and yaw commands to swarm or single
+        ADroneManager* Manager = ADroneManager::Get(GetWorld());
+        if (Manager && Manager->IsSwarmMode())
+        {
+            for (AQuadPawn* pawn : Manager->GetDroneList())
+            {
+                if (pawn && pawn->QuadController)
+                {
+                    pawn->QuadController->SetDesiredVelocity(desiredNewVelocity);
+                    pawn->QuadController->SetDesiredYawRate(tempYr);
+                }
+            }
+        }
+        else if (Controller)
         {
             Controller->SetDesiredVelocity(desiredNewVelocity);
             Controller->SetDesiredYawRate(tempYr);
@@ -1004,7 +1084,22 @@ void UImGuiUtil::DisplayDesiredPositions()
 	if (significantChange || positionChanged)
 	{
 		FVector desiredNewPosition_cm = FVector(tempPx_cm, tempPy_cm, tempPz_cm);
-		Controller->SetDestination(desiredNewPosition_cm);
+		// Apply new destination to swarm or single controller
+		ADroneManager* Manager = ADroneManager::Get(GetWorld());
+		if (Manager && Manager->IsSwarmMode())
+		{
+			for (AQuadPawn* pawn : Manager->GetDroneList())
+			{
+				if (pawn && pawn->QuadController)
+				{
+					pawn->QuadController->SetDestination(desiredNewPosition_cm);
+				}
+			}
+		}
+		else if (Controller)
+		{
+			Controller->SetDestination(desiredNewPosition_cm);
+		}
 
 		prevPx = tempPx_cm;
 		prevPy = tempPy_cm;

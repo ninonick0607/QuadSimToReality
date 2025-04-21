@@ -5,7 +5,7 @@
 #include "DroneManager.generated.h"
 
 class AQuadPawn;
-class AROS2Controller;
+//class AROS2Controller; // Removed; ROS2Controller is now embedded within QuadPawn
 // Forward declaration for flight modes
 enum class EFlightMode : uint8;
 
@@ -57,9 +57,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Drone Manager")
 	TSubclassOf<AQuadPawn> QuadPawnClass;
 
-    // The blueprint class for ROS2Controller.
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Drone Manager")
-    TSubclassOf<AROS2Controller> ROS2ControllerClass;
 
 	UPROPERTY(VisibleAnywhere, Category = "Drone Manager")
 	TArray<TWeakObjectPtr<AQuadPawn>> AllDrones;

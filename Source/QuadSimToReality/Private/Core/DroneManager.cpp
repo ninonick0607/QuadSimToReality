@@ -2,7 +2,8 @@
 // Controller includes
 #include "Controllers/QuadDroneController.h"
 #include "Pawns/QuadPawn.h"
-#include "Controllers/ROS2Controller.h"
+//#include "Controllers/ROS2Controller.h"  // Removed; ROS2Controller is now a child actor of QuadPawn
+#include "Kismet/GameplayStatics.h"
     #include "Kismet/GameplayStatics.h"
     #include "Engine/World.h"
     #include "imgui.h"
@@ -203,9 +204,9 @@
 
     AQuadPawn* ADroneManager::SpawnDrone(const FVector& SpawnLocation, const FRotator& SpawnRotation)
     {
-        if (!QuadPawnClass || !ROS2ControllerClass)
+        if (!QuadPawnClass)
         {
-            UE_LOG(LogTemp, Warning, TEXT("QuadPawnClass or ROS2ControllerClass not set in DroneManager!"));
+            UE_LOG(LogTemp, Warning, TEXT("QuadPawnClass not set in DroneManager!"));
             return nullptr;
         }
 
@@ -218,19 +219,6 @@
             
             // Spawn the drone.
             AQuadPawn* NewDrone = World->SpawnActor<AQuadPawn>(QuadPawnClass, SpawnLocation, SpawnRotation, SpawnParams);
-            if (NewDrone)
-            {
-                // Spawn the dedicated ROS2Controller for this drone after a short delay.
-                FTimerHandle TimerHandle;
-                World->GetTimerManager().SetTimer(TimerHandle, [this, NewDrone, SpawnLocation, SpawnRotation, SpawnParams]()
-                {
-                    AROS2Controller* NewController = GetWorld()->SpawnActor<AROS2Controller>(ROS2ControllerClass, SpawnLocation, SpawnRotation, SpawnParams);
-                    if (NewController)
-                    {
-                        NewController->QuadPawn = NewDrone;
-                    }
-                }, 0.2f, false);
-            }
             return NewDrone;
         }
         return nullptr;

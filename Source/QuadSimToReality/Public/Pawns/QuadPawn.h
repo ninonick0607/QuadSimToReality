@@ -6,7 +6,8 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Core/ThrusterComponent.h"
 #include "Utility/NavigationComponent.h"
-#include "UI/ImGuiUtil.h"        
+#include "UI/ImGuiUtil.h"
+#include "Components/ChildActorComponent.h"
 #include "QuadPawn.generated.h"
 
 // Forward Declarations
@@ -66,8 +67,11 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TArray<UStaticMeshComponent*> Propellers;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	TArray<UThrusterComponent*> Thrusters;
+   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+   TArray<UThrusterComponent*> Thrusters;
+   // ROS2 Controller as a child actor component
+   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+   UChildActorComponent* ROS2ControllerComponent;
 
 	// --- Drone Configuration ---
 	UPROPERTY(EditDefaultsOnly, Category = "Drone Configuration")

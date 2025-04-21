@@ -41,7 +41,9 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	minAltitudeLocal = Config.FlightParams.MinAltitudeLocal;
 	acceptableDistance = Config.FlightParams.AcceptableDistance;
 
-	Debug_DrawDroneCollisionSphere = true;
+   // Start with flight mode None (motors off) until mode is selected via UI
+   currentFlightMode = EFlightMode::None;
+   Debug_DrawDroneCollisionSphere = true;
 	Debug_DrawDroneWaypoint = true;
 	
 	FFullPIDSet VelocitySet;
@@ -283,18 +285,22 @@ void UQuadDroneController::VelocityControl(double DeltaTime)
 	// UI: only show for possessed (independent) or first drone in swarm
 	if (dronePawn && dronePawn->ImGuiUtil)
 	{
-		APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+		// Show UI for the drone at the selected index in the manager
 		ADroneManager* Manager = ADroneManager::Get(dronePawn->GetWorld());
-		bool bSwarm = Manager && Manager->IsSwarmMode();
-		bool bPossessed = PC && PC->GetPawn() == dronePawn;
 		bool bShowUI = true;
-		if (Manager)
-		{
-			if (!bSwarm)
-				bShowUI = bPossessed;
-			else
-				bShowUI = (Manager->GetDroneIndex(dronePawn) == 0);
-		}
+ 		if (Manager)
+ 		{
+ 			if (!Manager->IsSwarmMode())
+ 			{
+ 				int32 MyIndex = Manager->GetDroneIndex(dronePawn);
+ 				bShowUI = (MyIndex == Manager->SelectedDroneIndex);
+ 			}
+ 			else
+ 			{
+ 				// In swarm mode, show UI on all drones
+ 				bShowUI = true;
+ 			}
+ 		}
 		if (bShowUI)
 		{
 			dronePawn->ImGuiUtil->ImGuiHud(currentFlightMode, Thrusts, y_output, x_output, currentRotation,

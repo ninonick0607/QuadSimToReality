@@ -11,7 +11,9 @@
 #include "Components/PrimitiveComponent.h" 
 #include "GameFramework/Actor.h"        
 #include "Core/ThrusterComponent.h"       
-#include "UI/ImGuiUtil.h"   
+#include "UI/ImGuiUtil.h"
+#include "Components/ChildActorComponent.h"
+#include "Controllers/ROS2Controller.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 
@@ -140,6 +142,10 @@ AQuadPawn::AQuadPawn()
 	ImGuiUtil = CreateDefaultSubobject<UImGuiUtil>(TEXT("DroneImGuiUtil"));
 	AutoPossessPlayer = EAutoReceiveInput::Player0;
 	NavigationComponent = CreateDefaultSubobject<UNavigationComponent>(TEXT("NavigationComponent"));
+    // Child Actor Component for ROS2Controller
+    ROS2ControllerComponent = CreateDefaultSubobject<UChildActorComponent>(TEXT("ROS2ControllerComponent"));
+    ROS2ControllerComponent->SetupAttachment(RootComponent);
+    ROS2ControllerComponent->SetChildActorClass(AROS2Controller::StaticClass());
 	
 }
 
@@ -163,10 +169,10 @@ void AQuadPawn::BeginPlay()
 		ImGuiUtil = NewObject<UImGuiUtil>(this, UImGuiUtil::StaticClass(), TEXT("DroneImGuiUtil"));
 		ImGuiUtil->Initialize(this, QuadController);
 	}
-	if (ImGuiUtil)
-	{
-		ImGuiUtil->Initialize(this, QuadController);
-	}
+    if (ImGuiUtil)
+    {
+        ImGuiUtil->Initialize(this, QuadController);
+    }
 
 	NavigationComponent->SetNavigationPlan(spiralWaypoints(GetActorLocation()));
 	

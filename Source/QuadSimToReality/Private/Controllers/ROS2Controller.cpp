@@ -39,19 +39,26 @@ void AROS2Controller::BeginPlay()
 {
     Super::BeginPlay();
 
-    if (!IsValid(QuadPawn))
+    AQuadPawn* Pawn = Cast<AQuadPawn>(GetAttachParentActor());
+    if (!IsValid(Pawn))
     {
-        UE_LOG(LogTemp, Error, TEXT("AROS2Controller::BeginPlay - QuadPawn reference not set! Aborting."));
+        UE_LOG(LogTemp, Error, TEXT("AROS2Controller::BeginPlay - Owning QuadPawn not found! Aborting."));
         return;
     }
-    if (!IsValid(QuadPawn->CameraFPV)) 
+    if (!IsValid(Pawn->CameraFPV))
     {
-        UE_LOG(LogTemp, Error, TEXT("AROS2Controller::BeginPlay - QuadPawn->CameraFPV is not valid! Aborting."));
+        UE_LOG(LogTemp, Error, TEXT("AROS2Controller::BeginPlay - Pawn->CameraFPV is not valid! Aborting."));
         return;
     }
 
-    UE_LOG(LogTemp, Warning, TEXT("AROS2Controller: Initializing ROS2 Node '%s' in namespace '%s'"), *NodeName, *Namespace);
-    Node->Name = NodeName;
+    // Determine a unique ROS2 node name per pawn to avoid name collisions (reuse Pawn from above)
+    FString UniqueNodeName = NodeName;
+    if (Pawn)
+    {
+        UniqueNodeName = NodeName + TEXT("_") + Pawn->GetFName().ToString();
+    }
+    UE_LOG(LogTemp, Warning, TEXT("AROS2Controller: Initializing ROS2 Node '%s' in namespace '%s'"), *UniqueNodeName, *Namespace);
+    Node->Name = UniqueNodeName;
     Node->Namespace = Namespace;
     Node->Init();
 
@@ -176,7 +183,10 @@ void AROS2Controller::HandleHoverCommand(const UROS2GenericMsg* InMsg)
     const int32 HoverHeight = FMath::RoundToInt(HoverData.Data);
     UE_LOG(LogTemp, Log, TEXT("Received Hover Height: %d"), HoverHeight);
 
-    UQuadDroneController* DroneController = QuadPawn->QuadController;
+    AQuadPawn* Pawn = Cast<AQuadPawn>(GetAttachParentActor());
+    if (!Pawn) { UE_LOG(LogTemp, Error, TEXT("HandleHoverCommand: Owning QuadPawn invalid")); return; }
+    UQuadDroneController* DroneController = Pawn->QuadController;
+    if (!IsValid(DroneController)) { UE_LOG(LogTemp, Warning, TEXT("HandleHoverCommand: Pawn->QuadController invalid")); return; }
     DroneController->SetHoverMode(true, HoverHeight);
 }
 
@@ -205,9 +215,10 @@ void AROS2Controller::HandleVelocityCommand(const UROS2GenericMsg* InMsg)
     const UROS2TwistMsg* TwistMsgWrapper = Cast<UROS2TwistMsg>(InMsg);
     if (!TwistMsgWrapper) { UE_LOG(LogTemp, Error, TEXT("HandleVelocityCommand: Invalid msg type")); return; }
 
-    if (!IsValid(QuadPawn)) { UE_LOG(LogTemp, Error, TEXT("HandleVelocityCommand: QuadPawn invalid")); return; }
-    UQuadDroneController* DroneController = QuadPawn->QuadController;
-    if (!IsValid(DroneController)) { UE_LOG(LogTemp, Warning, TEXT("HandleVelocityCommand: QuadPawn->QuadController is invalid!")); return; }
+    AQuadPawn* Pawn = Cast<AQuadPawn>(GetAttachParentActor());
+    if (!Pawn) { UE_LOG(LogTemp, Error, TEXT("HandleVelocityCommand: Owning QuadPawn invalid")); return; }
+    UQuadDroneController* DroneController = Pawn->QuadController;
+    if (!IsValid(DroneController)) { UE_LOG(LogTemp, Warning, TEXT("HandleVelocityCommand: Pawn->QuadController invalid")); return; }
 
     FROSTwist TwistData;
     TwistMsgWrapper->GetMsg(TwistData);
@@ -228,9 +239,10 @@ void AROS2Controller::HandleResetCommand(const UROS2GenericMsg* InMsg)
 {
     UE_LOG(LogTemp, Warning, TEXT("AROS2Controller: Processing 'reset' command (received Empty message)..."));
 
-    if (!IsValid(QuadPawn)) { UE_LOG(LogTemp, Error, TEXT("HandleResetCommand: QuadPawn invalid")); return; }
-    UQuadDroneController* DroneController = QuadPawn->QuadController;
-    if (!IsValid(DroneController)) { UE_LOG(LogTemp, Warning, TEXT("HandleResetCommand: QuadPawn->QuadController invalid! Cannot reset.")); return; }
+    AQuadPawn* Pawn = Cast<AQuadPawn>(GetAttachParentActor());
+    if (!Pawn) { UE_LOG(LogTemp, Error, TEXT("HandleResetCommand: Owning QuadPawn invalid")); return; }
+    UQuadDroneController* DroneController = Pawn->QuadController;
+    if (!IsValid(DroneController)) { UE_LOG(LogTemp, Warning, TEXT("HandleResetCommand: Pawn->QuadController invalid! Cannot reset.")); return; }
 
     UE_LOG(LogTemp, Log, TEXT("Calling DroneController->ResetDroneOrigin()"));
     DroneController->ResetDroneOrigin();
@@ -257,18 +269,20 @@ void AROS2Controller::UpdateGoalPositionMessage(UROS2GenericMsg* InMessage)
 
 void AROS2Controller::UpdateCollisionMessage(UROS2GenericMsg* InMessage)
 {
-    if (!IsValid(QuadPawn) || !InMessage) return;
+    AQuadPawn* Pawn = Cast<AQuadPawn>(GetAttachParentActor());
+    if (!Pawn || !InMessage) return;
     UROS2Float64Msg* Msg = Cast<UROS2Float64Msg>(InMessage);
     if (!Msg) return;
     FROSFloat64 CollisionData;
-    CollisionData.Data = QuadPawn->getCollisionState() ? 1.0 : 0.0;
+    CollisionData.Data = Pawn->getCollisionState() ? 1.0 : 0.0;
     Msg->SetMsg(CollisionData);
 }
 
 void AROS2Controller::UpdateOdometryMessage(UROS2GenericMsg* InMessage)
 {
-    if (!IsValid(QuadPawn) || !InMessage || !IsValid(OdometryPublisher)) return;
-    UQuadDroneController* DroneController = QuadPawn->QuadController;
+    AQuadPawn* Pawn = Cast<AQuadPawn>(GetAttachParentActor());
+    if (!Pawn || !InMessage || !IsValid(OdometryPublisher)) return;
+    UQuadDroneController* DroneController = Pawn->QuadController;
     if (!IsValid(DroneController)) return;
 
     FROSOdom OdometryData;
@@ -281,7 +295,7 @@ void AROS2Controller::UpdateOdometryMessage(UROS2GenericMsg* InMessage)
     OdometryData.ChildFrameId = TEXT("base_link"); // Twist is relative to the base_link frame
 
     // Pose (in Odom Frame) - Convert CM to M
-    const FVector WorldPositionCm = QuadPawn->GetActorLocation();
+    const FVector WorldPositionCm = Pawn->GetActorLocation();
     const FQuat WorldOrientationQuat = DroneController->GetOrientationAsQuat(); // Already world orientation
     const float CM_TO_M = 0.01f;
 
@@ -291,7 +305,7 @@ void AROS2Controller::UpdateOdometryMessage(UROS2GenericMsg* InMessage)
     OdometryData.Pose.Pose.Orientation = WorldOrientationQuat; // Use the world orientation
 
     const FVector WorldLinearVelocityCmps = DroneController->GetCurrentVelocity(); // Get World Velocity
-    const FRotator WorldRotation = QuadPawn->GetActorRotation();          // Get World Rotation
+    const FRotator WorldRotation = Pawn->GetActorRotation();          // Get World Rotation
 
    const FVector LocalLinearVelocityCmps = WorldRotation.UnrotateVector(WorldLinearVelocityCmps);
     const FVector AngularVelocityRadps = DroneController->GetCurrentAngularVelocityRADPS(); // Assumed already local
@@ -316,19 +330,20 @@ void AROS2Controller::UpdateOdometryMessage(UROS2GenericMsg* InMessage)
 
 void AROS2Controller::InitializeImageCapture()
 {
-    if (!QuadPawn || !QuadPawn->CameraFPV || !SceneCapture)
+    AQuadPawn* Pawn = Cast<AQuadPawn>(GetAttachParentActor());
+    if (!Pawn || !Pawn->CameraFPV || !SceneCapture)
     {
         UE_LOG(LogTemp, Error, TEXT("Missing required components for image capture!"));
         return;
     }
 
-    if (!SceneCapture->IsAttachedTo(QuadPawn->CameraFPV))
+    if (!SceneCapture->IsAttachedTo(Pawn->CameraFPV))
     {
-        SceneCapture->AttachToComponent(QuadPawn->CameraFPV, 
+        SceneCapture->AttachToComponent(Pawn->CameraFPV,
             FAttachmentTransformRules::SnapToTargetIncludingScale);
     }
     SceneCapture->RegisterComponent();
-    SceneCapture->HiddenActors.Add(QuadPawn);
+    SceneCapture->HiddenActors.Add(Pawn);
 
     for (int32 i = 0; i < 2; ++i)
     {
@@ -343,7 +358,7 @@ void AROS2Controller::InitializeImageCapture()
         RenderTargets[i]->UpdateResourceImmediate(true);
     }
 
-    SceneCapture->FOVAngle = QuadPawn->CameraFPV->FieldOfView;
+    SceneCapture->FOVAngle = Pawn->CameraFPV->FieldOfView;
     SceneCapture->ShowFlags.SetTonemapper(true);
     SceneCapture->CaptureSource = SCS_FinalColorLDR;
     SceneCapture->bCaptureEveryFrame = false;
@@ -353,14 +368,16 @@ void AROS2Controller::InitializeImageCapture()
 void AROS2Controller::CaptureImage()
 {
     if (!SceneCapture || bIsProcessingImage) return;
+    AQuadPawn* Pawn = Cast<AQuadPawn>(GetAttachParentActor());
+    if (!Pawn || !Pawn->CameraFPV) return;
 
     SceneCapture->SetWorldLocationAndRotation(
-        QuadPawn->CameraFPV->GetComponentLocation(),
-        QuadPawn->CameraFPV->GetComponentRotation()
+        Pawn->CameraFPV->GetComponentLocation(),
+        Pawn->CameraFPV->GetComponentRotation()
     );
 
-    const FVector CaptureLocation = QuadPawn->CameraFPV->GetComponentLocation();
-    const FRotator CameraFullRotation = QuadPawn->CameraFPV->GetComponentRotation();
+    const FVector CaptureLocation = Pawn->CameraFPV->GetComponentLocation();
+    const FRotator CameraFullRotation = Pawn->CameraFPV->GetComponentRotation();
 
     const FRotator CaptureYawOnlyRotation = FRotator(0.0f, CameraFullRotation.Yaw, 0.0f);
     SceneCapture->SetWorldLocationAndRotation(CaptureLocation, CaptureYawOnlyRotation);
@@ -449,5 +466,8 @@ FVector AROS2Controller::GetCurrentGoalPosition() const
 
 FString AROS2Controller::GetDroneID() const
 {
-    return QuadPawn ? QuadPawn->DroneID : FString(TEXT("Unknown"));
+    {
+        AQuadPawn* Pawn = Cast<AQuadPawn>(GetAttachParentActor());
+        return Pawn ? Pawn->DroneID : FString(TEXT("Unknown"));
+    }
 }

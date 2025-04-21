@@ -16,7 +16,7 @@
 #include "Msgs/ROS2Empty.h"
 
 class AObstacleManager;
-class AQuadPawn;
+//class AQuadPawn; // Removed; owning pawn determined at runtime via GetOwner()
 class UQuadDroneController; 
 
 #include "ROS2Controller.generated.h"
@@ -77,9 +77,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ROS2|Subscribers") 
 	FString HoverTopicName = TEXT("/hover/height");
 	
-    // --- Pawn & Manager References ---
-	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, meta=(ExposeOnSpawn=true), Category="References")
-	AQuadPawn* QuadPawn;
+    // Ownership: QuadPawn is determined at runtime via GetOwner(); no explicit reference stored
 
 
     // --- Image Capture Component ---
