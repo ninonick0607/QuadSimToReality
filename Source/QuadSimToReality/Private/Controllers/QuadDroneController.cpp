@@ -201,24 +201,28 @@ void UQuadDroneController::Update(double a_deltaTime)
 		FString WinName = FString::Printf(TEXT("Flight Mode Selector##%s"), *dronePawn->DroneID);
 		ImGui::Begin(TCHAR_TO_UTF8(*WinName));
 		// Flight mode buttons
-		if (ImGui::Button("Auto Waypoint", ImVec2(200, 50)))
-		{
-			currentFlightMode = EFlightMode::AutoWaypoint;
-			if (Manager && Manager->IsSwarmMode())
-				Manager->OnGlobalFlightModeChanged.Broadcast(currentFlightMode);
-		}
-		if (ImGui::Button("JoyStick Control", ImVec2(200, 50)))
-		{
-			currentFlightMode = EFlightMode::JoyStickControl;
-			if (Manager && Manager->IsSwarmMode())
-				Manager->OnGlobalFlightModeChanged.Broadcast(currentFlightMode);
-		}
-		if (ImGui::Button("Move By Velocity", ImVec2(200, 50)))
-		{
-			currentFlightMode = EFlightMode::VelocityControl;
-			if (Manager && Manager->IsSwarmMode())
-				Manager->OnGlobalFlightModeChanged.Broadcast(currentFlightMode);
-		}
+        if (ImGui::Button("Auto Waypoint", ImVec2(200, 50)))
+        {
+            // Switch to auto-waypoint mode and load figure-8 plan
+            SetFlightMode(EFlightMode::AutoWaypoint);
+            // Broadcast to swarm if enabled
+            if (Manager && Manager->IsSwarmMode())
+                Manager->OnGlobalFlightModeChanged.Broadcast(currentFlightMode);
+        }
+        if (ImGui::Button("JoyStick Control", ImVec2(200, 50)))
+        {
+            // Switch to joystick control mode
+            SetFlightMode(EFlightMode::JoyStickControl);
+            if (Manager && Manager->IsSwarmMode())
+                Manager->OnGlobalFlightModeChanged.Broadcast(currentFlightMode);
+        }
+        if (ImGui::Button("Move By Velocity", ImVec2(200, 50)))
+        {
+            // Switch to velocity control mode
+            SetFlightMode(EFlightMode::VelocityControl);
+            if (Manager && Manager->IsSwarmMode())
+                Manager->OnGlobalFlightModeChanged.Broadcast(currentFlightMode);
+        }
 		ImGui::End();
 	}
 	
@@ -331,9 +335,10 @@ void UQuadDroneController::AutoWaypointControl(double a_deltaTime)
 	FVector positionError = setPoint - currentPosition;
 	FRotator yawOnlyRotation(0, currentRotation.Yaw, 0);
 	FVector normalizedError = positionError.GetSafeNormal();
-	currentLocalVelocity = yawOnlyRotation.UnrotateVector(currentVelocity);
-	FVector droneForwardVector = dronePawn->GetActorForwardVector();
-	FVector desiredLocalVelocity = DroneMathUtils::CalculateDesiredVelocity(positionError, maxVelocity);
+        currentLocalVelocity = yawOnlyRotation.UnrotateVector(currentVelocity);
+        // Desired velocity follows the position error at full speed
+        FVector droneForwardVector = dronePawn->GetActorForwardVector();
+        FVector desiredLocalVelocity = DroneMathUtils::CalculateDesiredVelocity(positionError, maxVelocity);
 	DrawDebugVisuals(currentPosition);
 	
 	double x_output = 0.f, y_output = 0.f, z_output = 0.f;
@@ -803,5 +808,35 @@ FVector UQuadDroneController::GetCurrentVelocity() const
 
 void UQuadDroneController::SetFlightMode(EFlightMode NewMode)
 {
-	currentFlightMode = NewMode;
+    currentFlightMode = NewMode;
+    // On selecting AutoWaypoint, generate and load the figure-8 navigation plan
+    if (NewMode == EFlightMode::AutoWaypoint && dronePawn)
+    {
+        // Generate waypoints from pawn's position
+        TArray<FVector> plan = dronePawn->GenerateFigureEightWaypoints();
+        // Set navigation plan
+        if (UNavigationComponent* Nav = dronePawn->FindComponentByClass<UNavigationComponent>())
+        {
+            Nav->SetNavigationPlan(plan);
+        }
+        // Debug draw the path: spheres and connecting lines
+        UWorld* World = dronePawn->GetWorld();
+        if (World)
+        {
+            // Persistent debug: sample path sparsely for performance
+            const float SphereSize = 50.0f;
+            const int32 debugStep = 5;
+            const bool bPersistent = true;
+            const float LifeTime = 0.0f;
+            for (int32 i = 0; i < plan.Num(); i += debugStep)
+            {
+                DrawDebugSphere(World, plan[i], SphereSize, 8, FColor::Green, bPersistent, LifeTime);
+                int32 nextIdx = i + debugStep;
+                if (nextIdx < plan.Num())
+                {
+                    DrawDebugLine(World, plan[i], plan[nextIdx], FColor::Green, bPersistent, LifeTime, 0, 5.0f);
+                }
+            }
+        }
+    }
 }

@@ -4,7 +4,7 @@
 #include "Components/ActorComponent.h"
 #include "NavigationComponent.generated.h"
 
-UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
+UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class QUADSIMTOREALITY_API UNavigationComponent : public UActorComponent
 {
     GENERATED_BODY()
@@ -17,7 +17,14 @@ public:
     void UpdateNavigation(const FVector& CurrentPosition);
     void ResetNavigation();
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Navigation")
+    // ← new:
+    UFUNCTION(BlueprintCallable, Category="Navigation")
+    void SetCurrentDestination(const FVector& Destination);
+
+    UFUNCTION(BlueprintCallable, Category="Navigation")
+    void AddWaypoint(const FVector& Waypoint);
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Navigation")
     float AcceptableDistance = 100.0f;
 
 private:

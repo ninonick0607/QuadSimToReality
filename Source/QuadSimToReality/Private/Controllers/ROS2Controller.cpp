@@ -1,31 +1,54 @@
-#include "Controllers/ROS2Controller.h" 
 
-#include "MaterialHLSLTree.h"
+#include "Controllers/ROS2Controller.h"
+
+// --- Standard Includes ---
 #include "Kismet/GameplayStatics.h"
-#include "Async/Async.h" 
+#include "Async/Async.h"
 #include "Components/SceneCaptureComponent2D.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "TimerManager.h"
 #include "RHICommandList.h"
-#include "RenderingThread.h" 
+#include "RenderingThread.h"
 #include "Camera/CameraComponent.h"
 
+// --- ROS 2 Includes ---
 #include "ROS2NodeComponent.h"
 #include "ROS2Publisher.h"
 #include "ROS2Subscriber.h"
-#include "Controllers/QuadDroneController.h"
+#include "rclcUtilities.h" // Brings in UROS2Utils
 
-#include "Msgs/ROS2Point.h"     
-#include "Msgs/ROS2Img.h"       
-#include "Msgs/ROS2Float64.h"   
-#include "Msgs/ROS2Twist.h"     
-#include "Msgs/ROS2Str.h"
-#include "Msgs/ROS2Odom.h"
+// Message Headers for Wrappers (UROS2...Msg) and FStructs (FROS...)
 #include "Msgs/ROS2GenericMsg.h"
+#include "Msgs/ROS2TFMsg.h"         // Defines UROS2TFMsgMsg and FROSTFMsg
+#include "Msgs/ROS2TFStamped.h"    // Defines UROS2TFStampedMsg and FROSTFStamped
+#include "Msgs/ROS2PoseStamped.h"  // Defines UROS2PoseStampedMsg and FROSPoseStamped
+#include "Msgs/ROS2Odom.h"
+#include "Msgs/ROS2Point.h"        // Defines UROS2PointMsg and FROSPoint
+#include "Msgs/ROS2Img.h"
+#include "Msgs/ROS2Float64.h"
+#include "Msgs/ROS2Twist.h"
+#include "Msgs/ROS2Str.h"
+#include "Msgs/ROS2Empty.h"
+#include "Msgs/ROS2TF.h"          // Defines FROSTransform (used implicitly by FROSTFStamped)
+#include "Msgs/ROS2Header.h"      // Defines FROSStdHeader
+#include "Msgs/ROS2Time.h"        // Defines FROSTime
+#include "Msgs/ROS2Pose.h"        // Defines FROSPose
+#include "Msgs/ROS2Quat.h"        // Defines UROS2QuatMsg and FROSQuat
 
-#include "Pawns/QuadPawn.h"     
+// C-Struct Headers (Needed for utility function inputs & low-level assignment)
+#include "geometry_msgs/msg/transform_stamped.h"
+#include "geometry_msgs/msg/point.h"
+#include "geometry_msgs/msg/quaternion.h"
+#include "rosidl_runtime_c/string_functions.h" // For string assign/init/fini
+
+// --- Project Specific Includes ---
+#include "Pawns/QuadPawn.h"
 #include "Utility/ObstacleManager.h"
-#include "Controllers/QuadDroneController.h"
+#include "Controllers/QuadDroneController.h" // Assuming QuadPawn uses this
+// *** Include your actual Navigation Component header ***
+#include "Utility/NavigationComponent.h" // Make sure this path is correct
+
+
 
 AROS2Controller::AROS2Controller()
 {
@@ -39,24 +62,22 @@ void AROS2Controller::BeginPlay()
 {
     Super::BeginPlay();
 
+    // --- Pawn Validation ---
     AQuadPawn* Pawn = Cast<AQuadPawn>(GetAttachParentActor());
     if (!IsValid(Pawn))
     {
         UE_LOG(LogTemp, Error, TEXT("AROS2Controller::BeginPlay - Owning QuadPawn not found! Aborting."));
         return;
     }
-    if (!IsValid(Pawn->CameraFPV))
+    bool bCanCaptureImages = IsValid(Pawn->CameraFPV);
+    if (!bCanCaptureImages)
     {
-        UE_LOG(LogTemp, Error, TEXT("AROS2Controller::BeginPlay - Pawn->CameraFPV is not valid! Aborting."));
-        return;
+        UE_LOG(LogTemp, Warning, TEXT("AROS2Controller::BeginPlay - Pawn->CameraFPV is not valid. Image capture will be disabled."));
     }
 
-    // Determine a unique ROS2 node name per pawn to avoid name collisions (reuse Pawn from above)
+    // --- Node Initialization ---
     FString UniqueNodeName = NodeName;
-    if (Pawn)
-    {
-        UniqueNodeName = NodeName + TEXT("_") + Pawn->GetFName().ToString();
-    }
+    if (Pawn) UniqueNodeName = NodeName + TEXT("_") + Pawn->GetFName().ToString();
     UE_LOG(LogTemp, Warning, TEXT("AROS2Controller: Initializing ROS2 Node '%s' in namespace '%s'"), *UniqueNodeName, *Namespace);
     Node->Name = UniqueNodeName;
     Node->Namespace = Namespace;
@@ -64,71 +85,62 @@ void AROS2Controller::BeginPlay()
 
     // --- Setup Publishers ---
     UE_LOG(LogTemp, Log, TEXT("Setting up Publisher: %s"), *OdometryTopicName);
-    ROS2_CREATE_LOOP_PUBLISHER_WITH_QOS(
-        Node, this, OdometryTopicName,          
-        UROS2Publisher::StaticClass(),          
-        UROS2OdomMsg::StaticClass(),        
-        OdometryFrequencyHz,                    
-        &AROS2Controller::UpdateOdometryMessage,
-        UROS2QoS::Default,                      
-        OdometryPublisher);
-    
+    ROS2_CREATE_LOOP_PUBLISHER_WITH_QOS( Node, this, OdometryTopicName, UROS2Publisher::StaticClass(), UROS2OdomMsg::StaticClass(), OdometryFrequencyHz, &AROS2Controller::UpdateOdometryMessage, UROS2QoS::Default, OdometryPublisher);
     UE_LOG(LogTemp, Log, TEXT("Setting up Publisher: %s"), *PositionGoalTopicName);
-    ROS2_CREATE_LOOP_PUBLISHER_WITH_QOS(
-        Node, this, PositionGoalTopicName, UROS2Publisher::StaticClass(), UROS2PointMsg::StaticClass(), 
-        GoalFrequenzyHz, &AROS2Controller::UpdateGoalPositionMessage, UROS2QoS::Default, GoalPosition); // Try services if not working
-
-    UE_LOG(LogTemp, Log, TEXT("Setting up Publisher: %s"), *ImageTopicName);
-    ROS2_CREATE_LOOP_PUBLISHER_WITH_QOS(
-        Node, this, ImageTopicName, UROS2Publisher::StaticClass(), UROS2ImgMsg::StaticClass(), 
-        ImageFrequencyHz, &AROS2Controller::UpdateImageMessage, UROS2QoS::SensorData, ImagePublisher);
-
+    ROS2_CREATE_LOOP_PUBLISHER_WITH_QOS( Node, this, PositionGoalTopicName, UROS2Publisher::StaticClass(), UROS2PointMsg::StaticClass(), GoalFrequenzyHz, &AROS2Controller::UpdateGoalPositionMessage, UROS2QoS::Default, GoalPosition);
+    if (bCanCaptureImages) {
+        UE_LOG(LogTemp, Log, TEXT("Setting up Publisher: %s"), *ImageTopicName);
+        ROS2_CREATE_LOOP_PUBLISHER_WITH_QOS( Node, this, ImageTopicName, UROS2Publisher::StaticClass(), UROS2ImgMsg::StaticClass(), ImageFrequencyHz, &AROS2Controller::UpdateImageMessage, UROS2QoS::SensorData, ImagePublisher);
+    }
     UE_LOG(LogTemp, Log, TEXT("Setting up Publisher: %s"), *CollisionTopicName);
+    ROS2_CREATE_LOOP_PUBLISHER_WITH_QOS( Node, this, CollisionTopicName, UROS2Publisher::StaticClass(), UROS2Float64Msg::StaticClass(), 10, &AROS2Controller::UpdateCollisionMessage, UROS2QoS::Default, CollisionPublisher);
+
+    // TF Publisher (**USING CORRECT CLASS NAME**)
+    UE_LOG(LogTemp, Log, TEXT("Setting up Publisher: %s"), *TFTopicName);
     ROS2_CREATE_LOOP_PUBLISHER_WITH_QOS(
-        Node, this, CollisionTopicName,
-        UROS2Publisher::StaticClass(), UROS2Float64Msg::StaticClass(),
-        10, &AROS2Controller::UpdateCollisionMessage,
-        UROS2QoS::Default, CollisionPublisher);
+      Node, this, TFTopicName, UROS2Publisher::StaticClass(),
+      UROS2TFMsgMsg::StaticClass(), // *** Use the actual class name from ROS2TFMsg.h ***
+      TFFrequencyHz, &AROS2Controller::UpdateTFMessage, UROS2QoS::Default, TfPublisher);
 
     // --- Setup Obstacle Manager ---
     SetupObstacleManager();
-    
+
     // --- Setup Subscribers ---
     UE_LOG(LogTemp, Log, TEXT("Setting up Subscriber: %s"), *ObstacleTopicName);
-    ROS2_CREATE_SUBSCRIBER( 
-        Node, this, ObstacleTopicName, UROS2Float64Msg::StaticClass(), &AROS2Controller::HandleObstacleMessage);
-
-    UE_LOG(LogTemp, Log, TEXT("Setting up Subscriber: %s"), *CmdVelTopicName);
-    ROS2_CREATE_SUBSCRIBER( 
-        Node, this, CmdVelTopicName, UROS2TwistMsg::StaticClass(), &AROS2Controller::HandleVelocityCommand);
-
-    UE_LOG(LogTemp, Log, TEXT("Setting up Subscriber: %s"), *ResetTopicName);
     ROS2_CREATE_SUBSCRIBER(
-        Node, this, ResetTopicName,
-        UROS2EmptyMsg::StaticClass(),
-        &AROS2Controller::HandleResetCommand
+      Node,
+      this,
+      ObstacleTopicName,
+      UROS2Float64Msg::StaticClass(),
+      &AROS2Controller::HandleObstacleMessage
     );
-
+    UE_LOG(LogTemp, Log, TEXT("Setting up Subscriber: %s"), *CmdVelTopicName);
+    ROS2_CREATE_SUBSCRIBER( Node, this, CmdVelTopicName, UROS2TwistMsg::StaticClass(), &AROS2Controller::HandleVelocityCommand);
+    UE_LOG(LogTemp, Log, TEXT("Setting up Subscriber: %s"), *ResetTopicName);
+    ROS2_CREATE_SUBSCRIBER( Node, this, ResetTopicName, UROS2EmptyMsg::StaticClass(), &AROS2Controller::HandleResetCommand);
     UE_LOG(LogTemp, Log, TEXT("Setting up Subscriber: %s"), *HoverTopicName);
-    ROS2_CREATE_SUBSCRIBER( 
-        Node, this, HoverTopicName, UROS2Float64Msg::StaticClass(), &AROS2Controller::HandleHoverCommand);
-    
-    // ROS2_CREATE_LOOP_PUBLISHER_WITH_QOS(
-    //     Node, this, CollisionTopicName, UROS2Publisher::StaticClass(), UROS2Float64Msg::StaticClass(),
-    //     PositionFrequencyHz, &AROS2Controller::UpdateCollisionMessage, UROS2QoS::Default, CollisionPublisher);
+    ROS2_CREATE_SUBSCRIBER( Node, this, HoverTopicName, UROS2Float64Msg::StaticClass(), &AROS2Controller::HandleHoverCommand);
 
-    InitializeImageCapture();
-    if (ImageFrequencyHz > 0 && GetWorld()) {
-        UE_LOG(LogTemp, Log, TEXT("Starting image capture timer (Interval: %.4f s)"), 1.0f / ImageFrequencyHz);
-        GetWorld()->GetTimerManager().SetTimer(CaptureTimerHandle, this, &AROS2Controller::CaptureImage, 1.0f / ImageFrequencyHz, true);    
-    } else if (ImageFrequencyHz <= 0) { UE_LOG(LogTemp, Warning, TEXT("Image capture timer not started (Frequency <= 0).")); }
+    // --- Image Capture Initialization ---
+    if (bCanCaptureImages) {
+        InitializeImageCapture();
+        if (ImageFrequencyHz > 0 && GetWorld()) {
+            GetWorld()->GetTimerManager().SetTimer(CaptureTimerHandle, this, &AROS2Controller::CaptureImage, 1.0f / ImageFrequencyHz, true);
+        }
+    }
 
-    UE_LOG(LogTemp, Warning, TEXT("AROS2Controller initialization complete."));
+    UE_LOG(LogTemp, Warning, TEXT("AROS2Controller initialization complete for %s."), *Pawn->GetName());
 }
+
 void AROS2Controller::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-    GetWorld()->GetTimerManager().ClearTimer(CaptureTimerHandle);
+    if (GetWorld()) // Check if World is valid
+    {
+        GetWorld()->GetTimerManager().ClearTimer(CaptureTimerHandle);
+    }
+
     Super::EndPlay(EndPlayReason);
+    UE_LOG(LogTemp, Warning, TEXT("AROS2Controller EndPlay called."));
 }
 
 void AROS2Controller::SetupObstacleManager()
@@ -469,5 +481,81 @@ FString AROS2Controller::GetDroneID() const
     {
         AQuadPawn* Pawn = Cast<AQuadPawn>(GetAttachParentActor());
         return Pawn ? Pawn->DroneID : FString(TEXT("Unknown"));
+    }
+}
+
+void AROS2Controller::UpdateTFMessage(UROS2GenericMsg* InMsg)
+{
+    // 1) Cast to the actual wrapper class name from ROS2TFMsg.h
+    auto* TfMsg = Cast<UROS2TFMsgMsg>(InMsg); // *** Use UROS2TFMsgMsg ***
+    if (!TfMsg) return;
+
+    AQuadPawn* Pawn = Cast<AQuadPawn>(GetAttachParentActor());
+    if (!IsValid(Pawn)) return;
+
+    // 2) Build the ROS C-struct TransformStamped
+    geometry_msgs__msg__TransformStamped tf_stamped;
+    if (!geometry_msgs__msg__TransformStamped__init(&tf_stamped)) {
+        UE_LOG(LogTemp, Error, TEXT("UpdateTFMessage: Failed to init TransformStamped C-struct"));
+        return;
+    }
+
+    // Auto-cleanup for the C-struct
+    struct FScopeFiniGuard {
+        geometry_msgs__msg__TransformStamped* Ptr;
+        FScopeFiniGuard(geometry_msgs__msg__TransformStamped* InPtr) : Ptr(InPtr) {}
+        ~FScopeFiniGuard() { if(Ptr) geometry_msgs__msg__TransformStamped__fini(Ptr); }
+    } TfGuard(&tf_stamped);
+
+    // Populate Header
+    FTimespan Time = FDateTime::UtcNow().GetTimeOfDay();
+    tf_stamped.header.stamp.sec = static_cast<int32>(Time.GetTotalSeconds());
+    tf_stamped.header.stamp.nanosec = static_cast<uint32>(Time.GetFractionNano());
+    if (!rosidl_runtime_c__String__assign(&tf_stamped.header.frame_id, TCHAR_TO_UTF8(*FString("odom")))) {
+       UE_LOG(LogTemp, Error, TEXT("UpdateTFMessage: Failed to assign header.frame_id")); return;
+    }
+    if (!rosidl_runtime_c__String__assign(&tf_stamped.child_frame_id, TCHAR_TO_UTF8(*FString("base_link")))) {
+       UE_LOG(LogTemp, Error, TEXT("UpdateTFMessage: Failed to assign child_frame_id")); return;
+    }
+
+    // Populate Transform using Utility Function
+    tf_stamped.transform = UROS2Utils::TransformUEToROS(Pawn->GetActorTransform());
+
+    // 3) Convert C-struct into the UE FStruct wrapper using the CONFIRMED method
+    FROSTFStamped ue_stamp;
+    ue_stamp.SetFromROS2(tf_stamped); // This method name is confirmed from ROS2TFStamped.h
+
+    // (Fini will be called by TfGuard)
+
+    // 4) Prepare the main message FStruct
+    FROSTFMsg ue_msg;
+    ue_msg.Transforms.Add(ue_stamp);
+
+    // 5) Call SetMsg on the correct wrapper object type
+    // If the "Cannot convert FROSTFMsg to FROSTF" error still occurs HERE,
+    // it indicates a deeper issue possibly within RCLUE's handling of UROS2TFMsgMsg.
+    TfMsg->SetMsg(ue_msg);
+}
+void AROS2Controller::HandleGoalPose(const UROS2GenericMsg* InMsg)
+{
+    auto* PoseWrap = Cast<UROS2PoseStampedMsg>(InMsg);
+    if (!PoseWrap) return;
+
+    // unwrap the ROS message
+    FROSPoseStamped rosPose;
+    PoseWrap->GetMsg(rosPose);
+
+    // directly grab the UE FVector (no manual .X/.Y/.Z needed)
+    FVector goal_loc = rosPose.Pose.Position;
+
+    UE_LOG(LogTemp, Log, TEXT("New ROS goal at %s"), *goal_loc.ToString());
+
+    // feed it to your NavComponent
+    if (AQuadPawn* Pawn = Cast<AQuadPawn>(GetAttachParentActor()))
+    {
+        if (auto* Nav = Pawn->NavigationComponent)
+        {
+            Nav->SetCurrentDestination(goal_loc);
+        }
     }
 }

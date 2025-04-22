@@ -23,6 +23,7 @@
     {
         PrimaryActorTick.bCanEverTick = true;
         SelectedDroneIndex = 0;
+        // Default to C++ pawn class if no Blueprint subclass is set
     }
 
     void ADroneManager::BeginPlay()

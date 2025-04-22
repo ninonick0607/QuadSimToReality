@@ -8,6 +8,9 @@
 #include "Utility/NavigationComponent.h"
 #include "UI/ImGuiUtil.h"
 #include "Components/ChildActorComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Components/SkeletalMeshComponent.h" // For visual skeletal mesh
 #include "QuadPawn.generated.h"
 
 // Forward Declarations
@@ -46,8 +49,8 @@ public:
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
 	// --- Drone Components ---
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	UStaticMeshComponent* DroneBody;
+   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+   USkeletalMeshComponent* DroneBody;
 
 	// --- Camera Components ---
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
@@ -114,14 +117,24 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Collision")
 	void ResetCollisionStatus();
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Navigation")
-	UNavigationComponent* NavigationComponent;
+   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Navigation")
+   UNavigationComponent* NavigationComponent;
+
+   // Generate a figure-8 waypoint list around the pawn's current position
+   UFUNCTION(BlueprintCallable, Category = "Navigation")
+   TArray<FVector> GenerateFigureEightWaypoints() const;
 
 protected:
 	virtual void BeginPlay() override;
 
-	UFUNCTION()
-	void OnDroneHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+   // Collision hit event
+   UFUNCTION()
+   void OnDroneHit(
+       UPrimitiveComponent* HitComponent,
+       AActor* OtherActor,
+       UPrimitiveComponent* OtherComp,
+       FVector NormalImpulse,
+       const FHitResult& Hit);
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	ECameraMode CurrentCameraMode;
