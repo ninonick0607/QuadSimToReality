@@ -1,5 +1,5 @@
 // QuadPIDController.cpp
-#include "Utility/QuadPIDConroller.h"
+#include "Utility/QuadPIDController.h"
 #include "Math/UnrealMathUtility.h"
 
 QuadPIDController::QuadPIDController()

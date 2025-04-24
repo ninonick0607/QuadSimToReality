@@ -5,7 +5,6 @@
 #include "DroneManager.generated.h"
 
 class AQuadPawn;
-class AZMQController;
 // Forward declaration for flight modes
 enum class EFlightMode : uint8;
 
@@ -25,11 +24,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Drone Manager")
 	TArray<AQuadPawn*> GetDroneList() const;
-
-	// Function for ZMQControllers to register themselves.
-	UFUNCTION(BlueprintCallable, Category = "Drone Manager")
-	void RegisterZMQController(AZMQController* Controller);
-    
+	
     // Register a quad-drone controller for global flight mode broadcasts
     void RegisterDroneController(class UQuadDroneController* Controller);
 
@@ -60,16 +55,10 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Drone Manager")
 	TSubclassOf<AQuadPawn> QuadPawnClass;
 
-	// New: The blueprint class for ZMQController.
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Drone Manager")
-	TSubclassOf<AZMQController> ZMQControllerClass;
 
 	UPROPERTY(VisibleAnywhere, Category = "Drone Manager")
 	TArray<TWeakObjectPtr<AQuadPawn>> AllDrones;
 
-	// New: Array to keep track of all spawned ZMQControllers.
-    UPROPERTY(VisibleAnywhere, Category = "Drone Manager")
-    TArray<TWeakObjectPtr<AZMQController>> AllZMQControllers;
     
 private:
     // Whether swarm mode is enabled.

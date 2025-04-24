@@ -1,9 +1,8 @@
 #include "Core/DroneManager.h"
+// Controller includes
 #include "Controllers/QuadDroneController.h"
-#include "Controllers/QuadDroneController.h"
-    #include "Pawns/QuadPawn.h"
-    #include "Controllers/ZMQController.h"
-    #include "Kismet/GameplayStatics.h"
+#include "Pawns/QuadPawn.h"
+#include "Kismet/GameplayStatics.h"
     #include "Engine/World.h"
     #include "imgui.h"
     #include "Engine/Engine.h"
@@ -26,7 +25,13 @@
 
     void ADroneManager::BeginPlay()
     {
-        Super::BeginPlay();
+       Super::BeginPlay();
+       // Ensure QuadPawnClass is set; fallback to C++ base class if unset
+       if (!QuadPawnClass)
+       {
+           QuadPawnClass = AQuadPawn::StaticClass();
+           UE_LOG(LogTemp, Warning, TEXT("QuadPawnClass not set; defaulting to C++ AQuadPawn class"));
+       }
         
         if (UWorld* World = GetWorld())
         {
@@ -76,15 +81,6 @@
         }
     }
 
-    void ADroneManager::RegisterZMQController(AZMQController* Controller)
-    {
-        if (Controller)
-        {
-            AllZMQControllers.Add(Controller);
-            UE_LOG(LogTemp, Display, TEXT("DroneManager: Registered ZMQController with DroneID: %s"), 
-                   *Controller->GetConfiguration().DroneID);
-        }
-    }
     
     // Register a Quad Drone Controller to receive global flight mode broadcasts
     void ADroneManager::RegisterDroneController(UQuadDroneController* Controller)
@@ -131,27 +127,6 @@
             }
         }
 
-        // Clean up any invalid ZMQ controller entries.
-        for (int32 i = AllZMQControllers.Num() - 1; i >= 0; i--)
-        {
-            if (!AllZMQControllers[i].IsValid())
-            {
-                AllZMQControllers.RemoveAt(i);
-            }
-        }
-
-        // Build a quick lookup map from drone (AQuadPawn*) to its ZMQ controller.
-        TMap<AQuadPawn*, AZMQController*> DroneToZMQMap;
-        for (const TWeakObjectPtr<AZMQController>& ControllerWeak : AllZMQControllers)
-        {
-            if (AZMQController* Controller = ControllerWeak.Get())
-            {
-                if (Controller->TargetPawn)
-                {
-                    DroneToZMQMap.Add(Controller->TargetPawn, Controller);
-                }
-            }
-        }
 
         // Prepare the drone labels for the ImGui interface.
         ImGui::Begin("Global Drone Manager");
@@ -233,9 +208,9 @@
 
     AQuadPawn* ADroneManager::SpawnDrone(const FVector& SpawnLocation, const FRotator& SpawnRotation)
     {
-        if (!QuadPawnClass || !ZMQControllerClass)
+        if (!QuadPawnClass)
         {
-            UE_LOG(LogTemp, Warning, TEXT("QuadPawnClass or ZMQControllerClass not set in DroneManager!"));
+            UE_LOG(LogTemp, Warning, TEXT("QuadPawnClass not set in DroneManager!"));
             return nullptr;
         }
 
@@ -248,27 +223,6 @@
             
             // Spawn the drone.
             AQuadPawn* NewDrone = World->SpawnActor<AQuadPawn>(QuadPawnClass, SpawnLocation, SpawnRotation, SpawnParams);
-            if (NewDrone)
-            {
-                // Calculate a unique offset based o    n the current number of drones.
-                int32 DroneIndex = AllDrones.Num();
-                FZMQConfiguration Config;
-                Config.PublishPort = 5557 + DroneIndex;
-                Config.CommandPort = 5556 + DroneIndex;
-                Config.ControlPort = 5558 + DroneIndex;
-                Config.DroneID = NewDrone->GetName();
-                
-                // Spawn the dedicated ZMQController for this drone after a short delay.
-                FTimerHandle TimerHandle;
-                World->GetTimerManager().SetTimer(TimerHandle, [this, NewDrone, SpawnLocation, SpawnRotation, SpawnParams, Config]()
-                {
-                    AZMQController* NewZMQController = GetWorld()->SpawnActor<AZMQController>(ZMQControllerClass, SpawnLocation, SpawnRotation, SpawnParams);
-                    if (NewZMQController)
-                    {
-                        NewZMQController->Initialize(NewDrone, NewDrone->QuadController, Config);
-                    }
-                }, 0.2f, false);
-            }
             return NewDrone;
         }
         return nullptr;

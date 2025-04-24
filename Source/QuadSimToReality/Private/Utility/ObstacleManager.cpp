@@ -315,7 +315,7 @@ void AObstacleManager::MoveDroneToOppositeOfGoal(EGoalPosition GoalPos) {
             break;
     }
     
-    DroneLocation.Z = ObstacleSpawnHeight + 250.0f; // Set proper height
+    DroneLocation.Z = ObstacleSpawnHeight; // Set proper height
     
     // Additional logging for debugging
     UE_LOG(LogTemp, Display, TEXT("Moving drone to %s based on opposite position %d"), 
@@ -333,7 +333,6 @@ void AObstacleManager::MoveDroneToOppositeOfGoal(EGoalPosition GoalPos) {
             FRotator CurrentRotation = Drone->GetActorRotation();
             FacingRotation.Pitch = CurrentRotation.Pitch;
             FacingRotation.Roll = CurrentRotation.Roll;
-            FacingRotation.Yaw += FMath::RandRange(-90.0f, 90.0f); // Add random yaw offset
             
             // Teleport the drone to the exact location with rotation to face center
             Drone->SetActorLocationAndRotation(DroneLocation, FacingRotation);

@@ -61,21 +61,37 @@ void AZMQController::BeginPlay()
 {
     Super::BeginPlay();
     UE_LOG(LogTemp, Display, TEXT("AZMQController BeginPlay: Creating separate window..."));
+    // Auto-assign TargetPawn from attached parent pawn if not explicitly set
+    if (!TargetPawn)
+    {
+        if (AQuadPawn* ParentPawn = Cast<AQuadPawn>(GetAttachParentActor()))
+        {
+            TargetPawn = ParentPawn;
+            UE_LOG(LogTemp, Display, TEXT("AZMQController: Auto-assigned TargetPawn to %s"), *TargetPawn->GetName());
+        }
+    }
     if (TargetPawn)
     {
-        if (!TargetPawn->QuadController)
+        if (TargetPawn->QuadController)
         {
+            DronePawn = TargetPawn;
+            DroneController = TargetPawn->QuadController;
+            // Update DroneID to match pawn name
+            Configuration.DroneID = TargetPawn->GetName();
+            Initialize(DronePawn, DroneController, Configuration);
+        }
+        else
+        {
+            // Delay initialization until pawn's QuadController is ready
             GetWorld()->GetTimerManager().SetTimerForNextTick([this]()
             {
                 this->CheckAndInitialize();
             });
         }
-        else
-        {
-            DronePawn = TargetPawn;
-            DroneController = TargetPawn->QuadController;
-            Initialize(DronePawn, DroneController, Configuration);
-        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("AZMQController: No TargetPawn found; ZMQ initialization deferred"));
     }
 
     UE_LOG(LogTemp, Display, TEXT("Initial goal position set to: X=%f, Y=%f, Z=%f"),
@@ -90,16 +106,6 @@ void AZMQController::BeginPlay()
             Configuration.CaptureInterval,
             true
         );
-    }
-
-    ADroneManager* Manager = Cast<ADroneManager>(UGameplayStatics::GetActorOfClass(GetWorld(), ADroneManager::StaticClass()));
-    if (Manager)
-    {
-        Manager->RegisterZMQController(this);
-    }
-    else
-    {
-        UE_LOG(LogTemp, Warning, TEXT("ZMQController: No DroneManager found in the level."));
     }
 
     // Check and initialize the ObstacleManager

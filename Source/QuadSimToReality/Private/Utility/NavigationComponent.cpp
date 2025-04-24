@@ -40,3 +40,15 @@ void UNavigationComponent::ResetNavigation()
 {
     CurrentIndex = 0;
 }
+
+void UNavigationComponent::SetCurrentDestination(const FVector& Destination)
+{
+    Waypoints.Empty();
+    Waypoints.Add(Destination);
+    CurrentIndex = 0;
+}
+
+void UNavigationComponent::AddWaypoint(const FVector& Waypoint)
+{
+    Waypoints.Add(Waypoint);
+}

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Utility/QuadPIDConroller.h"
+#include "Utility/QuadPIDController.h"
 #include "UI/ImGuiUtil.h"
 #include "QuadDroneController.generated.h"
 
@@ -56,11 +56,10 @@ public:
     virtual ~UQuadDroneController();
 
     void Initialize(AQuadPawn* InPawn);
-
     void Update(double DeltaTime);
+
     void VelocityControl(double a_deltaTime);
     //void ApplyControllerInput(double a_deltaTime);
-    
     void AutoWaypointControl(double DeltaTime);
     void ThrustMixer(double currentRoll, double currentPitch, double zOutput, double rollOutput, double pitchOutput);
     void YawStabilization(double DeltaTime);
@@ -94,12 +93,13 @@ public:
     void SetMaxVelocity(float newMaxVelocity) { maxVelocity = newMaxVelocity;}
     void SetMaxAngle(float newMaxAngle) { maxAngle = newMaxAngle;}
     bool IsHoverModeActive() const { return bHoverModeActive; }
+
     float GetCurrentThrustOutput(int32 ThrusterIndex) const;
-    
-    // Set flight mode (used for swarm control broadcasts)
+    UFUNCTION(BlueprintPure, Category = "Drone State")
+    FVector GetCurrentVelocity() const; 
+
     UFUNCTION(BlueprintCallable, Category = "Flight")
     void SetFlightMode(EFlightMode NewMode);
-
     FFullPIDSet* GetPIDSet(EFlightMode Mode)
     {
         return PIDMap.Find(Mode); 

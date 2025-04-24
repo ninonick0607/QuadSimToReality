@@ -26,10 +26,10 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	, desiredForwardVector(FVector(1.0f, 0.0f, 0.0f))
 	, YawTorqueForce(2.0)
 	, LastYawTorqueApplied(0.0)
-	, setPoint(FVector::ZeroVector)
-	, desiredNewVelocity(FVector::ZeroVector)
 	, desiredYawRate(0.0f) 
 	, bDebugVisualsEnabled(false)
+	, setPoint(FVector::ZeroVector)
+	, desiredNewVelocity(FVector::ZeroVector)
 	, hoverTargetAltitude(0.0f)
 	, bHoverModeActive(false)
 	, bManualThrustMode(false)  
@@ -41,8 +41,9 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	minAltitudeLocal = Config.FlightParams.MinAltitudeLocal;
 	acceptableDistance = Config.FlightParams.AcceptableDistance;
 
-	// Initialize other values
-	Debug_DrawDroneCollisionSphere = true;
+   // Start with flight mode None (motors off) until mode is selected via UI
+   currentFlightMode = EFlightMode::None;
+   Debug_DrawDroneCollisionSphere = true;
 	Debug_DrawDroneWaypoint = true;
 	
 	FFullPIDSet VelocitySet;
@@ -131,15 +132,9 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 
 	DroneGlobalState::Get().BindController(this);
 }
-// Sets the current flight mode (used for swarm control)
-void UQuadDroneController::SetFlightMode(EFlightMode NewMode)
-{
-    currentFlightMode = NewMode;
-}
 
 UQuadDroneController::~UQuadDroneController()
 {
-	// Unbind this controller from global state updates
 	DroneGlobalState::Get().UnbindController(this);
 }
 
@@ -153,80 +148,83 @@ void UQuadDroneController::Initialize(AQuadPawn* InPawn)
 		return;
 	}
 
-    if (dronePawn != InPawn)
-    {
-        UE_LOG(LogTemp, Display, TEXT("Initializing controller for pawn: %s"), *InPawn->GetName());
-        dronePawn = InPawn;
-        // Register this controller with the global DroneManager for swarm broadcasts
-        if (UWorld* World = dronePawn->GetWorld())
-        {
-            if (ADroneManager* Manager = ADroneManager::Get(World))
-            {
-                Manager->RegisterDroneController(this);
-            }
-        }
-    }
+	if (dronePawn != InPawn)
+	{
+		UE_LOG(LogTemp, Display, TEXT("Initializing controller for pawn: %s"), *InPawn->GetName());
+		dronePawn = InPawn;
+		// Register this controller with the global DroneManager for swarm broadcasts
+		if (UWorld* World = dronePawn->GetWorld())
+		{
+			if (ADroneManager* Manager = ADroneManager::Get(World))
+			{
+				Manager->RegisterDroneController(this);
+			}
+		}
+	}
 
 
 }
 
-
 // ---------------------- Update ------------------------
-
 
 void UQuadDroneController::Update(double a_deltaTime)
 {
-    // Determine if this controller should show UI (independent vs swarm mode)
-    ADroneManager* Manager = ADroneManager::Get(dronePawn ? dronePawn->GetWorld() : nullptr);
-    bool bShowUI = true;
-    if (Manager)
-    {
-        if (!Manager->IsSwarmMode())
-        {
-            // Independent mode: only show UI on the possessed pawn
-            APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
-            if (PC && PC->GetPawn() != dronePawn)
-            {
-                bShowUI = false;
-            }
-        }
-        else
-        {
-            // Swarm mode: only show UI on first drone (index 0)
-            int32 MyIndex = Manager->GetDroneIndex(dronePawn);
-            if (MyIndex != 0)
-            {
-                bShowUI = false;
-            }
-        }
-    }
-    
-    if (bShowUI)
-    {
-        // Unique window name per drone to avoid ID conflicts
-        FString WinName = FString::Printf(TEXT("Flight Mode Selector##%s"), *dronePawn->DroneID);
-        ImGui::Begin(TCHAR_TO_UTF8(*WinName));
-        // Flight mode buttons
+
+
+	ADroneManager* Manager = ADroneManager::Get(dronePawn ? dronePawn->GetWorld() : nullptr);
+	bool bShowUI = true;
+	if (Manager)
+	{
+		if (!Manager->IsSwarmMode())
+		{
+			// Independent mode: only show UI on the possessed pawn
+			APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+			if (PC && PC->GetPawn() != dronePawn)
+			{
+				bShowUI = false;
+			}
+		}
+		else
+		{
+			// Swarm mode: only show UI on first drone (index 0)
+			int32 MyIndex = Manager->GetDroneIndex(dronePawn);
+			if (MyIndex != 0)
+			{
+				bShowUI = false;
+			}
+		}
+	}
+     
+	if (bShowUI)
+	{
+		// Unique window name per drone to avoid ID conflicts
+		FString WinName = FString::Printf(TEXT("Flight Mode Selector##%s"), *dronePawn->DroneID);
+		ImGui::Begin(TCHAR_TO_UTF8(*WinName));
+		// Flight mode buttons
         if (ImGui::Button("Auto Waypoint", ImVec2(200, 50)))
         {
-            currentFlightMode = EFlightMode::AutoWaypoint;
+            // Switch to auto-waypoint mode and load figure-8 plan
+            SetFlightMode(EFlightMode::AutoWaypoint);
+            // Broadcast to swarm if enabled
             if (Manager && Manager->IsSwarmMode())
                 Manager->OnGlobalFlightModeChanged.Broadcast(currentFlightMode);
         }
         if (ImGui::Button("JoyStick Control", ImVec2(200, 50)))
         {
-            currentFlightMode = EFlightMode::JoyStickControl;
+            // Switch to joystick control mode
+            SetFlightMode(EFlightMode::JoyStickControl);
             if (Manager && Manager->IsSwarmMode())
                 Manager->OnGlobalFlightModeChanged.Broadcast(currentFlightMode);
         }
         if (ImGui::Button("Move By Velocity", ImVec2(200, 50)))
         {
-            currentFlightMode = EFlightMode::VelocityControl;
+            // Switch to velocity control mode
+            SetFlightMode(EFlightMode::VelocityControl);
             if (Manager && Manager->IsSwarmMode())
                 Manager->OnGlobalFlightModeChanged.Broadcast(currentFlightMode);
         }
-        ImGui::End();
-    }
+		ImGui::End();
+	}
 	
 	switch (currentFlightMode)
 	{
@@ -246,34 +244,34 @@ void UQuadDroneController::Update(double a_deltaTime)
 }
 
 void UQuadDroneController::VelocityControl(double DeltaTime)
-{
-    FFullPIDSet* CurrentSet = PIDMap.Find(EFlightMode::VelocityControl);
-
-	FVector currentPosition = dronePawn->GetActorLocation();
-	FVector currentVelocity = dronePawn->GetVelocity();
-	FRotator currentRotation = dronePawn->GetActorRotation();
-	FVector desiredLocalVelocity = desiredNewVelocity;
-
-	if (bHoverModeActive)
-	{
-		float currentAltitude = dronePawn->GetActorLocation().Z;
-		float altitudeError = hoverTargetAltitude - currentAltitude;
-		desiredLocalVelocity.Z = AltitudePID->Calculate(altitudeError, DeltaTime);
-		desiredLocalVelocity.Z = FMath::Clamp(desiredLocalVelocity.Z, -100.0f, 100.0f);
-	}
-
+ {
+	FFullPIDSet* CurrentSet = PIDMap.Find(EFlightMode::VelocityControl);
+	
+ 	FVector currentPosition = dronePawn->GetActorLocation();
+ 	FVector currentVelocity = dronePawn->GetVelocity();
+ 	FRotator currentRotation = dronePawn->GetActorRotation();
+ 	FVector desiredLocalVelocity = desiredNewVelocity;
+ 
+ 	if (bHoverModeActive)
+ 	{
+ 		float currentAltitude = dronePawn->GetActorLocation().Z;
+ 		float altitudeError = hoverTargetAltitude - currentAltitude;
+ 		desiredLocalVelocity.Z = AltitudePID->Calculate(altitudeError, DeltaTime);
+ 		desiredLocalVelocity.Z = FMath::Clamp(desiredLocalVelocity.Z, -100.0f, 100.0f);
+ 	}
+ 
 	FRotator yawOnlyRotation(0, currentRotation.Yaw, 0);
 	currentLocalVelocity = yawOnlyRotation.UnrotateVector(currentVelocity);
-	FVector velocityError = desiredLocalVelocity - currentLocalVelocity;
-	SafetyReset();
-
+ 	FVector velocityError = desiredLocalVelocity - currentLocalVelocity;
+ 	SafetyReset();
+	
 	double x_output = 0.f, y_output = 0.f, z_output = 0.f;
 	double roll_output = 0.f, pitch_output = 0.f, yaw_output = 0.f;
 
 	x_output = CurrentSet->XPID->Calculate(velocityError.X, DeltaTime);
 	y_output = CurrentSet->YPID->Calculate(velocityError.Y, DeltaTime);
 	z_output = CurrentSet->ZPID->Calculate(velocityError.Z, DeltaTime);
-
+	
 	y_output = FMath::Clamp(y_output, -maxAngle, maxAngle);
 	float roll_error = y_output-currentRotation.Roll;
 	roll_output = CurrentSet->RollPID->Calculate(roll_error, DeltaTime);
@@ -281,37 +279,40 @@ void UQuadDroneController::VelocityControl(double DeltaTime)
 	x_output = FMath::Clamp(x_output, -maxAngle, maxAngle);
 	float pitch_error = x_output-currentRotation.Pitch;
 	pitch_output = CurrentSet->PitchPID->Calculate(pitch_error, DeltaTime);
-
-	ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
-	YawRateControl(DeltaTime);
-
-	// TODO: Fix Yaw Stabilization to work in local frame 
-	//YawStabilization(DeltaTime);
-    DrawDebugVisualsVel(FVector(desiredLocalVelocity.X, desiredLocalVelocity.Y, 0));
-    // UI: only show for possessed (independent) or first drone in swarm
-    if (dronePawn && dronePawn->ImGuiUtil)
-    {
-        APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
-        ADroneManager* Manager = ADroneManager::Get(dronePawn->GetWorld());
-        bool bSwarm = Manager && Manager->IsSwarmMode();
-        bool bPossessed = PC && PC->GetPawn() == dronePawn;
-        bool bShowUI = true;
-        if (Manager)
-        {
-            if (!bSwarm)
-                bShowUI = bPossessed;
-            else
-                bShowUI = (Manager->GetDroneIndex(dronePawn) == 0);
-        }
-        if (bShowUI)
-        {
-            dronePawn->ImGuiUtil->ImGuiHud(currentFlightMode, Thrusts, y_output, x_output, currentRotation,
-                FVector::ZeroVector, currentPosition, FVector::ZeroVector, currentLocalVelocity,
-                maxVelocity, maxAngle, x_output, y_output, z_output, DeltaTime);
-        }
-    }
-
-}
+	
+ 	ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
+ 	YawRateControl(DeltaTime);
+ 
+ 	// TODO: Fix Yaw Stabilization to work in local frame 
+ 	//YawStabilization(DeltaTime);
+	DrawDebugVisualsVel(FVector(desiredLocalVelocity.X, desiredLocalVelocity.Y, 0));
+	// UI: only show for possessed (independent) or first drone in swarm
+	if (dronePawn && dronePawn->ImGuiUtil)
+	{
+		// Show UI for the drone at the selected index in the manager
+		ADroneManager* Manager = ADroneManager::Get(dronePawn->GetWorld());
+		bool bShowUI = true;
+ 		if (Manager)
+ 		{
+ 			if (!Manager->IsSwarmMode())
+ 			{
+ 				int32 MyIndex = Manager->GetDroneIndex(dronePawn);
+ 				bShowUI = (MyIndex == Manager->SelectedDroneIndex);
+ 			}
+ 			else
+ 			{
+ 				// In swarm mode, show UI on all drones
+ 				bShowUI = true;
+ 			}
+ 		}
+		if (bShowUI)
+		{
+			dronePawn->ImGuiUtil->ImGuiHud(currentFlightMode, Thrusts, y_output, x_output, currentRotation,
+				FVector::ZeroVector, currentPosition, FVector::ZeroVector, currentLocalVelocity,
+				maxVelocity, maxAngle, x_output, y_output, z_output, DeltaTime);
+		}
+	}
+ }
 
 void UQuadDroneController::AutoWaypointControl(double a_deltaTime)
 {
@@ -334,9 +335,10 @@ void UQuadDroneController::AutoWaypointControl(double a_deltaTime)
 	FVector positionError = setPoint - currentPosition;
 	FRotator yawOnlyRotation(0, currentRotation.Yaw, 0);
 	FVector normalizedError = positionError.GetSafeNormal();
-	currentLocalVelocity = yawOnlyRotation.UnrotateVector(currentVelocity);
-	FVector droneForwardVector = dronePawn->GetActorForwardVector();
-	FVector desiredLocalVelocity = DroneMathUtils::CalculateDesiredVelocity(positionError, maxVelocity);
+        currentLocalVelocity = yawOnlyRotation.UnrotateVector(currentVelocity);
+        // Desired velocity follows the position error at full speed
+        FVector droneForwardVector = dronePawn->GetActorForwardVector();
+        FVector desiredLocalVelocity = DroneMathUtils::CalculateDesiredVelocity(positionError, maxVelocity);
 	DrawDebugVisuals(currentPosition);
 	
 	double x_output = 0.f, y_output = 0.f, z_output = 0.f;
@@ -356,31 +358,31 @@ void UQuadDroneController::AutoWaypointControl(double a_deltaTime)
 	pitch_output = CurrentSet->PitchPID->Calculate(pitch_error, a_deltaTime);
 	
 
-    ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
-    YawRateControl(a_deltaTime);
-    
-    // UI: show only for independent possessed drone or first in swarm
-    if (dronePawn && dronePawn->ImGuiUtil)
-    {
-        APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
-        ADroneManager* Manager = ADroneManager::Get(dronePawn->GetWorld());
-        bool bSwarm = Manager && Manager->IsSwarmMode();
-        bool bPossessed = PC && PC->GetPawn() == dronePawn;
-        bool bShowUI = true;
-        if (Manager)
-        {
-            if (!bSwarm)
-                bShowUI = bPossessed;
-            else
-                bShowUI = (Manager->GetDroneIndex(dronePawn) == 0);
-        }
-        if (bShowUI)
-        {
-            dronePawn->ImGuiUtil->ImGuiHud(currentFlightMode, Thrusts, y_output, x_output, currentRotation,
-                FVector::ZeroVector, currentPosition, FVector::ZeroVector, currentLocalVelocity,
-                maxVelocity, maxAngle, x_output, y_output, z_output, a_deltaTime);
-        }
-    }
+	ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
+	YawRateControl(a_deltaTime);
+     
+	// UI: show only for independent possessed drone or first in swarm
+	if (dronePawn && dronePawn->ImGuiUtil)
+	{
+		APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+		ADroneManager* Manager = ADroneManager::Get(dronePawn->GetWorld());
+		bool bSwarm = Manager && Manager->IsSwarmMode();
+		bool bPossessed = PC && PC->GetPawn() == dronePawn;
+		bool bShowUI = true;
+		if (Manager)
+		{
+			if (!bSwarm)
+				bShowUI = bPossessed;
+			else
+				bShowUI = (Manager->GetDroneIndex(dronePawn) == 0);
+		}
+		if (bShowUI)
+		{
+			dronePawn->ImGuiUtil->ImGuiHud(currentFlightMode, Thrusts, y_output, x_output, currentRotation,
+				FVector::ZeroVector, currentPosition, FVector::ZeroVector, currentLocalVelocity,
+				maxVelocity, maxAngle, x_output, y_output, z_output, a_deltaTime);
+		}
+	}
 }
 
 // ---------------------- Thrust Functions ------------------------
@@ -390,15 +392,15 @@ void UQuadDroneController::ThrustMixer(double currentRoll, double currentPitch, 
 	float droneMass = dronePawn->DroneBody->GetMass();
 	const float gravity = 980.0f;
 	const float hoverThrust = (droneMass * gravity) / 4.0f; 
-
+ 
 	float baseThrust = hoverThrust + zOutput / 4.0f;
 	baseThrust /= FMath::Cos(FMath::DegreesToRadians(FMath::Sqrt(FMath::Pow(currentRoll, 2) + FMath::Pow(currentPitch, 2))));
-
+ 
 	Thrusts[0] = baseThrust + rollOutput + pitchOutput;
 	Thrusts[1] = baseThrust - rollOutput + pitchOutput;
 	Thrusts[2] = baseThrust + rollOutput - pitchOutput;
 	Thrusts[3] = baseThrust - rollOutput - pitchOutput;
-
+ 
 	for (int i = 0; i < Thrusts.Num(); i++)
 	{
 		Thrusts[i] = FMath::Clamp(Thrusts[i], 0.0f, 700.0f);
@@ -527,7 +529,6 @@ void UQuadDroneController::ResetPID()
 		ThisSet.YawPID->Reset();
 	}
 }
-
 void UQuadDroneController::ResetDroneIntegral()
 {
 	FFullPIDSet* CurrentSet = PIDMap.Find(currentFlightMode);
@@ -544,31 +545,23 @@ void UQuadDroneController::ResetDroneIntegral()
 	CurrentSet->PitchPID->ResetIntegral();
 	CurrentSet->YawPID->ResetIntegral();
 }
-
 void UQuadDroneController::ResetDroneHigh()
 {
 	if (dronePawn)
 	{
-		// First, disable physics simulation temporarily
 		if (dronePawn->DroneBody)
 		{
 			dronePawn->DroneBody->SetSimulatePhysics(false);
 		}
 
-		// Reset position and rotation
 		dronePawn->SetActorLocation(FVector(0.0f, 0.0f, 10000.0f), false, nullptr, ETeleportType::TeleportPhysics);
 		dronePawn->SetActorRotation(FRotator::ZeroRotator);
 
 		if (dronePawn->DroneBody)
 		{
-			// Re-enable physics
 			dronePawn->DroneBody->SetSimulatePhysics(true);
-
-			// Reset velocities
 			dronePawn->DroneBody->SetPhysicsLinearVelocity(FVector::ZeroVector);
 			dronePawn->DroneBody->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
-
-			// Wake the physics body to ensure it responds to the new state
 			dronePawn->DroneBody->WakeAllRigidBodies();
 		}
 
@@ -577,41 +570,33 @@ void UQuadDroneController::ResetDroneHigh()
 		desiredNewVelocity = FVector::ZeroVector;
 	}
 }
-
 void UQuadDroneController::ResetDroneOrigin()
 {
 	if (dronePawn)
 	{
-		// First, disable physics simulation temporarily
 		if (dronePawn->DroneBody)
 		{
 			dronePawn->DroneBody->SetSimulatePhysics(false);
 		}
 
-		// Reset position and rotation
-		dronePawn->SetActorLocation(FVector(0.0f, 0.0f, 10.0f), false, nullptr, ETeleportType::TeleportPhysics);
+		dronePawn->SetActorLocation(FVector(0.0f, 0.0f, 0.0f), false, nullptr, ETeleportType::TeleportPhysics);
 		dronePawn->SetActorRotation(FRotator::ZeroRotator);
 
 		if (dronePawn->DroneBody)
 		{
-			// Re-enable physics
 			dronePawn->DroneBody->SetSimulatePhysics(true);
-
-			// Reset velocities
 			dronePawn->DroneBody->SetPhysicsLinearVelocity(FVector::ZeroVector);
 			dronePawn->DroneBody->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
-
-			// Wake the physics body to ensure it responds to the new state
 			dronePawn->DroneBody->WakeAllRigidBodies();
 		}
 
-		// Reset controller states
 		ResetPID();
 		desiredNewVelocity = FVector::ZeroVector;
 		desiredYaw = 0.0f;
-		desiredForwardVector = FVector(1.0f, 0.0f, 0.0f);  // Reset to forward direction
+		desiredForwardVector = FVector(1.0f, 0.0f, 0.0f);
 	}
 }
+
 
 // ------------ Setter and Getter -------------------
 
@@ -664,45 +649,15 @@ void UQuadDroneController::SetDestination(FVector desiredSetPoints) {
 
 void UQuadDroneController::DrawDebugVisuals(const FVector& currentPosition) const
 {
-	if (Debug_DrawDroneCollisionSphere)
-	{
-		// Draw a sphere around the drone (using its collision radius)
-		FBoxSphereBounds MeshBounds = dronePawn->DroneBody->CalcBounds(dronePawn->DroneBody->GetComponentTransform());
-		float VerticalOffset = MeshBounds.BoxExtent.Z;
-		FVector AdjustedPosition = currentPosition + FVector(0.0f, 0.0f, VerticalOffset);
-		DrawDebugSphere(
-			dronePawn->GetWorld(),
-			AdjustedPosition,
-			dronePawn->DroneBody->GetCollisionShape().GetSphereRadius(),
-			10,
-			FColor::Red,
-			false,  // not persistent
-			0.0f
-		);
-	}
-
-	if (Debug_DrawDroneWaypoint)
-	{
-		// Draw the debug sphere at the desired setpoint.
-		DrawDebugSphere(
-			dronePawn->GetWorld(),
-			setPoint,
-			50.0f,  // using the hover threshold as the sphere radius for visibility
-			10,
-			FColor::Blue,
-			false,
-			0.0f
-		);
-		// Draw a line connecting the current position to the setpoint.
-		DrawDebugLine(
-			dronePawn->GetWorld(),
-			currentPosition,
-			setPoint,
-			FColor::Green,
-			false,
-			0.0f
-		);
-	}
+   // Draw only a line connecting the current position to the setpoint (no spheres).
+   DrawDebugLine(
+       dronePawn->GetWorld(),
+       currentPosition,
+       setPoint,
+       FColor::Green,
+       /*bPersistent=*/false,
+       /*LifeTime=*/0.0f
+   );
 }
 
  void UQuadDroneController::DrawDebugVisualsVel(const FVector& horizontalVelocity) const
@@ -758,15 +713,13 @@ void UQuadDroneController::SafetyReset()
 		}
 	}
 }
-
 void UQuadDroneController::ApplyManualThrusts()
 {
 	if (!dronePawn)
 		return;
 
 	float droneMass = dronePawn->DroneBody->GetMass();
-	const float mult = 0.5f; // same multiplier as before
-	// Iterate over your thrust array and apply the user-defined thrust values
+	const float mult = 0.5f;
 	for (int i = 0; i < Thrusts.Num(); i++)
 	{
 		Thrusts[i] = FMath::Clamp(Thrusts[i], 0.0f, 700.0f);
@@ -784,4 +737,59 @@ float UQuadDroneController::GetCurrentThrustOutput(int32 ThrusterIndex) const
 		return Thrusts[ThrusterIndex];
 	}
 	return 0.0f;
+}
+
+
+FVector UQuadDroneController::GetCurrentVelocity() const
+{
+	if (IsValid(dronePawn) && IsValid(dronePawn->DroneBody))
+	{
+		return dronePawn->DroneBody->GetPhysicsLinearVelocity();
+	}
+	return FVector::ZeroVector;
+}
+
+
+
+
+void UQuadDroneController::SetFlightMode(EFlightMode NewMode)
+{
+    currentFlightMode = NewMode;
+    // On selecting AutoWaypoint, generate and load the figure-8 navigation plan
+    if (NewMode == EFlightMode::AutoWaypoint && dronePawn)
+    {
+        // Generate waypoints from pawn's position
+        TArray<FVector> plan = dronePawn->GenerateFigureEightWaypoints();
+        // Set navigation plan
+        if (UNavigationComponent* Nav = dronePawn->FindComponentByClass<UNavigationComponent>())
+        {
+            Nav->SetNavigationPlan(plan);
+        }
+        // Debug draw the path: spheres and connecting lines
+        UWorld* World = dronePawn->GetWorld();
+        if (World)
+        {
+            // Persistent debug: sample path sparsely for performance
+            const float SphereSize = 50.0f;
+            const int32 debugStep = 5;
+            const bool bPersistent = true;
+            const float LifeTime = 0.0f;
+            for (int32 i = 0; i < plan.Num(); i += debugStep)
+            {
+                // Draw only connecting lines for auto-waypoint path (no spheres)
+                int32 nextIdx = i + debugStep;
+                if (nextIdx < plan.Num())
+                {
+                    DrawDebugLine(World,
+                        plan[i],
+                        plan[nextIdx],
+                        FColor::Green,
+                        /*bPersistent=*/true,
+                        /*LifeTime=*/0.0f,
+                        /*DepthPriority=*/0,
+                        /*Thickness=*/5.0f);
+                }
+            }
+        }
+    }
 }

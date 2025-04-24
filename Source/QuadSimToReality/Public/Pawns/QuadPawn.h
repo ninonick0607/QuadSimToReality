@@ -4,12 +4,28 @@
 #include "GameFramework/Pawn.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
-#include "Controllers/ZMQController.h"
 #include "Core/ThrusterComponent.h"
+#include "Utility/NavigationComponent.h"
 #include "UI/ImGuiUtil.h"
-#include "Utility/NavigationComponent.h"	
-#include "Components/PrimitiveComponent.h" 
+#include "Components/ChildActorComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Components/SkeletalMeshComponent.h" // For visual skeletal mesh
 #include "QuadPawn.generated.h"
+
+// Forward Declarations
+class UQuadDroneController;
+class UImGuiUtil;
+class UThrusterComponent;
+
+// Enum to track camera state
+UENUM(BlueprintType)
+enum class ECameraMode : uint8
+{
+	ThirdPerson UMETA(DisplayName = "Third Person"),
+	FPV         UMETA(DisplayName = "First Person"),
+	GroundTrack UMETA(DisplayName = "Ground Track")
+};
 
 enum class EWaypointMode
 {
@@ -17,9 +33,8 @@ enum class EWaypointMode
 	ManualWaypointInput,
 	ReadyToStart
 };
-
 UCLASS()
-class QUADSIMTOREALITY_API AQuadPawn : public APawn
+class QUADSIMTOREALITY_API AQuadPawn : public APawn 
 {
 	GENERATED_BODY()
 
@@ -32,10 +47,10 @@ public:
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
-	
+
 	// --- Drone Components ---
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	UStaticMeshComponent* DroneBody;
+   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+   USkeletalMeshComponent* DroneBody;
 
 	// --- Camera Components ---
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
@@ -46,53 +61,56 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	UCameraComponent* CameraFPV;
-	
-	EWaypointMode WaypointMode;
-	TArray<FVector> ManualWaypoints;
-	FVector NewWaypoint;
 
-	
+	// Ground tracking camera
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
+	UCameraComponent* CameraGroundTrack;
+
 	// --- Thruster Components ---
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TArray<UStaticMeshComponent*> Propellers;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	TArray<UThrusterComponent*> Thrusters;
+   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+   TArray<UThrusterComponent*> Thrusters;
+	
+   // ZMQ Controller as a child actor component
+   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+   UChildActorComponent* ZMQControllerComponent;
 
 	// --- Drone Configuration ---
-	// Array to specify motor rotation directions.
 	UPROPERTY(EditDefaultsOnly, Category = "Drone Configuration")
-	TArray<bool> MotorClockwiseDirections = { false, true, true, false };
+	TArray<bool> MotorClockwiseDirections = { false, true, true, false }; // FL, FR, BL, BR
 
-	// Propeller RPM values (used to visually animate the propellers)
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Drone Components")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Drone State")
 	TArray<float> PropellerRPMs;
-	
-	// --- Controller Components ---	
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UImGuiUtil> ImGuiUtil;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Controller")
+	UQuadDroneController* QuadController;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI")
+	UImGuiUtil* ImGuiUtil;
 
-	UPROPERTY(VisibleAnywhere, Category = "Controller")
-	class UQuadDroneController* QuadController;
-	
-	// --- Identification ---
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Identification")
 	FString DroneID;
-	
-	UPROPERTY(VisibleAnywhere)
-	FString PawnLocalID;
+
+	EWaypointMode WaypointMode;
+	TArray<FVector> ManualWaypoints;
+	FVector NewWaypoint;
 
 	// --- Helper Functions ---
-	void SwitchCamera() const;
+	void SwitchCamera();
+
 	void ToggleImguiInput();
+
 	void ReloadJSONConfig();
 
-	float GetMass() { return DroneBody->GetMass(); };
+	UFUNCTION(BlueprintPure, Category = "Drone State")
+	float GetMass();
 
+	bool getCollisionState(){return bHasCollidedWithObstacle;}
+	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Collision")
-	bool bHasCollidedWithObstacle; 
+	bool bHasCollidedWithObstacle;
 
 	UFUNCTION(BlueprintPure, Category = "Collision")
 	bool HasCollided() const { return bHasCollidedWithObstacle; }
@@ -100,23 +118,34 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Collision")
 	void ResetCollisionStatus();
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Navigation")
-	UNavigationComponent* NavigationComponent;
+   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Navigation")
+   UNavigationComponent* NavigationComponent;
+
+   // Generate a figure-8 waypoint list around the pawn's current position
+   UFUNCTION(BlueprintCallable, Category = "Navigation")
+   TArray<FVector> GenerateFigureEightWaypoints() const;
 
 protected:
-	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-	UFUNCTION() 
-	void OnDroneHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+
+   // Collision hit event
+   UFUNCTION()
+   void OnDroneHit(
+       UPrimitiveComponent* HitComponent,
+       AActor* OtherActor,
+       UPrimitiveComponent* OtherComp,
+       FVector NormalImpulse,
+       const FHitResult& Hit);
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
+	ECameraMode CurrentCameraMode;
 
 private:
-	// Updates control each tick.
 	void UpdateControl(float DeltaTime);
-	FTimerHandle CollisionHoldTimerHandle;
-	float CollisionHoldDuration = 0.5f; // seconds
-
+	void ResetGroundCameraPosition();
+	void UpdateGroundCameraTracking();
+	float LastCollisionTime;
+	float CollisionTimeout = 0.2f;
 	bool bWaypointModeSelected;
 
-	UPROPERTY(VisibleAnywhere)
-	UInputComponent* Input_ToggleImguiInput;
 };

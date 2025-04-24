@@ -7,12 +7,16 @@
 #include "EngineUtils.h"
 
 #include "Engine/Engine.h"
-#include "Components/StaticMeshComponent.h" 
+#include "Components/StaticMeshComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Components/PrimitiveComponent.h" 
 #include "GameFramework/Actor.h"        
 #include "Core/ThrusterComponent.h"       
-#include "UI/ImGuiUtil.h"   
+#include "UI/ImGuiUtil.h"
+#include "Components/ChildActorComponent.h"
+#include "Controllers/ZMQController.h"
 #include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetMathLibrary.h"
 
 #define EPSILON 0.0001f
 // At the top of QuadPawn.cpp
@@ -32,84 +36,84 @@ const FVector start = FVector(0, 0, 1000);
 // Generate a spiral of waypoints around a given start position
 static TArray<FVector> spiralWaypoints(const FVector& startPos)
 {
-    TArray<FVector> xyzSetpoint;
-    // Use provided start position (ground-level origin)
-    FVector currentPos = startPos;
+    TArray<FVector> waypoints;
+    // Initial ascent to specified start height
+    FVector basePos = startPos;
+    const float initialAltitude = DroneWaypointConfig::startHeight;
+    const float targetZ = basePos.Z + initialAltitude;
+    waypoints.Add(FVector(basePos.X, basePos.Y, targetZ));
 
-    xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + DroneWaypointConfig::startHeight));
-	int numLoops = FMath::CeilToInt((DroneWaypointConfig::maxHeight - DroneWaypointConfig::startHeight) / DroneWaypointConfig::heightStep);
+    // Figure-8 parameters
+    // Increase resolution for smoother curves
+    const int32 numPoints = 360;
+    const float twoPi = 2.0f * PI;
+    // Dimensions: roughly a 10m x 10m box (cm units)
+    const float width = DroneWaypointConfig::radius * 0.5f; // ~5m half-width
+    const float height = width;                            // symmetrical loops
 
-    for (int loop = 0; loop < numLoops; loop++)
-	{
-		float height = currentPos.Z + DroneWaypointConfig::startHeight + (loop * DroneWaypointConfig::heightStep);
-		for (int point = 0; point < DroneWaypointConfig::pointsPerLoop; point++)
-		{
-			float angle = point * DroneWaypointConfig::angleStep;
-			float x = currentPos.X + DroneWaypointConfig::radius * FMath::Cos(angle);
-			float y = currentPos.Y + DroneWaypointConfig::radius * FMath::Sin(angle);
-			xyzSetpoint.Add(FVector(x, y, height));
-		}
-	}
-    xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + DroneWaypointConfig::maxHeight));
-
-    for (int loop = numLoops - 1; loop >= 0; loop--)
-	{
-		float height = currentPos.Z + DroneWaypointConfig::startHeight + (loop * DroneWaypointConfig::heightStep);
-		for (int point = DroneWaypointConfig::pointsPerLoop - 1; point >= 0; point--)
-		{
-			float angle = point * DroneWaypointConfig::angleStep;
-			float x = currentPos.X + DroneWaypointConfig::radius * FMath::Cos(angle);
-			float y = currentPos.Y + DroneWaypointConfig::radius * FMath::Sin(angle);
-			xyzSetpoint.Add(FVector(x, y, height));
-		}
-	}
-    xyzSetpoint.Add(FVector(currentPos.X, currentPos.Y, currentPos.Z + DroneWaypointConfig::startHeight));
-    return xyzSetpoint;
+    // Generate waypoints along the figure-8 curve at constant altitude
+    for (int32 i = 0; i <= numPoints; ++i)
+    {
+        float t = twoPi * static_cast<float>(i) / static_cast<float>(numPoints);
+        float x = basePos.X + width * FMath::Sin(t);
+        float y = basePos.Y + height * FMath::Sin(2.0f * t);
+        waypoints.Add(FVector(x, y, targetZ));
+    }
+    return waypoints;
 }
 
+// Expose figure-8 waypoint generator for the pawn
+
 const FName ObstacleCollisionTag = FName("Obstacle");
+TArray<FVector> AQuadPawn::GenerateFigureEightWaypoints() const
+{
+    return spiralWaypoints(GetActorLocation());
+}
 
 AQuadPawn::AQuadPawn()
-	: DroneBody(nullptr) // 1
-	  , SpringArm(nullptr) // 3
-	  , Camera(nullptr) // 4
-	  , CameraFPV(nullptr) // 5
-	  , WaypointMode(EWaypointMode::WaitingForModeSelection) // 14
-	  , NewWaypoint(FVector::ZeroVector) // 16
-	  , QuadController(nullptr) // 20
-	  , bWaypointModeSelected(false) // 21
-      , bHasCollidedWithObstacle(false)
-	  , Input_ToggleImguiInput(nullptr)
+	: DroneBody(nullptr)
+	, SpringArm(nullptr)
+	, Camera(nullptr)
+	, CameraFPV(nullptr)
+	, CameraGroundTrack(nullptr)
+	, QuadController(nullptr)
+	, ImGuiUtil(nullptr)
+	, WaypointMode(EWaypointMode::WaitingForModeSelection)
+	, NewWaypoint(FVector::ZeroVector)
+	, bHasCollidedWithObstacle(false)
+	, CurrentCameraMode(ECameraMode::ThirdPerson)
+	, bWaypointModeSelected(false)
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	// Create and configure DroneBody
-	DroneBody = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("DroneBody"));
+    // Skeletal mesh for drone body (physics & visuals)
+    DroneBody = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("DroneBody"));
     RootComponent = DroneBody;
-	DroneBody->SetSimulatePhysics(true);
-	DroneBody->SetNotifyRigidBodyCollision(true);
+    DroneBody->SetSimulatePhysics(true);
+    DroneBody->SetNotifyRigidBodyCollision(true);
     DroneBody->SetGenerateOverlapEvents(true);
-
-	DroneBody->SetCollisionProfileName(UCollisionProfile::PhysicsActor_ProfileName); 
+    DroneBody->SetCollisionProfileName(UCollisionProfile::PhysicsActor_ProfileName);
 	
 	CameraFPV = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraFPV"));
 	CameraFPV->SetupAttachment(DroneBody,TEXT("FPVCam"));
 	CameraFPV->SetRelativeScale3D(FVector(0.1f));
+	CameraFPV->bAutoActivate = true; 
 
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(DroneBody);
-
-	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
-	Camera->SetupAttachment(SpringArm);
-
-	// Configure SpringArm
 	SpringArm->TargetArmLength = 200.f;
 	SpringArm->SetRelativeRotation(FRotator(-20.f, 0.f, 0.f));
 	SpringArm->bDoCollisionTest = false;
 	SpringArm->bInheritPitch = false;
 	SpringArm->bInheritRoll = false;
 
-	// Setup propellers and thrusters
+	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
+	Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName); 
+	Camera->bAutoActivate = false; 
+	
+	CameraGroundTrack = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraGroundTrack"));
+	CameraGroundTrack->bAutoActivate = false;
+	
 	const FString propellerNames[] = { TEXT("MotorFL"), TEXT("MotorFR"), TEXT("MotorBL"), TEXT("MotorBR") };
 	const FString socketNames[] = { TEXT("MotorSocketFL"), TEXT("MotorSocketFR"), TEXT("MotorSocketBL"), TEXT("MotorSocketBR") };
 
@@ -138,6 +142,11 @@ AQuadPawn::AQuadPawn()
 	ImGuiUtil = CreateDefaultSubobject<UImGuiUtil>(TEXT("DroneImGuiUtil"));
 	AutoPossessPlayer = EAutoReceiveInput::Player0;
 	NavigationComponent = CreateDefaultSubobject<UNavigationComponent>(TEXT("NavigationComponent"));
+    // Child Actor Component for ROS2Controller
+    ZMQControllerComponent = CreateDefaultSubobject<UChildActorComponent>(TEXT("ROS2ControllerComponent"));
+    ZMQControllerComponent->SetupAttachment(RootComponent);
+    ZMQControllerComponent->SetChildActorClass(AZMQController::StaticClass());
+	
 }
 
 void AQuadPawn::BeginPlay()
@@ -160,21 +169,27 @@ void AQuadPawn::BeginPlay()
 		ImGuiUtil = NewObject<UImGuiUtil>(this, UImGuiUtil::StaticClass(), TEXT("DroneImGuiUtil"));
 		ImGuiUtil->Initialize(this, QuadController);
 	}
+    if (ImGuiUtil)
+    {
+        ImGuiUtil->Initialize(this, QuadController);
+    }
 
-	// Continue with any other initialization (like binding or logging)
-	if (ImGuiUtil)
-	{
-		UE_LOG(LogTemp, Display, TEXT("ImGuiUtil successfully created and initialized"));
-		ImGuiUtil->Initialize(this, QuadController);
-	}
-
-   // Initialize navigation plan with spiral waypoints starting at this pawn's position
-   NavigationComponent->SetNavigationPlan(spiralWaypoints(GetActorLocation()));
-
-	// Reset PID controllers
-	QuadController->ResetPID();
-	DroneBody->OnComponentHit.AddDynamic(this, &AQuadPawn::OnDroneHit);
+	
+        // Reset PID controllers
+        QuadController->ResetPID();
+        // Collision events binding
+        if (DroneBody)
+        {
+            DroneBody->OnComponentHit.AddDynamic(this, &AQuadPawn::OnDroneHit);
+        }
+        // Collision handling via NotifyHit override; skip AddDynamic binding
+	
 	ResetCollisionStatus();
+
+	Camera->SetActive(false);
+	CameraFPV->SetActive(true);
+	CameraGroundTrack->SetActive(false);
+	CurrentCameraMode = ECameraMode::FPV;
 }
 
 void AQuadPawn::Tick(float DeltaTime)
@@ -194,11 +209,21 @@ void AQuadPawn::Tick(float DeltaTime)
 				DirectionMultiplier = MotorClockwiseDirections[i] ? -1.0f : 1.0f;
 			}
 			float DegreesPerSecond = PropellerRPMs[i] * 6.0f;
-			float DeltaRotation = DegreesPerSecond * DeltaTime * DirectionMultiplier;
+            float DeltaRotation = DegreesPerSecond * DeltaTime * DirectionMultiplier;
 			Propellers[i]->AddLocalRotation(FRotator(0.f, DeltaRotation, 0.f));
 		}
 	}
 
+	UpdateGroundCameraTracking();
+	if (bHasCollidedWithObstacle)
+	{
+		float CurrentTime = GetWorld()->GetTimeSeconds();
+		if (CurrentTime - LastCollisionTime > CollisionTimeout)
+		{
+			bHasCollidedWithObstacle = false;
+			UE_LOG(LogTemp, Display, TEXT("%s collision status cleared due to inactivity."), *GetName());
+		}
+	}
 }
 
 void AQuadPawn::UpdateControl(float DeltaTime)
@@ -207,23 +232,94 @@ void AQuadPawn::UpdateControl(float DeltaTime)
 	{	
 		QuadController->Update(DeltaTime);
 	}
+
+	if (NavigationComponent)
+	{
+		NavigationComponent->UpdateNavigation(GetActorLocation());
+		FVector NextGoal = NavigationComponent->GetCurrentSetpoint();
+		if (QuadController)
+		{
+			QuadController->SetDestination(NextGoal);
+		}
+	}
 }
 
-void AQuadPawn::SwitchCamera() const
+void AQuadPawn::SwitchCamera()
 {
-	if (CameraFPV->IsActive())
+	if (!Camera || !CameraFPV || !CameraGroundTrack)
 	{
-		// Switch to third-person view.
-		CameraFPV->SetActive(false);
-		Camera->SetActive(true);
+		UE_LOG(LogTemp, Warning, TEXT("SwitchCamera: One or more camera components are missing!"));
+		return;
 	}
-	else
+
+	Camera->SetActive(false);
+	CameraFPV->SetActive(false);
+	CameraGroundTrack->SetActive(false);
+
+	switch (CurrentCameraMode)
 	{
-		// Switch to first-person view.
+	case ECameraMode::ThirdPerson:
+		CurrentCameraMode = ECameraMode::FPV;
 		CameraFPV->SetActive(true);
-		Camera->SetActive(false);
+		UE_LOG(LogTemp, Log, TEXT("Camera Mode: FPV"));
+		break;
+
+	case ECameraMode::FPV:
+		CurrentCameraMode = ECameraMode::GroundTrack;
+		CameraGroundTrack->SetActive(true);
+		ResetGroundCameraPosition();
+		UE_LOG(LogTemp, Log, TEXT("Camera Mode: Ground Track"));
+		break;
+
+	case ECameraMode::GroundTrack:
+		CurrentCameraMode = ECameraMode::ThirdPerson;
+		Camera->SetActive(true);
+		UE_LOG(LogTemp, Log, TEXT("Camera Mode: Third Person"));
+		break;
 	}
 }
+
+
+void AQuadPawn::ResetGroundCameraPosition()
+{
+	if (!CameraGroundTrack || !DroneBody) return;
+
+	const float GroundOffsetDistance = 200.0f; // 5 meters
+
+	FVector DroneLocation = GetActorLocation();
+	FRotator DroneYawRotation(0, GetActorRotation().Yaw, 0);
+
+	FVector RightVector = UKismetMathLibrary::GetRightVector(DroneYawRotation);
+
+	FVector GroundPos = FVector(DroneLocation.X, DroneLocation.Y, 10.0f);
+	FVector CameraTargetPosition = GroundPos + RightVector * GroundOffsetDistance;
+
+	CameraGroundTrack->SetWorldLocation(CameraTargetPosition);
+
+	UpdateGroundCameraTracking();
+}
+
+void AQuadPawn::UpdateGroundCameraTracking()
+{
+	if (CurrentCameraMode == ECameraMode::GroundTrack && CameraGroundTrack && CameraGroundTrack->IsActive() && DroneBody)
+	{
+		FVector CameraLocation = CameraGroundTrack->GetComponentLocation();
+		FVector DroneLocation = GetActorLocation(); 
+
+		if (FVector::DistSquaredXY(CameraLocation, DroneLocation) < 1.0f) 
+		{
+			return;
+		}
+
+		FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(CameraLocation, DroneLocation);
+
+		FRotator CurrentRotation = CameraGroundTrack->GetComponentRotation();
+		FRotator TargetRotation = FMath::RInterpTo(CurrentRotation, LookAtRotation, GetWorld()->GetDeltaSeconds(), 10.0f); // Adjust interp speed
+		CameraGroundTrack->SetWorldRotation(TargetRotation);
+
+	}
+}
+
 
 void AQuadPawn::ToggleImguiInput()
 {
@@ -242,27 +338,18 @@ void AQuadPawn::ReloadJSONConfig()
 	UDroneJSONConfig::Get().ReloadConfig();
 }
 
-void AQuadPawn::OnDroneHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, 
-						   UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+// Component hit callback
+void AQuadPawn::OnDroneHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
-	if (OtherActor && OtherActor != this)
-	{
-		UE_LOG(LogTemp, Display, TEXT("Hit detected with: %s"), *OtherActor->GetName());
-
-		if (OtherActor->ActorHasTag(ObstacleCollisionTag))
-		{
-			// Set the collision flag if not already set
-			if (!bHasCollidedWithObstacle)
-			{
-				bHasCollidedWithObstacle = true;
-				UE_LOG(LogTemp, Display, TEXT("%s collided with obstacle: %s"), *GetName(), *OtherActor->GetName());
-                
-				GetWorld()->GetTimerManager().ClearTimer(CollisionHoldTimerHandle);
-				GetWorld()->GetTimerManager().SetTimer(CollisionHoldTimerHandle, this,
-					&AQuadPawn::ResetCollisionStatus, CollisionHoldDuration, false);
-			}
-		}
-	}
+    if (OtherActor && OtherActor != this && OtherActor->ActorHasTag(ObstacleCollisionTag))
+    {
+        LastCollisionTime = GetWorld()->GetTimeSeconds();
+        if (!bHasCollidedWithObstacle)
+        {
+            bHasCollidedWithObstacle = true;
+            UE_LOG(LogTemp, Display, TEXT("%s collided with obstacle: %s"), *GetName(), *OtherActor->GetName());
+        }
+    }
 }
 
 void AQuadPawn::ResetCollisionStatus()
@@ -272,4 +359,9 @@ void AQuadPawn::ResetCollisionStatus()
 		UE_LOG(LogTemp, Log, TEXT("%s collision status reset."), *GetName());
 	}
 	bHasCollidedWithObstacle = false;
+}
+
+float AQuadPawn::GetMass()
+{
+	return DroneBody ? DroneBody->GetMass() : 0.0f;
 }

@@ -1,7 +1,7 @@
 {
 	"flight_parameters":
 	{
-		"max_velocity_bound": 600,
+		"max_velocity_bound": 800,
 		"max_velocity": 130,
 		"max_angle": 15,
 		"max_pid_output": 10000,

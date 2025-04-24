@@ -14,6 +14,7 @@ struct FDroneConfigData
 		float MaxVelocity;
 		float MaxAngle;
 		float MaxPIDOutput;
+		float MaxThrust;
 		float AltitudeThreshold;
 		float MinAltitudeLocal;
 		float AcceptableDistance;
@@ -44,10 +45,8 @@ public:
 	static UDroneJSONConfig& Get();
 	bool LoadConfig();
 	bool ReloadConfig();
-    // Save the current configuration back to the JSON file
-    UFUNCTION(BlueprintCallable, Category = "Drone Config")
-    bool SaveConfig();
-
+	UFUNCTION(BlueprintCallable, Category = "Drone Config")
+	bool SaveConfig();
 	FDroneConfigData Config;
 
 private:

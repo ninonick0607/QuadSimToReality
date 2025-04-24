@@ -1,14 +1,13 @@
 // ImGuiUtil.h
 #pragma once
 #include "CoreMinimal.h"
-#include "Controllers/ZMQController.h"
 #include "ImGuiUtil.generated.h"
 // Forward declarations
 class AQuadPawn;
 class QuadPIDController;
-
 class UQuadDroneController;
-enum class EFlightMode : uint8; // Forward declare
+
+enum class EFlightMode : uint8;
 
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class QUADSIMTOREALITY_API UImGuiUtil : public UActorComponent
@@ -33,12 +32,9 @@ public:
         float xOutput, float yOutput, float zOutput, float deltaTime);
     
     void RenderControlPlots(float deltaTime, const FRotator& currentRotation, float desiredRoll, float desiredPitch,float maxAngle);
-
-    void DisplayDroneInfo();
     void DisplayPIDSettings(EFlightMode Mode, const char* headerLabel, bool& synchronizeXYGains, bool& synchronizeGains);
-    void DisplayCameraControls();
+    void DisplayButtons();
     void DisplayThrust(TArray<float>& ThrustsNum);
-    void DisplayResetDroneButtons();
     void DisplayDesiredVelocities(float maxVelocity);
     void DisplayDesiredPositions();
     void DisplayPIDHistoryWindow();
@@ -57,6 +53,8 @@ private:
     UQuadDroneController* Controller;
 
     float maxVelocityBound;
+    bool plotSwitch;
+    float maxThrust;
     // Data for plotting
     TArray<float> TimeData;
     TArray<float> Thrust0Data;
@@ -87,6 +85,5 @@ private:
     void LoadPIDValues(EFlightMode Mode, const TArray<FString>& Values);
 
     static const int32 MaxDataPoints = 500;
-    // Flag to toggle settings window
     bool bShowSettingsUI;
 };
