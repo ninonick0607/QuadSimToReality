@@ -260,8 +260,16 @@ void UQuadDroneController::VelocityControl(double DeltaTime)
  		desiredLocalVelocity.Z = FMath::Clamp(desiredLocalVelocity.Z, -100.0f, 100.0f);
  	}
  
-	FRotator yawOnlyRotation(0, currentRotation.Yaw, 0);
-	currentLocalVelocity = yawOnlyRotation.UnrotateVector(currentVelocity);
+    // Compute velocity error in local frame
+    FRotator yawOnlyRotation(0, currentRotation.Yaw, 0);
+    currentLocalVelocity = yawOnlyRotation.UnrotateVector(currentVelocity);
+    // Determine desired forward direction from desired local velocity
+    FVector desiredWorldVelocity = yawOnlyRotation.RotateVector(desiredLocalVelocity);
+    desiredWorldVelocity.Z = 0.0f;
+    if (desiredWorldVelocity.SizeSquared2D() > KINDA_SMALL_NUMBER)
+    {
+        desiredForwardVector = desiredWorldVelocity.GetSafeNormal();
+    }
  	FVector velocityError = desiredLocalVelocity - currentLocalVelocity;
  	SafetyReset();
 	
@@ -280,8 +288,10 @@ void UQuadDroneController::VelocityControl(double DeltaTime)
 	float pitch_error = x_output-currentRotation.Pitch;
 	pitch_output = CurrentSet->PitchPID->Calculate(pitch_error, DeltaTime);
 	
- 	ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
- 	YawRateControl(DeltaTime);
+	// Apply thrust based on velocity PID
+	ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
+    // Stabilize yaw to align with desired motion direction
+    YawStabilization(DeltaTime);
  
  	// TODO: Fix Yaw Stabilization to work in local frame 
  	//YawStabilization(DeltaTime);
@@ -334,7 +344,11 @@ void UQuadDroneController::AutoWaypointControl(double a_deltaTime)
 
 	FVector positionError = setPoint - currentPosition;
 	FRotator yawOnlyRotation(0, currentRotation.Yaw, 0);
-	FVector normalizedError = positionError.GetSafeNormal();
+    // Compute desired forward direction (toward next waypoint)
+    FVector normalizedError = positionError;
+    normalizedError.Z = 0.0f;
+    normalizedError.Normalize();
+    desiredForwardVector = normalizedError;
         currentLocalVelocity = yawOnlyRotation.UnrotateVector(currentVelocity);
         // Desired velocity follows the position error at full speed
         FVector droneForwardVector = dronePawn->GetActorForwardVector();
@@ -358,8 +372,10 @@ void UQuadDroneController::AutoWaypointControl(double a_deltaTime)
 	pitch_output = CurrentSet->PitchPID->Calculate(pitch_error, a_deltaTime);
 	
 
+	// Apply thrust based on waypoint PID
 	ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
-	YawRateControl(a_deltaTime);
+    // Stabilize yaw to face toward the waypoint
+    YawStabilization(a_deltaTime);
      
 	// UI: show only for independent possessed drone or first in swarm
 	if (dronePawn && dronePawn->ImGuiUtil)
