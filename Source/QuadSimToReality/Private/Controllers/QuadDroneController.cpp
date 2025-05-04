@@ -39,7 +39,10 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	maxAngle = Config.FlightParams.MaxAngle;
 	maxPIDOutput = Config.FlightParams.MaxPIDOutput;
 	minAltitudeLocal = Config.FlightParams.MinAltitudeLocal;
-	acceptableDistance = Config.FlightParams.AcceptableDistance;
+   acceptableDistance = Config.FlightParams.AcceptableDistance;
+   // Yaw control parameters from config
+   maxYawRate = Config.ControllerParams.YawRate;
+   minVelocityForYaw = Config.ControllerParams.MinVelocityForYaw;
 
    // Start with flight mode None (motors off) until mode is selected via UI
    currentFlightMode = EFlightMode::None;
@@ -358,8 +361,28 @@ void UQuadDroneController::AutoWaypointControl(double a_deltaTime)
 	pitch_output = CurrentSet->PitchPID->Calculate(pitch_error, a_deltaTime);
 	
 
-	ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
-	YawRateControl(a_deltaTime);
+   ThrustMixer(x_output, y_output, z_output, roll_output, pitch_output);
+   // Cascaded yaw control: compute desired yaw rate from yaw error
+   {
+       // Only enable yaw control above minimum velocity threshold
+       if (currentVelocity.Size() > minVelocityForYaw)
+       {
+           // Compute local position error in drone's frame
+           FVector localPositionError = yawOnlyRotation.UnrotateVector(positionError);
+           // Compute yaw error (radians) and convert to degrees
+           float yawErrorRad = FMath::Atan2(localPositionError.Y, localPositionError.X);
+           float yawErrorDeg = FMath::RadiansToDegrees(yawErrorRad);
+           // Calculate desired yaw rate using PID on yaw error
+           float rawRate = CurrentSet->YawPID->Calculate(yawErrorDeg, a_deltaTime);
+           desiredYawRate = FMath::Clamp(rawRate, -maxYawRate, maxYawRate);
+       }
+       else
+       {
+           desiredYawRate = 0.0f;
+       }
+   }
+   // Apply yaw rate control to generate torque
+   YawRateControl(a_deltaTime);
      
 	// UI: show only for independent possessed drone or first in swarm
 	if (dronePawn && dronePawn->ImGuiUtil)

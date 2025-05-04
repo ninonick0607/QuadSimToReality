@@ -128,6 +128,9 @@ private:
     FVector setPoint;
     float minAltitudeLocal;
     float acceptableDistance;
+    // Cascaded yaw control parameters
+    float maxYawRate;
+    float minVelocityForYaw;
 
     // VelocityControl
     FVector desiredNewVelocity;

@@ -4,6 +4,8 @@ Intermediate
 Saved
 .vscode
 .vs
+.idea/
+Build/
 .ignore
 __pycache__
 *.pyc
@@ -18,3 +20,10 @@ checkpoint*
 *.suo
 *.xcodeproj
 *.xcworkspace
+
+# User-specific files
+*.user
+*.userprefs
+
+# Logs
+*.log
