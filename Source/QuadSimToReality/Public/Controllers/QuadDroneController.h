@@ -53,7 +53,6 @@ public:
     TArray<float> Thrusts;
 
     UQuadDroneController(const FObjectInitializer& ObjectInitializer);
-    virtual ~UQuadDroneController();
 
     void Initialize(AQuadPawn* InPawn);
     void Update(double DeltaTime);

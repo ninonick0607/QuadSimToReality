@@ -5,7 +5,6 @@
 #include "Pawns/QuadPawn.h"
 #include "DrawDebugHelpers.h"
 #include "imgui.h"
-#include "Core/DroneGlobalState.h"
 #include "UI/ImGuiUtil.h"
 #include "Core/DroneJSONConfig.h"
 #include "Core/DroneManager.h"
@@ -133,13 +132,8 @@ UQuadDroneController::UQuadDroneController(const FObjectInitializer& ObjectIniti
 	AltitudePID->SetLimits(-maxPIDOutput, maxPIDOutput);
 	AltitudePID->SetGains(5.f, 1.f, 0.1f);
 
-	DroneGlobalState::Get().BindController(this);
 }
 
-UQuadDroneController::~UQuadDroneController()
-{
-	DroneGlobalState::Get().UnbindController(this);
-}
 
 // ---------------------- Initialization ------------------------
 

@@ -4,7 +4,6 @@
 #include <zmq_addon.hpp>
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-class SZMQImageWidget;
 
 #include "ZMQController.generated.h"
 // Forward declarations
