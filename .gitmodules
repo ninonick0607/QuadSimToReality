@@ -1,0 +1,3 @@
+[submodule "Plugins/QuadSimPlugin"]
+	path = Plugins/QuadSimPlugin
+	url = https://github.com/ninonick0607/QuadSimPlugins.git
