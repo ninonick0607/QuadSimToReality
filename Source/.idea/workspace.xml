@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="39880e44-6099-4d91-a5c9-e971535026df" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/../Content/Map/FlagMap.umap" beforeDir="false" afterPath="$PROJECT_DIR$/../Content/Map/FlagMap.umap" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QuadSimToReality/Private/Controllers/ROS2Controller.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/QuadSimToReality/Private/Controllers/ROS2Controller.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QuadSimToReality/Private/Pawns/QuadPawn.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/QuadSimToReality/Private/Pawns/QuadPawn.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QuadSimToReality/Private/Utility/NavigationComponent.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/QuadSimToReality/Private/Utility/NavigationComponent.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QuadSimToReality/Public/Controllers/ROS2Controller.h" beforeDir="false" afterPath="$PROJECT_DIR$/QuadSimToReality/Public/Controllers/ROS2Controller.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QuadSimToReality/Public/Utility/NavigationComponent.h" beforeDir="false" afterPath="$PROJECT_DIR$/QuadSimToReality/Public/Utility/NavigationComponent.h" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 7
+}]]></component>
+  <component name="ProjectId" id="2w3pMNaDR0epfmynk5KyXBvFc3i" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "Ubuntu-24.04-Main",
+    "nodejs_package_manager_path": "npm",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="39880e44-6099-4d91-a5c9-e971535026df" name="Changes" comment="" />
+      <created>1745280062843</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1745280062843</updated>
+      <workItem from="1745280063989" duration="16000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="UnityProjectConfiguration" hasMinimizedUI="false" />
+  <component name="VcsManagerConfiguration">
+    <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />
+  </component>
+</project>
