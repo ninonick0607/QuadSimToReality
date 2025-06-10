@@ -6,16 +6,16 @@
 		},
 		{
 			"name": "UE5",
-			"path": "/home/ninonick0426/Unreal"
+			"path": "/home/nicolas/Unreal"
 		}
 	],
 	"settings": {
 		"typescript.tsc.autoDetect": "off",
 		"npm.autoDetect": "off",
 		"terminal.integrated.env.linux": {
-			"PATH": "/home/ninonick0426/Unreal/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
-			"DOTNET_ROOT": "/home/ninonick0426/Unreal/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64",
-			"DOTNET_HOST_PATH": "/home/ninonick0426/Unreal/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+			"PATH": "/home/nicolas/Unreal/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+			"DOTNET_ROOT": "/home/nicolas/Unreal/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64",
+			"DOTNET_HOST_PATH": "/home/nicolas/Unreal/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
 			"DOTNET_MULTILEVEL_LOOKUP": "0",
 			"DOTNET_ROLL_FORWARD": "LatestMajor"
 		}
@@ -37,13 +37,13 @@
 					"QuadSimToReality",
 					"Linux",
 					"Debug",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -54,7 +54,7 @@
 					"QuadSimToReality",
 					"Linux",
 					"Debug",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -63,7 +63,7 @@
 				],
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -74,14 +74,14 @@
 					"QuadSimToReality",
 					"Linux",
 					"Debug",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -92,13 +92,13 @@
 					"QuadSimToReality",
 					"Linux",
 					"DebugGame",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -109,7 +109,7 @@
 					"QuadSimToReality",
 					"Linux",
 					"DebugGame",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -118,7 +118,7 @@
 				],
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -129,14 +129,14 @@
 					"QuadSimToReality",
 					"Linux",
 					"DebugGame",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -147,13 +147,13 @@
 					"QuadSimToReality",
 					"Linux",
 					"Development",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -164,7 +164,7 @@
 					"QuadSimToReality",
 					"Linux",
 					"Development",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -173,7 +173,7 @@
 				],
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -184,14 +184,14 @@
 					"QuadSimToReality",
 					"Linux",
 					"Development",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -202,13 +202,13 @@
 					"QuadSimToReality",
 					"Linux",
 					"Test",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -219,7 +219,7 @@
 					"QuadSimToReality",
 					"Linux",
 					"Test",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -228,7 +228,7 @@
 				],
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -239,14 +239,14 @@
 					"QuadSimToReality",
 					"Linux",
 					"Test",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -257,13 +257,13 @@
 					"QuadSimToReality",
 					"Linux",
 					"Shipping",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -274,7 +274,7 @@
 					"QuadSimToReality",
 					"Linux",
 					"Shipping",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -283,7 +283,7 @@
 				],
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -294,14 +294,14 @@
 					"QuadSimToReality",
 					"Linux",
 					"Shipping",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -312,13 +312,13 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"Debug",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -329,7 +329,7 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"Debug",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -338,7 +338,7 @@
 				],
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -349,14 +349,14 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"Debug",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -367,13 +367,13 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"DebugGame",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -384,7 +384,7 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"DebugGame",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -393,7 +393,7 @@
 				],
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -404,14 +404,14 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"DebugGame",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -422,13 +422,13 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"Development",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -439,7 +439,7 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"Development",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -448,7 +448,7 @@
 				],
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -459,14 +459,14 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"Development",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -477,13 +477,13 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"Test",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -494,7 +494,7 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"Test",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -503,7 +503,7 @@
 				],
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -514,14 +514,14 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"Test",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -532,13 +532,13 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"Shipping",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -549,7 +549,7 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"Shipping",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -558,7 +558,7 @@
 				],
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -569,14 +569,14 @@
 					"QuadSimToReality",
 					"LinuxArm64",
 					"Shipping",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -587,13 +587,13 @@
 					"QuadSimToRealityEditor",
 					"Linux",
 					"Debug",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -604,7 +604,7 @@
 					"QuadSimToRealityEditor",
 					"Linux",
 					"Debug",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -613,7 +613,7 @@
 				],
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -624,14 +624,14 @@
 					"QuadSimToRealityEditor",
 					"Linux",
 					"Debug",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -642,13 +642,13 @@
 					"QuadSimToRealityEditor",
 					"Linux",
 					"DebugGame",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -659,7 +659,7 @@
 					"QuadSimToRealityEditor",
 					"Linux",
 					"DebugGame",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -668,7 +668,7 @@
 				],
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -679,14 +679,14 @@
 					"QuadSimToRealityEditor",
 					"Linux",
 					"DebugGame",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -697,13 +697,13 @@
 					"QuadSimToRealityEditor",
 					"Linux",
 					"Development",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -714,7 +714,7 @@
 					"QuadSimToRealityEditor",
 					"Linux",
 					"Development",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex"
 				],
 				"problemMatcher": "$msCompile",
@@ -723,7 +723,7 @@
 				],
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			},
 			{
@@ -734,14 +734,14 @@
 					"QuadSimToRealityEditor",
 					"Linux",
 					"Development",
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-waitmutex",
 					"-clean"
 				],
 				"problemMatcher": "$msCompile",
 				"type": "shell",
 				"options": {
-					"cwd": "/home/ninonick0426/Unreal"
+					"cwd": "/home/nicolas/Unreal"
 				}
 			}
 		]
@@ -752,100 +752,100 @@
 			{
 				"name": "Launch QuadSimToReality (Debug)",
 				"request": "launch",
-				"program": "/home/ninonick0426/Documents/GitHub/QuadSimToReality/Binaries/Linux/UnrealGame-Linux-Debug",
+				"program": "/home/nicolas/Desktop/Quadrotor/QuadSimToReality/Binaries/Linux/UnrealGame-Linux-Debug",
 				"preLaunchTask": "QuadSimToReality Linux Debug Build",
 				"args": [
 				],
-				"cwd": "/home/ninonick0426/Unreal",
+				"cwd": "/home/nicolas/Unreal",
 				"type": "cppdbg",
-				"visualizerFile": "/home/ninonick0426/Unreal/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"visualizerFile": "/home/nicolas/Unreal/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
 				"showDisplayString": true
 			},
 			{
 				"name": "Launch QuadSimToReality (DebugGame)",
 				"request": "launch",
-				"program": "/home/ninonick0426/Documents/GitHub/QuadSimToReality/Binaries/Linux/UnrealGame-Linux-DebugGame",
+				"program": "/home/nicolas/Desktop/Quadrotor/QuadSimToReality/Binaries/Linux/UnrealGame-Linux-DebugGame",
 				"preLaunchTask": "QuadSimToReality Linux DebugGame Build",
 				"args": [
 				],
-				"cwd": "/home/ninonick0426/Unreal",
+				"cwd": "/home/nicolas/Unreal",
 				"type": "cppdbg",
-				"visualizerFile": "/home/ninonick0426/Unreal/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"visualizerFile": "/home/nicolas/Unreal/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
 				"showDisplayString": true
 			},
 			{
 				"name": "Launch QuadSimToReality (Development)",
 				"request": "launch",
-				"program": "/home/ninonick0426/Documents/GitHub/QuadSimToReality/Binaries/Linux/UnrealGame",
+				"program": "/home/nicolas/Desktop/Quadrotor/QuadSimToReality/Binaries/Linux/UnrealGame",
 				"preLaunchTask": "QuadSimToReality Linux Development Build",
 				"args": [
 				],
-				"cwd": "/home/ninonick0426/Unreal",
+				"cwd": "/home/nicolas/Unreal",
 				"type": "cppdbg",
-				"visualizerFile": "/home/ninonick0426/Unreal/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"visualizerFile": "/home/nicolas/Unreal/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
 				"showDisplayString": true
 			},
 			{
 				"name": "Launch QuadSimToReality (Test)",
 				"request": "launch",
-				"program": "/home/ninonick0426/Documents/GitHub/QuadSimToReality/Binaries/Linux/UnrealGame-Linux-Test",
+				"program": "/home/nicolas/Desktop/Quadrotor/QuadSimToReality/Binaries/Linux/UnrealGame-Linux-Test",
 				"preLaunchTask": "QuadSimToReality Linux Test Build",
 				"args": [
 				],
-				"cwd": "/home/ninonick0426/Unreal",
+				"cwd": "/home/nicolas/Unreal",
 				"type": "cppdbg",
-				"visualizerFile": "/home/ninonick0426/Unreal/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"visualizerFile": "/home/nicolas/Unreal/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
 				"showDisplayString": true
 			},
 			{
 				"name": "Launch QuadSimToReality (Shipping)",
 				"request": "launch",
-				"program": "/home/ninonick0426/Documents/GitHub/QuadSimToReality/Binaries/Linux/UnrealGame-Linux-Shipping",
+				"program": "/home/nicolas/Desktop/Quadrotor/QuadSimToReality/Binaries/Linux/UnrealGame-Linux-Shipping",
 				"preLaunchTask": "QuadSimToReality Linux Shipping Build",
 				"args": [
 				],
-				"cwd": "/home/ninonick0426/Unreal",
+				"cwd": "/home/nicolas/Unreal",
 				"type": "cppdbg",
-				"visualizerFile": "/home/ninonick0426/Unreal/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"visualizerFile": "/home/nicolas/Unreal/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
 				"showDisplayString": true
 			},
 			{
 				"name": "Launch QuadSimToRealityEditor (Debug)",
 				"request": "launch",
-				"program": "/home/ninonick0426/Unreal/Engine/Binaries/Linux/UnrealEditor-Linux-Debug",
+				"program": "/home/nicolas/Unreal/Engine/Binaries/Linux/UnrealEditor-Linux-Debug",
 				"preLaunchTask": "QuadSimToRealityEditor Linux Debug Build",
 				"args": [
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject"
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject"
 				],
-				"cwd": "/home/ninonick0426/Unreal",
+				"cwd": "/home/nicolas/Unreal",
 				"type": "cppdbg",
-				"visualizerFile": "/home/ninonick0426/Unreal/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"visualizerFile": "/home/nicolas/Unreal/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
 				"showDisplayString": true
 			},
 			{
 				"name": "Launch QuadSimToRealityEditor (DebugGame)",
 				"request": "launch",
-				"program": "/home/ninonick0426/Unreal/Engine/Binaries/Linux/UnrealEditor-Linux-DebugGame",
+				"program": "/home/nicolas/Unreal/Engine/Binaries/Linux/UnrealEditor-Linux-DebugGame",
 				"preLaunchTask": "QuadSimToRealityEditor Linux DebugGame Build",
 				"args": [
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject"
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject"
 				],
-				"cwd": "/home/ninonick0426/Unreal",
+				"cwd": "/home/nicolas/Unreal",
 				"type": "cppdbg",
-				"visualizerFile": "/home/ninonick0426/Unreal/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"visualizerFile": "/home/nicolas/Unreal/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
 				"showDisplayString": true
 			},
 			{
 				"name": "Launch QuadSimToRealityEditor (Development)",
 				"request": "launch",
-				"program": "/home/ninonick0426/Unreal/Engine/Binaries/Linux/UnrealEditor",
+				"program": "/home/nicolas/Unreal/Engine/Binaries/Linux/UnrealEditor",
 				"preLaunchTask": "QuadSimToRealityEditor Linux Development Build",
 				"args": [
-					"/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject"
+					"/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject"
 				],
-				"cwd": "/home/ninonick0426/Unreal",
+				"cwd": "/home/nicolas/Unreal",
 				"type": "cppdbg",
-				"visualizerFile": "/home/ninonick0426/Unreal/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"visualizerFile": "/home/nicolas/Unreal/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
 				"showDisplayString": true
 			},
 			{
@@ -853,26 +853,26 @@
 				"type": "coreclr",
 				"request": "launch",
 				"preLaunchTask": "UnrealBuildTool Linux Development Build",
-				"program": "/home/ninonick0426/Unreal/Engine/Build/BatchFiles/RunUBT.bat",
+				"program": "/home/nicolas/Unreal/Engine/Build/BatchFiles/RunUBT.bat",
 				"args": [
 					"-projectfiles",
 					"-vscode",
-					"-project=/home/ninonick0426/Documents/GitHub/QuadSimToReality/QuadSimToReality.uproject",
+					"-project=/home/nicolas/Desktop/Quadrotor/QuadSimToReality/QuadSimToReality.uproject",
 					"-game",
 					"-engine",
 					"-dotnet"
 				],
 				"env": {
-					"PATH": "/home/ninonick0426/Unreal/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
-					"DOTNET_ROOT": "/home/ninonick0426/Unreal/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64",
-					"DOTNET_HOST_PATH": "/home/ninonick0426/Unreal/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
+					"PATH": "/home/nicolas/Unreal/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64:${env:PATH}",
+					"DOTNET_ROOT": "/home/nicolas/Unreal/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64",
+					"DOTNET_HOST_PATH": "/home/nicolas/Unreal/Engine/Binaries/ThirdParty/DotNet/8.0.300/linux-x64/dotnet",
 					"DOTNET_MULTILEVEL_LOOKUP": "0",
 					"DOTNET_ROLL_FORWARD": "LatestMajor"
 				},
 				"console": "internalConsole",
 				"internalConsoleOptions": "openOnSessionStart",
 				"stopAtEntry": false,
-				"cwd": "/home/ninonick0426/Unreal"
+				"cwd": "/home/nicolas/Unreal"
 			}
 		]
 	}
